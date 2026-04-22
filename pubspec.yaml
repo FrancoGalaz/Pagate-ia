@@ -1,0 +1,38 @@
+name: pagate_ia
+description: "Págate-IA — Asistente financiero para artesanos y creadores."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0-113.1.beta
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  cloud_firestore: ^5.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  # fonts:
+  #   - family: Manrope
+  #     fonts:
+  #       - asset: assets/fonts/Manrope-Regular.ttf
+  #       - asset: assets/fonts/Manrope-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Manrope-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Manrope-Bold.ttf
+  #         weight: 700
+  #       - asset: assets/fonts/Manrope-ExtraBold.ttf
+  #         weight: 800
