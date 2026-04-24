@@ -5,19 +5,33 @@ import '../../../../../core/constants/app_mock_data.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
 
+enum HomeQuickAction {
+  sale,
+  expense,
+  inventory,
+  ai,
+}
+
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+  const HomeTab({
+    super.key,
+    required this.onQuickActionTap,
+    required this.onNotificationsTap,
+  });
+
+  final ValueChanged<HomeQuickAction> onQuickActionTap;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(final BuildContext context) => SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _HomeHeader(),
+            _HomeHeader(onNotificationsTap: onNotificationsTap),
             const SizedBox(height: AppSpacing.md),
             const _BalanceCard(),
             const SizedBox(height: AppSpacing.xl),
-            const _QuickActions(),
+            _QuickActions(onActionTap: onQuickActionTap),
             const SizedBox(height: AppSpacing.xl),
             const _RecentActivity(),
             const SizedBox(height: AppSpacing.xxl),
@@ -28,6 +42,10 @@ class HomeTab extends StatelessWidget {
 
 // ─── Header ───────────────────────────────────────────────────────────────
 class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.onNotificationsTap});
+
+  final VoidCallback onNotificationsTap;
+
   @override
   Widget build(final BuildContext context) {
     final profile = context.watch<UserProfileProvider>().profile;
@@ -83,7 +101,7 @@ class _HomeHeader extends StatelessWidget {
           Stack(
             children: [
               IconButton(
-                onPressed: () {},
+                onPressed: onNotificationsTap,
                 icon: const Icon(
                   Icons.notifications_outlined,
                   color: AppColors.textSecondaryDark,
@@ -254,13 +272,35 @@ class _MiniStat extends StatelessWidget {
 
 // ─── Quick Actions ────────────────────────────────────────────────────────
 class _QuickActions extends StatelessWidget {
-  const _QuickActions();
+  const _QuickActions({required this.onActionTap});
+
+  final ValueChanged<HomeQuickAction> onActionTap;
 
   static const List<_Action> _actions = [
-    _Action(icon: Icons.add_circle_rounded, label: 'Venta', color: Color(0xFF00C2B8)),
-    _Action(icon: Icons.remove_circle_rounded, label: 'Gasto', color: Color(0xFFEF4444)),
-    _Action(icon: Icons.inventory_2_outlined, label: 'Inventario', color: Color(0xFF3B82F6)),
-    _Action(icon: Icons.smart_toy_outlined, label: 'Preguntar IA', color: Color(0xFFF97316)),
+    _Action(
+      icon: Icons.add_circle_rounded,
+      label: 'Venta',
+      color: Color(0xFF00C2B8),
+      action: HomeQuickAction.sale,
+    ),
+    _Action(
+      icon: Icons.remove_circle_rounded,
+      label: 'Gasto',
+      color: Color(0xFFEF4444),
+      action: HomeQuickAction.expense,
+    ),
+    _Action(
+      icon: Icons.inventory_2_outlined,
+      label: 'Inventario',
+      color: Color(0xFF3B82F6),
+      action: HomeQuickAction.inventory,
+    ),
+    _Action(
+      icon: Icons.smart_toy_outlined,
+      label: 'Preguntar IA',
+      color: Color(0xFFF97316),
+      action: HomeQuickAction.ai,
+    ),
   ];
 
   @override
@@ -279,7 +319,14 @@ class _QuickActions extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Row(
               children: _actions
-                  .map((final a) => Expanded(child: _ActionButton(action: a)))
+                  .map(
+                    (final a) => Expanded(
+                      child: _ActionButton(
+                        action: a,
+                        onTap: () => onActionTap(a.action),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -288,19 +335,28 @@ class _QuickActions extends StatelessWidget {
 }
 
 class _Action {
-  const _Action({required this.icon, required this.label, required this.color});
+  const _Action({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.action,
+  });
+
   final IconData icon;
   final String label;
   final Color color;
+  final HomeQuickAction action;
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.action});
+  const _ActionButton({required this.action, required this.onTap});
+
   final _Action action;
+  final VoidCallback onTap;
 
   @override
   Widget build(final BuildContext context) => GestureDetector(
-        onTap: () {},
+        onTap: onTap,
         child: Column(
           children: [
             Container(

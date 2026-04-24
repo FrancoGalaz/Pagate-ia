@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_social_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
-import '../../../onboarding/presentation/pages/setup_inicial_screen.dart';
+import 'post_login_welcome_screen.dart';
+import 'welcome_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,19 +26,40 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _goToSetup() {
+  void _goToPostLoginWelcome() {
+    final fallbackName = _emailController.text.trim().isNotEmpty
+        ? _emailController.text.trim().split('@').first
+        : 'Artesano';
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (final _) => PostLoginWelcomeScreen(userName: fallbackName),
+      ),
+    );
+  }
+
+  void _goToSignupWelcome() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (final _) => const SetupInicialScreen()),
+      MaterialPageRoute(builder: (final _) => const WelcomeScreen()),
     );
   }
 
   Future<void> _onLogin() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      AppFeedback.showMessage(
+        context,
+        'Completa correo y contraseña para continuar.',
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
     setState(() => _isLoading = false);
-    _goToSetup();
+    _goToPostLoginWelcome();
   }
 
 
@@ -106,7 +129,10 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () => AppFeedback.showMessage(
+                    context,
+                    'Te enviaremos recuperación por correo próximamente.',
+                  ),
                   child: Text(
                     '¿Olvidaste tu contraseña?',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -148,13 +174,13 @@ class _LoginScreenState extends State<LoginScreen> {
               PagateSocialButton(
                 label: 'Continuar con Google',
                 icon: Icons.g_mobiledata_rounded,
-                onPressed: _goToSetup,
+                onPressed: _goToPostLoginWelcome,
               ),
               const SizedBox(height: AppSpacing.sm),
               PagateSocialButton(
                 label: 'Continuar con Apple',
                 icon: Icons.apple_rounded,
-                onPressed: _goToSetup,
+                onPressed: _goToPostLoginWelcome,
               ),
 
               const SizedBox(height: AppSpacing.xxl),
@@ -170,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                   ),
                   TextButton(
-                    onPressed: _goToSetup,
+                    onPressed: _goToSignupWelcome,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,

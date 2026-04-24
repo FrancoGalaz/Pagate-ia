@@ -35,6 +35,18 @@
         "-y",
         "@modelcontextprotocol/server-memory"
       ]
+    },
+    "figma": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "figma-context-mcp"
+      ],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": ""
+      }
     }
   }
 }

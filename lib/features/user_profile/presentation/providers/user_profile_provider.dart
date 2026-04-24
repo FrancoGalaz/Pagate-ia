@@ -23,4 +23,46 @@ class UserProfileProvider extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
+
+  void updateFromSetup({
+    required final String name,
+    required final String businessName,
+    required final String businessType,
+    required final String currency,
+    required final double monthlyGoal,
+  }) {
+    final safeName = name.trim();
+    final safeBusinessName = businessName.trim();
+    if (safeName.isEmpty || safeBusinessName.isEmpty) return;
+
+    final initialsParts = safeName
+        .split(' ')
+        .where((final part) => part.trim().isNotEmpty)
+        .take(2)
+        .map((final part) => part.trim()[0].toUpperCase())
+        .toList();
+
+    final initials = initialsParts.isEmpty ? 'IA' : initialsParts.join();
+
+    _profile = (_profile ?? const UserProfileEntity(
+      id: 'local-user',
+      name: 'Usuario',
+      businessName: 'Mi Negocio',
+      businessType: 'Taller',
+      currency: 'MXN',
+      monthlyGoal: 0,
+      isPro: false,
+      avatarInitials: 'IA',
+    ))
+        .copyWith(
+      name: safeName,
+      businessName: safeBusinessName,
+      businessType: businessType,
+      currency: currency,
+      monthlyGoal: monthlyGoal,
+      avatarInitials: initials,
+    );
+
+    notifyListeners();
+  }
 }

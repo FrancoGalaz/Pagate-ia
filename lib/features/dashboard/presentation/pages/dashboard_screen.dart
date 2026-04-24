@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
+import 'ayuda_screen.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/ia_tab.dart';
 import '../../../finances/presentation/pages/finanzas_tab.dart';
@@ -16,14 +18,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-
-  static const List<Widget> _pages = [
-    HomeTab(),
-    FinanzasTab(),
-    InventarioTab(),
-    IaTab(),
-    PerfilTab(),
-  ];
 
   static const List<_NavItem> _navItems = [
     _NavItem(
@@ -58,12 +52,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _currentIndex = index);
   }
 
+  void _onHomeQuickAction(final HomeQuickAction action) {
+    switch (action) {
+      case HomeQuickAction.sale:
+        _onTap(1);
+        AppFeedback.showMessage(
+          context,
+          'Abre Finanzas para registrar una venta.',
+        );
+        return;
+      case HomeQuickAction.expense:
+        _onTap(1);
+        AppFeedback.showMessage(
+          context,
+          'Abre Finanzas para registrar un gasto.',
+        );
+        return;
+      case HomeQuickAction.inventory:
+        _onTap(2);
+        return;
+      case HomeQuickAction.ai:
+        _onTap(3);
+        return;
+    }
+  }
+
+  void _openHelpFromHome() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (final _) => const AyudaScreen()),
+    );
+  }
+
   @override
-  Widget build(final BuildContext context) => Scaffold(
+  Widget build(final BuildContext context) {
+    final pages = [
+      HomeTab(
+        onQuickActionTap: _onHomeQuickAction,
+        onNotificationsTap: _openHelpFromHome,
+      ),
+      const FinanzasTab(),
+      const InventarioTab(),
+      const IaTab(),
+      const PerfilTab(),
+    ];
+
+    return Scaffold(
         backgroundColor: AppColors.backgroundDark,
         body: IndexedStack(
           index: _currentIndex,
-          children: _pages,
+          children: pages,
         ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
@@ -92,6 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       );
+  }
 }
 
 class _NavItem {

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_chip_selector.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_section_card.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../../dashboard/presentation/pages/dashboard_screen.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 
 class SetupInicialScreen extends StatefulWidget {
   const SetupInicialScreen({super.key});
@@ -43,11 +46,50 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
     super.dispose();
   }
 
-  void _onContinue() => Navigator.pushAndRemoveUntil(
+  void _onContinue() {
+    final name = _nameController.text.trim();
+    final businessName = _businessController.text.trim();
+    final rawGoal = _goalController.text.replaceAll(',', '.').trim();
+    final goal = double.tryParse(rawGoal);
+
+    if (name.isEmpty || businessName.isEmpty) {
+      AppFeedback.showMessage(
         context,
-        MaterialPageRoute(builder: (final _) => const DashboardScreen()),
-        (final route) => false,
+        'Completa tu nombre y el nombre del negocio.',
       );
+      return;
+    }
+
+    if (_selectedType.isEmpty) {
+      AppFeedback.showMessage(
+        context,
+        'Selecciona un tipo de negocio para continuar.',
+      );
+      return;
+    }
+
+    if (goal == null || goal <= 0) {
+      AppFeedback.showMessage(
+        context,
+        'Ingresa una meta económica válida.',
+      );
+      return;
+    }
+
+    context.read<UserProfileProvider>().updateFromSetup(
+          name: name,
+          businessName: businessName,
+          businessType: _selectedType.first,
+          currency: _selectedCurrency,
+          monthlyGoal: goal,
+        );
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (final _) => const DashboardScreen()),
+      (final route) => false,
+    );
+  }
 
   @override
   Widget build(final BuildContext context) => Scaffold(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/widgets/pagate_primary_button.dart';
 import '../providers/inventory_provider.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
@@ -8,6 +10,139 @@ import 'detalle_item_screen.dart';
 
 class InventarioTab extends StatelessWidget {
   const InventarioTab({super.key});
+
+  Future<void> _openAddItemSheet(
+    final BuildContext context,
+    final InventoryItemType type,
+  ) async {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    final stockController = TextEditingController(text: '1');
+    final minStockController = TextEditingController(text: '1');
+    final unitController = TextEditingController(
+      text: type == InventoryItemType.product ? 'piezas' : 'unidades',
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      builder: (final sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.md,
+          MediaQuery.of(sheetContext).viewInsets.bottom + AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Nuevo ${type == InventoryItemType.product ? 'producto' : 'material'}',
+              style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimaryDark,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _SheetField(
+              controller: nameController,
+              hint: 'Nombre',
+              icon: Icons.inventory_2_outlined,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _SheetField(
+              controller: priceController,
+              hint: 'Precio',
+              icon: Icons.attach_money_rounded,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: _SheetField(
+                    controller: stockController,
+                    hint: 'Stock',
+                    icon: Icons.add_chart_rounded,
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _SheetField(
+                    controller: minStockController,
+                    hint: 'Mínimo',
+                    icon: Icons.warning_amber_rounded,
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _SheetField(
+              controller: unitController,
+              hint: 'Unidad (piezas, kg, litros)',
+              icon: Icons.straighten_rounded,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PagatePrimaryButton(
+              label: 'Guardar item',
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final price =
+                    double.tryParse(priceController.text.replaceAll(',', '.'));
+                final stock = int.tryParse(stockController.text.trim());
+                final minStock = int.tryParse(minStockController.text.trim());
+                final unit = unitController.text.trim();
+
+                if (name.isEmpty ||
+                    price == null ||
+                    stock == null ||
+                    minStock == null ||
+                    unit.isEmpty ||
+                    price <= 0 ||
+                    stock < 0 ||
+                    minStock < 0) {
+                  AppFeedback.showMessage(
+                    context,
+                    'Completa todos los campos con valores válidos.',
+                  );
+                  return;
+                }
+
+                await context.read<InventoryProvider>().addItem(
+                      name: name,
+                      type: type,
+                      price: price,
+                      stock: stock,
+                      minStock: minStock,
+                      unit: unit,
+                    );
+
+                if (!sheetContext.mounted) return;
+                Navigator.pop(sheetContext);
+                AppFeedback.showMessage(context, 'Item agregado correctamente.');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    priceController.dispose();
+    stockController.dispose();
+    minStockController.dispose();
+    unitController.dispose();
+  }
 
   @override
   Widget build(final BuildContext context) {
@@ -32,7 +167,7 @@ class InventarioTab extends StatelessWidget {
           right: AppSpacing.xl,
           bottom: AppSpacing.xl,
           child: FloatingActionButton(
-            onPressed: () {},
+            onPressed: () => _openAddItemSheet(context, provider.activeTab),
             backgroundColor: AppColors.brand,
             child: const Icon(Icons.add_rounded, color: Colors.white),
           ),
@@ -294,6 +429,45 @@ class _ItemCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      );
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(final BuildContext context) => TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: AppColors.textPrimaryDark),
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, color: AppColors.textSecondaryDark),
+          filled: true,
+          fillColor: AppColors.surfaceDarkSecondary,
+          border: OutlineInputBorder(
+            borderRadius: AppRadius.lgBorder,
+            borderSide: const BorderSide(color: AppColors.borderDark),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: AppRadius.lgBorder,
+            borderSide: const BorderSide(color: AppColors.borderDark),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: AppRadius.lgBorder,
+            borderSide: const BorderSide(color: AppColors.brand),
           ),
         ),
       );

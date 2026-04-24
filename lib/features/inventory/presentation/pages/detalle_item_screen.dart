@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
+import '../providers/inventory_provider.dart';
 
 class DetalleItemScreen extends StatelessWidget {
   const DetalleItemScreen({super.key, required this.item});
@@ -60,7 +63,7 @@ class DetalleItemScreen extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {},
+                      onPressed: () => _showUpdateStockDialog(context),
                       icon: const Icon(
                         Icons.edit_outlined,
                         color: AppColors.brand,
@@ -208,7 +211,7 @@ class DetalleItemScreen extends StatelessWidget {
                       PagatePrimaryButton(
                         label: 'Actualizar Stock',
                         leadingIcon: Icons.edit_rounded,
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => _showUpdateStockDialog(context),
                       ),
 
                       const SizedBox(height: AppSpacing.md),
@@ -217,7 +220,7 @@ class DetalleItemScreen extends StatelessWidget {
                         width: double.infinity,
                         height: AppSizes.buttonHeight,
                         child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => _confirmDelete(context),
                           icon: const Icon(Icons.delete_outline_rounded,
                               color: AppColors.error),
                           label: const Text(
@@ -241,6 +244,104 @@ class DetalleItemScreen extends StatelessWidget {
           ),
         ),
       );
+
+  Future<void> _showUpdateStockDialog(final BuildContext context) async {
+    final controller = TextEditingController(text: item.stock.toString());
+
+    await showDialog<void>(
+      context: context,
+      builder: (final dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        title: const Text(
+          'Actualizar stock',
+          style: TextStyle(color: AppColors.textPrimaryDark),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: AppColors.textPrimaryDark),
+          decoration: InputDecoration(
+            hintText: 'Nuevo stock',
+            hintStyle: const TextStyle(color: AppColors.textSecondaryDark),
+            filled: true,
+            fillColor: AppColors.surfaceDarkSecondary,
+            border: OutlineInputBorder(
+              borderRadius: AppRadius.lgBorder,
+              borderSide: const BorderSide(color: AppColors.borderDark),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final stock = int.tryParse(controller.text.trim());
+              if (stock == null || stock < 0) {
+                AppFeedback.showMessage(
+                  context,
+                  'Ingresa una cantidad válida de stock.',
+                );
+                return;
+              }
+
+              await context.read<InventoryProvider>().updateStock(
+                    itemId: item.id,
+                    newStock: stock,
+                  );
+
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+              AppFeedback.showMessage(context, 'Stock actualizado.');
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+  }
+
+  Future<void> _confirmDelete(final BuildContext context) async {
+    final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (final dialogContext) => AlertDialog(
+            backgroundColor: AppColors.surfaceDark,
+            title: const Text(
+              'Eliminar item',
+              style: TextStyle(color: AppColors.textPrimaryDark),
+            ),
+            content: Text(
+              '¿Seguro que quieres eliminar ${item.name}?',
+              style: const TextStyle(color: AppColors.textSecondaryDark),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                ),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldDelete || !context.mounted) return;
+
+    await context.read<InventoryProvider>().deleteItem(item.id);
+    if (!context.mounted) return;
+    AppFeedback.showMessage(context, 'Item eliminado.');
+    Navigator.pop(context);
+  }
 }
 
 class _DetailCard extends StatelessWidget {

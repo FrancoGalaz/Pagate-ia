@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
+import 'login_screen.dart';
+import 'post_login_welcome_screen.dart';
 import 'phone_input_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -214,13 +217,33 @@ class WelcomeScreen extends StatelessWidget {
                       PagateSocialButton(
                         label: 'Continuar con Google',
                         icon: Icons.g_mobiledata,
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (final _) =>
+                                  const PostLoginWelcomeScreen(
+                                userName: 'Artesano',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       PagateSocialButton(
                         label: 'Continuar con Apple',
                         icon: Icons.apple,
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (final _) =>
+                                  const PostLoginWelcomeScreen(
+                                userName: 'Artesano',
+                              ),
+                            ),
+                          );
+                        },
                       ),
 
                       const SizedBox(height: AppSpacing.lg),
@@ -228,7 +251,12 @@ class WelcomeScreen extends StatelessWidget {
                       // Login link
                       GestureDetector(
                         onTap: () {
-                          // TODO: Navigate to Login
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (final _) => const LoginScreen(),
+                            ),
+                          );
                         },
                         child: RichText(
                           text: TextSpan(
@@ -261,6 +289,14 @@ class WelcomeScreen extends StatelessWidget {
                           fontSize: 10,
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      TextButton(
+                        onPressed: () => AppFeedback.showMessage(
+                          context,
+                          'Puedes revisar los términos desde configuración.',
+                        ),
+                        child: const Text('Ver términos'),
                       ),
                     ],
                   ),

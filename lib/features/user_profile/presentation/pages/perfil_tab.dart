@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../auth/presentation/pages/login_screen.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
@@ -159,13 +160,19 @@ class PerfilTab extends StatelessWidget {
                 _MenuItem(
                   icon: Icons.star_outline_rounded,
                   label: 'Calificar la App',
-                  onTap: () {},
+                  onTap: () => AppFeedback.showMessage(
+                    context,
+                    'Gracias por tu apoyo. Pronto abriremos la calificación.',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 _MenuItem(
                   icon: Icons.share_outlined,
                   label: 'Compartir Págate-IA',
-                  onTap: () {},
+                  onTap: () => AppFeedback.showMessage(
+                    context,
+                    'Comparte el proyecto con tu equipo desde esta opción.',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 _MenuItem(

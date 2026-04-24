@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
@@ -175,7 +176,10 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => GestureDetector(
-        onTap: () {},
+        onTap: () => AppFeedback.showMessage(
+          context,
+          'Editar "${item.label}" estará disponible en una próxima actualización.',
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
-// PÁGATE-IA — DESIGN TOKENS (Single Source of Truth)
+// PAGATE — DESIGN TOKENS (Single Source of Truth)
 // ═══════════════════════════════════════════════════════════════════════
 // Every visual constant lives here. No hardcoded values in widgets.
 // Naming convention: semantic purpose, NOT visual appearance.
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Unified color palette for Págate-IA.
+/// Unified color palette for Pagate.
+///
+/// Based on the Brand Manual:
+/// 1. Verde Esmeralda #006B5F — confianza, estabilidad, orden
+/// 2. Coral Cálido #FF735C — cercanía, creatividad, energía
+/// 3. Azul Noche #16213E — soporte, legibilidad, solidez
+/// 4. Gris Niebla #F3F4F6 — fondos, superficies, equilibrio
+/// 5. Gris Texto #6B7280 — texto secundario, información
 ///
 /// Organized by semantic role so that every screen consumes the same
 /// tokens regardless of whether the app is in light or dark mode.
@@ -15,14 +22,14 @@ class AppColors {
   AppColors._(); // Prevent instantiation
 
   // ─── Brand Identity ───────────────────────────────────────────────
-  static const Color brand = Color(0xFF00C2B8);
-  static const Color brandLight = Color(0xFFE0F9F7);
-  static const Color brandDark = Color(0xFF00A89F);
-  static const Color brandSubtle = Color(0xFFE6FAFA);
+  static const Color brand = Color(0xFF006B5F);
+  static const Color brandLight = Color(0xFFE6F2F0);
+  static const Color brandDark = Color(0xFF005A50);
+  static const Color brandSubtle = Color(0xFFF0F7F6);
 
-  static const Color accent = Color(0xFFF97316);
-  static const Color accentLight = Color(0xFFFFEDD5);
-  static const Color accentDark = Color(0xFFEA580C);
+  static const Color accent = Color(0xFFFF735C);
+  static const Color accentLight = Color(0xFFFFF0ED);
+  static const Color accentDark = Color(0xFFE85D47);
 
   // ─── Semantic / Feedback ──────────────────────────────────────────
   static const Color success = Color(0xFF10B981);
@@ -35,35 +42,35 @@ class AppColors {
   static const Color infoLight = Color(0xFFDBEAFE);
 
   // ─── Backgrounds (Light theme) ────────────────────────────────────
-  static const Color background = Color(0xFFF6F8F7);
+  static const Color background = Color(0xFFF3F4F6);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceSecondary = Color(0xFFF8FAFC);
   static const Color surfaceTertiary = Color(0xFFF1F5F9);
 
   // ─── Backgrounds (Dark theme) ─────────────────────────────────────
-  static const Color backgroundDark = Color(0xFF0B0D14);
-  static const Color surfaceDark = Color(0xFF141720);
-  static const Color surfaceDarkElevated = Color(0xFF1C2030);
-  static const Color surfaceDarkSecondary = Color(0xFF252D42);
-  static const Color borderDark = Color(0xFF252D42);
+  static const Color backgroundDark = Color(0xFF16213E);
+  static const Color surfaceDark = Color(0xFF1F283E);
+  static const Color surfaceDarkElevated = Color(0xFF2A3550);
+  static const Color surfaceDarkSecondary = Color(0xFF3A4A6B);
+  static const Color borderDark = Color(0xFF3A4A6B);
 
   // ─── Text (Light theme) ───────────────────────────────────────────
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textTertiary = Color(0xFF94A3B8);
+  static const Color textPrimary = Color(0xFF16213E);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textTertiary = Color(0xFF9CA3AF);
   static const Color textDisabled = Color(0xFFCBD5E1);
   static const Color textOnBrand = Color(0xFFFFFFFF);
-  static const Color textLink = Color(0xFF00C2B8);
+  static const Color textLink = Color(0xFF006B5F);
 
   // ─── Text (Dark theme) ────────────────────────────────────────────
   static const Color textPrimaryDark = Color(0xFFF1F5F9);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
+  static const Color textSecondaryDark = Color(0xFF9CA3AF);
   static const Color textTertiaryDark = Color(0xFF64748B);
 
   // ─── Borders & Dividers ───────────────────────────────────────────
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color borderLight = Color(0xFFF1F5F9);
-  static const Color borderFocus = Color(0xFF00C2B8);
+  static const Color border = Color(0xFFE5E7EB);
+  static const Color borderLight = Color(0xFFF3F4F6);
+  static const Color borderFocus = Color(0xFF006B5F);
   static const Color borderError = Color(0xFFEF4444);
 
   // ─── Glassmorphism (Dark theme overlays) ──────────────────────────
@@ -73,19 +80,19 @@ class AppColors {
   // ─── Shadows ──────────────────────────────────────────────────────
   static const Color shadowLight = Color(0x0A000000);
   static const Color shadowMedium = Color(0x14000000);
-  static const Color shadowBrand = Color(0x4000C2B8);
+  static const Color shadowBrand = Color(0x40006B5F);
 
   // ─── Gradient Presets ─────────────────────────────────────────────
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF00C2B8), Color(0xFF00A89F)],
+    colors: [Color(0xFF006B5F), Color(0xFF005A50)],
   );
 
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF141720), Color(0xFF0B0D14)],
+    colors: [Color(0xFF1F283E), Color(0xFF16213E)],
   );
 
   static LinearGradient fadeToBackground = LinearGradient(

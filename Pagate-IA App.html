@@ -78,6 +78,10 @@ const Ic = ({ name, size=22, color='currentColor', filled=false, sw=1.8 }) => {
     moon:       <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>,
     coin:       <g><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a2 2 0 010 4H9"/></g>,
     handyman:   <path d="M6 20l5-5M11 15l-2-2 6-6 2 2M14 6l4 4M9 8l2 2M16 3l5 5"/>,
+    whatsapp:   <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 014 11.5a8.5 8.5 0 018.5-8.5 8.5 8.5 0 018.5 8.5z"/>,
+    email:      <g><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 5l10 7 10-7"/></g>,
+    sms:        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/>,
+    copy:       <g><rect x="9" y="9" width="10" height="10" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24"
@@ -181,14 +185,11 @@ const HomeScreen = ({ t, state, go }) => {
         title={`Hola, ${state.profile.name.split(' ')[0]} 👋`}
         subtitle={state.profile.businessName}
         right={
-          <div style={{ display:'flex', gap:8 }}>
-            <ThemeToggle t={t} onToggle={go.toggleTheme} />
-            <div style={{ position:'relative', width:40, height:40, borderRadius:'50%',
-              background:t.surface, border:`1px solid ${t.border}`,
-              display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-              <Ic name="bell" size={20} color={t.textP} />
-              <div style={{ position:'absolute', top:8, right:8, width:8, height:8, borderRadius:'50%', background:t.error }}/>
-            </div>
+          <div onClick={()=>go.openSheet('notifications')} style={{ position:'relative', width:40, height:40, borderRadius:'50%',
+            background:t.surface, border:`1px solid ${t.border}`,
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+            <Ic name="bell" size={20} color={t.textP} />
+            <div style={{ position:'absolute', top:8, right:8, width:8, height:8, borderRadius:'50%', background:t.error }}/>
           </div>
         }
       />
@@ -306,7 +307,7 @@ const FinanzasScreen = ({ t, state, go }) => {
 
   return (
     <div className="fade-in" style={{ padding:'0 20px 16px' }}>
-      <TopHeader t={t} title="Finanzas" right={<ThemeToggle t={t} onToggle={go.toggleTheme}/>}/>
+      <TopHeader t={t} title="Finanzas" right={null}/>
 
       <div style={{ display:'flex', gap:8, marginTop:16, overflowX:'auto', padding:'0 4px 4px' }}>
         {months.map((m,i)=>{
@@ -396,7 +397,7 @@ const InventarioScreen = ({ t, state, go }) => {
 
   return (
     <div className="fade-in" style={{ padding:'0 20px 16px', position:'relative', minHeight:'100%' }}>
-      <TopHeader t={t} title="Inventario" right={<ThemeToggle t={t} onToggle={go.toggleTheme}/>}/>
+      <TopHeader t={t} title="Inventario" right={null}/>
 
       <div style={{ margin:'16px 4px 0', height:48, borderRadius:18,
         background:t.surface, border:`1px solid ${t.border}`,
@@ -499,7 +500,6 @@ const IaScreen = ({ t, state, go }) => {
           <div style={{ fontSize:20, fontWeight:800, color:t.textP, letterSpacing:-.3 }}>Asistente IA</div>
           <div style={{ fontSize:12, color:t.brand, fontWeight:600 }}>Powered by Págate-IA</div>
         </div>
-        <ThemeToggle t={t} onToggle={go.toggleTheme}/>
       </div>
 
       {/* Messages */}
@@ -788,10 +788,10 @@ const ShareSheet = ({ t, onClose }) => {
     setCopied(true); setTimeout(()=>setCopied(false), 2000);
   };
   const channels = [
-    { name:'WhatsApp', color:'#25D366' },
-    { name:'Email',    color:t.info },
-    { name:'SMS',      color:t.success },
-    { name:'Copiar',   color:t.brand, onClick:copy },
+    { name:'WhatsApp', color:'#25D366', icon:'whatsapp' },
+    { name:'Email',    color:t.info,    icon:'email' },
+    { name:'SMS',      color:t.success, icon:'sms' },
+    { name:'Copiar',   color:t.brand,   icon:'copy', onClick:copy },
   ];
   return (
     <ModalShell t={t} onClose={onClose} title="Compartir Págate-IA" accent={t.brand}>
@@ -810,7 +810,7 @@ const ShareSheet = ({ t, onClose }) => {
           }}>
             <div style={{ width:36, height:36, borderRadius:12, background:c.color+'1F',
               display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <Ic name="share" size={18} color={c.color} sw={2}/>
+              <Ic name={c.icon} size={18} color={c.color} sw={2}/>
             </div>
             <div style={{ fontSize:11, fontWeight:600, color:t.textP }}>{c.name}</div>
           </div>
@@ -845,15 +845,35 @@ const LogoutSheet = ({ t, onClose, onConfirm }) => (
   </ModalShell>
 );
 
+const NotificationsSheet = ({ t, onClose }) => {
+  const items = [
+    { title:'Nueva venta registrada', desc:'+$850 · Servicio de frenos', time:'Hace 10 min', unread:true },
+    { title:'Stock bajo', desc:'Filtro de Aceite: solo 3 unidades', time:'Hace 1 h', unread:true },
+    { title:'Meta al 68%', desc:'Te faltan $11,200 para tu meta', time:'Hace 3 h', unread:false },
+  ];
+  return (
+    <ModalShell t={t} onClose={onClose} title="Notificaciones" accent={t.brand}>
+      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
+        {items.map((it,i)=>(
+          <div key={i} style={{ padding:14, borderRadius:16, background:it.unread?t.surface2:t.surface, border:`1px solid ${t.border}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+              <div style={{ fontSize:13, fontWeight:700, color:t.textP }}>{it.title}</div>
+              <div style={{ fontSize:11, color:t.textT }}>{it.time}</div>
+            </div>
+            <div style={{ fontSize:12, color:t.textS, marginTop:4 }}>{it.desc}</div>
+          </div>
+        ))}
+      </div>
+    </ModalShell>
+  );
+};
+
 const LoginScreen = ({ t, onLogin, toggleTheme }) => {
   const [name, setName] = React.useState('');
   const [biz, setBiz] = React.useState('');
   return (
     <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column',
       padding:'80px 28px 28px', background:t.bg }}>
-      <div style={{ position:'absolute', top:70, right:20 }}>
-        <ThemeToggle t={t} onToggle={toggleTheme}/>
-      </div>
       <div style={{ width:72, height:72, borderRadius:22, background:t.brandGrad,
         boxShadow:t.shBrandX, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:20 }}>
         <Ic name="coin" size={40} color="#fff" sw={2}/>
@@ -1212,6 +1232,7 @@ function App() {
         {sheet === 'help'   && <HelpSheet   t={t} onClose={()=>setSheet(null)}/>}
         {sheet === 'rate'   && <RateSheet   t={t} onClose={()=>setSheet(null)}/>}
         {sheet === 'share'  && <ShareSheet  t={t} onClose={()=>setSheet(null)}/>}
+        {sheet === 'notifications' && <NotificationsSheet t={t} onClose={()=>setSheet(null)}/>}
         {sheet === 'logout' && (
           <LogoutSheet t={t} onClose={()=>setSheet(null)}
             onConfirm={()=>{

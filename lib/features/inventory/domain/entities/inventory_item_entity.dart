@@ -24,6 +24,29 @@ class InventoryItemEntity extends Equatable {
     this.code,
   });
 
+  InventoryItemEntity copyWith({
+    final String? id,
+    final String? name,
+    final InventoryItemType? type,
+    final double? price,
+    final int? stock,
+    final int? minStock,
+    final String? unit,
+    final String? supplier,
+    final String? code,
+  }) =>
+      InventoryItemEntity(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        type: type ?? this.type,
+        price: price ?? this.price,
+        stock: stock ?? this.stock,
+        minStock: minStock ?? this.minStock,
+        unit: unit ?? this.unit,
+        supplier: supplier ?? this.supplier,
+        code: code ?? this.code,
+      );
+
   StockStatus get stockStatus {
     if (stock == 0) return StockStatus.critical;
     if (stock <= minStock) return StockStatus.low;

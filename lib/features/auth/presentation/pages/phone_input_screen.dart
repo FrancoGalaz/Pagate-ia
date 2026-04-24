@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
+import 'login_screen.dart';
 import '../../../onboarding/presentation/pages/identity_step_screen.dart';
 
 class PhoneInputScreen extends StatefulWidget {
@@ -125,13 +127,21 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
               const Spacer(),
 
               // CTA Button
-              PagatePrimaryButton(
-                label: 'Crear cuenta',
-                trailingIcon: Icons.arrow_forward_rounded,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
+                PagatePrimaryButton(
+                  label: 'Crear cuenta',
+                  trailingIcon: Icons.arrow_forward_rounded,
+                  onPressed: () {
+                    if (_phoneController.text.trim().isEmpty) {
+                      AppFeedback.showMessage(
+                        context,
+                        'Ingresa tu número de celular para continuar.',
+                      );
+                      return;
+                    }
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
                       builder: (final context) => const IdentityStepScreen(),
                     ),
                   );
@@ -143,7 +153,14 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
               // Login link
               Center(
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (final _) => const LoginScreen(),
+                      ),
+                    );
+                  },
                   child: RichText(
                     text: TextSpan(
                       style: textTheme.bodyMedium?.copyWith(
