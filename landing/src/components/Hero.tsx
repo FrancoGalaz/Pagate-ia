@@ -164,23 +164,7 @@ export default function Hero() {
             <motion.div
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -top-6 -right-6 bg-surface rounded-2xl shadow-xl shadow-text-primary/5 border border-border/50 p-4 hidden lg:block"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted">Productividad</p>
-                  <p className="text-sm font-bold text-text-primary">+24% este mes</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-              className="absolute -bottom-4 -left-8 bg-surface rounded-2xl shadow-xl shadow-text-primary/5 border border-border/50 p-4 hidden lg:block"
+              className="absolute -top-20 -right-2 z-20 bg-surface rounded-2xl shadow-xl shadow-text-primary/5 border border-border/50 p-4 hidden lg:block"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
@@ -192,10 +176,26 @@ export default function Hero() {
                 </div>
               </div>
             </motion.div>
+
+            {/* Productividad card - nueva posición más abajo */}
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+              className="absolute -bottom-20 -left-4 z-20 bg-surface rounded-2xl shadow-xl shadow-text-primary/5 border border-border/50 p-4 hidden lg:block"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-xs text-text-muted">Productividad</p>
+                  <p className="text-sm font-bold text-text-primary">+24% este mes</p>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </div>
     </section>
   );
 }
-
