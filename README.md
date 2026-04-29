@@ -1,5 +1,7 @@
 # Pagate-IA
 
+[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/)
+
 Asistente de finanzas personales con IA. App móvil desarrollada en Flutter.
 
 Personal finance assistant powered by AI. Mobile app built with Flutter.
