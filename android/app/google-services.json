@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "390581596119",
+    "project_id": "pagate-17211",
+    "storage_bucket": "pagate-17211.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:390581596119:android:6d160588213047dfffa592",
+        "android_client_info": {
+          "package_name": "com.pagate.apppagate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNtdgCov0WpdZnyUhhdDHp1yewnHdr-vA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

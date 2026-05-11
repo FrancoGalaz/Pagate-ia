@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/hourly_value/domain/usecases/calculate_hourly_rate.dart';
@@ -15,6 +16,7 @@ import 'features/auth/presentation/pages/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const PagateIAApp());
 }
 
