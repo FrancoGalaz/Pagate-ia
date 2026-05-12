@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
-import '../../data/repositories/mock_inventory_repository.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
+import '../../domain/repositories/inventory_repository.dart';
 
 class InventoryProvider extends ChangeNotifier {
-  final MockInventoryRepository _repository;
+  final InventoryRepository _repository;
 
   List<InventoryItemEntity> _items = [];
   final List<InventoryItemEntity> _customItems = [];
@@ -14,7 +14,7 @@ class InventoryProvider extends ChangeNotifier {
   String _searchQuery = '';
   bool _isLoading = false;
 
-  InventoryProvider({required final MockInventoryRepository repository})
+  InventoryProvider({required InventoryRepository repository})
       : _repository = repository {
     _load();
   }
@@ -30,17 +30,17 @@ class InventoryProvider extends ChangeNotifier {
 
     final repoItems = await _repository.searchItems(_activeTab, _searchQuery);
     final customItems = _customItems
-        .where((final item) => item.type == _activeTab)
-        .where((final item) => _matchesQuery(item, _searchQuery))
+        .where((item) => item.type == _activeTab)
+        .where((item) => _matchesQuery(item, _searchQuery))
         .toList();
 
     _items = [
       ...customItems,
       ...repoItems,
     ]
-        .where((final item) => !_deletedIds.contains(item.id))
+        .where((item) => !_deletedIds.contains(item.id))
         .map(
-          (final item) => item.copyWith(
+          (item) => item.copyWith(
             stock: _stockOverrides[item.id] ?? item.stock,
           ),
         )
@@ -50,24 +50,24 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setActiveTab(final InventoryItemType type) async {
+  Future<void> setActiveTab(InventoryItemType type) async {
     _activeTab = type;
     _searchQuery = '';
     await _load();
   }
 
-  Future<void> search(final String query) async {
+  Future<void> search(String query) async {
     _searchQuery = query;
     await _load();
   }
 
   Future<void> addItem({
-    required final String name,
-    required final InventoryItemType type,
-    required final double price,
-    required final int stock,
-    required final int minStock,
-    required final String unit,
+    required String name,
+    required InventoryItemType type,
+    required double price,
+    required int stock,
+    required int minStock,
+    required String unit,
   }) async {
     final item = InventoryItemEntity(
       id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
@@ -85,21 +85,21 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> updateStock({
-    required final String itemId,
-    required final int newStock,
+    required String itemId,
+    required int newStock,
   }) async {
     _stockOverrides[itemId] = newStock;
     await _load();
   }
 
-  Future<void> deleteItem(final String itemId) async {
+  Future<void> deleteItem(String itemId) async {
     _deletedIds.add(itemId);
     _stockOverrides.remove(itemId);
-    _customItems.removeWhere((final item) => item.id == itemId);
+    _customItems.removeWhere((item) => item.id == itemId);
     await _load();
   }
 
-  bool _matchesQuery(final InventoryItemEntity item, final String query) {
+  bool _matchesQuery(InventoryItemEntity item, String query) {
     if (query.isEmpty) return true;
     final lower = query.toLowerCase();
     return item.name.toLowerCase().contains(lower) ||

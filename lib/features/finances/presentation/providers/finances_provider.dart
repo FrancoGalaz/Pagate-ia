@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
-import '../../data/repositories/mock_finances_repository.dart';
+import '../../domain/repositories/finances_repository.dart';
 import '../../domain/entities/finances_summary_entity.dart';
 
 class FinancesProvider extends ChangeNotifier {
-  final MockFinancesRepository _repository;
+  final FinancesRepository _repository;
 
   List<FinancesSummaryEntity> _months = [];
   int _selectedIndex = 0;
   bool _isLoading = false;
 
-  FinancesProvider({required final MockFinancesRepository repository})
+  FinancesProvider({required FinancesRepository repository})
       : _repository = repository {
     _load();
   }
@@ -28,7 +28,7 @@ class FinancesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectMonth(final int index) {
+  void selectMonth(int index) {
     if (index < 0 || index >= _months.length) return;
     _selectedIndex = index;
     notifyListeners();

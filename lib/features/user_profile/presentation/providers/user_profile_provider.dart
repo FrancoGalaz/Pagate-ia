@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
-import '../../data/repositories/mock_user_profile_repository.dart';
+import '../../domain/repositories/user_profile_repository.dart';
 import '../../domain/entities/user_profile_entity.dart';
 
 class UserProfileProvider extends ChangeNotifier {
-  final MockUserProfileRepository _repository;
+  final UserProfileRepository _repository;
 
   UserProfileEntity? _profile;
   bool _isLoading = false;
 
-  UserProfileProvider({required final MockUserProfileRepository repository})
+  UserProfileProvider({required UserProfileRepository repository})
       : _repository = repository {
     _load();
   }
@@ -25,11 +25,11 @@ class UserProfileProvider extends ChangeNotifier {
   }
 
   void updateFromSetup({
-    required final String name,
-    required final String businessName,
-    required final String businessType,
-    required final String currency,
-    required final double monthlyGoal,
+    required String name,
+    required String businessName,
+    required String businessType,
+    required String currency,
+    required double monthlyGoal,
   }) {
     final safeName = name.trim();
     final safeBusinessName = businessName.trim();
@@ -37,9 +37,9 @@ class UserProfileProvider extends ChangeNotifier {
 
     final initialsParts = safeName
         .split(' ')
-        .where((final part) => part.trim().isNotEmpty)
+        .where((part) => part.trim().isNotEmpty)
         .take(2)
-        .map((final part) => part.trim()[0].toUpperCase())
+        .map((part) => part.trim()[0].toUpperCase())
         .toList();
 
     final initials = initialsParts.isEmpty ? 'IA' : initialsParts.join();
