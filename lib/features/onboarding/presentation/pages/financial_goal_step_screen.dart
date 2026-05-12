@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../dashboard/presentation/pages/dashboard_screen.dart';
 
 class FinancialGoalStepScreen extends StatefulWidget {
-  const FinancialGoalStepScreen({super.key});
+  final String businessName;
+  final String businessType;
+
+  const FinancialGoalStepScreen({
+    super.key,
+    this.businessName = '',
+    this.businessType = '',
+  });
 
   @override
   State<FinancialGoalStepScreen> createState() =>
@@ -15,6 +26,47 @@ class FinancialGoalStepScreen extends StatefulWidget {
 class _FinancialGoalStepScreenState extends State<FinancialGoalStepScreen> {
   double _currentValue = 2500;
   final NumberFormat _currencyFormat = NumberFormat('#,##0', 'en_US');
+  bool _isSaving = false;
+
+  Future<void> _onStart() async {
+    setState(() => _isSaving = true);
+
+    try {
+      // Save profile to Firestore
+      await context.read<UserProfileProvider>().updateFromSetup(
+            name: '', // Will be added when identity step passes this forward
+            businessName: widget.businessName,
+            businessType: widget.businessType,
+            currency: 'MXN',
+            monthlyGoal: _currentValue,
+          );
+
+      // Calculate and save hourly rate based on goal
+      await context.read<HourlyRateProvider>().calculateAndSave(
+            desiredSalary: _currentValue,
+            workingDays: 22,
+            hoursPerDay: 8,
+          );
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (final context) => const DashboardScreen(),
+        ),
+        (final route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Error al guardar configuración. Intenta nuevamente.',
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(final BuildContext context) {
@@ -225,16 +277,8 @@ class _FinancialGoalStepScreenState extends State<FinancialGoalStepScreen> {
                       PagatePrimaryButton(
                         label: '¡Comenzar mi Taller!',
                         trailingIcon: Icons.arrow_forward_rounded,
-                        onPressed: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final context) =>
-                                  const DashboardScreen(),
-                            ),
-                            (final route) => false,
-                          );
-                        },
+                        isLoading: _isSaving,
+                        onPressed: _onStart,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(

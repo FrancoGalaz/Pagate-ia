@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/firebase_auth_service.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import 'workshop_step_screen.dart';
 
@@ -11,7 +14,66 @@ class IdentityStepScreen extends StatefulWidget {
 }
 
 class _IdentityStepScreenState extends State<IdentityStepScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   String _selectedCurrency = 'MXN';
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onNext() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      AppFeedback.showMessage(
+        context,
+        'Completa todos los campos para continuar.',
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      AppFeedback.showMessage(
+        context,
+        'La contraseña debe tener al menos 6 caracteres.',
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await context.read<FirebaseAuthService>().createUserWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (final context) => const WorkshopStepScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Error al crear cuenta. El correo podría ya estar registrado.',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(final BuildContext context) {
@@ -60,7 +122,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     // Name
                     const PagateLabel('NOMBRE COMPLETO', isUppercase: true),
                     const SizedBox(height: AppSpacing.xs),
-                    const PagateTextField(
+                    PagateTextField(
+                      controller: _nameController,
                       hintText: 'Ej. María González',
                       prefixIcon: Icons.person_outline,
                     ),
@@ -70,7 +133,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     // Email
                     const PagateLabel('CORREO ELECTRÓNICO', isUppercase: true),
                     const SizedBox(height: AppSpacing.xs),
-                    const PagateTextField(
+                    PagateTextField(
+                      controller: _emailController,
                       hintText: 'hola@ejemplo.com',
                       prefixIcon: Icons.mail_outline,
                       keyboardType: TextInputType.emailAddress,
@@ -81,7 +145,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     // Password
                     const PagateLabel('CONTRASEÑA', isUppercase: true),
                     const SizedBox(height: AppSpacing.xs),
-                    const PagateTextField(
+                    PagateTextField(
+                      controller: _passwordController,
                       hintText: '••••••••',
                       prefixIcon: Icons.lock_outline,
                       isPassword: true,
@@ -184,14 +249,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
               child: PagatePrimaryButton(
                 label: 'Siguiente',
                 trailingIcon: Icons.arrow_forward_rounded,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (final context) => const WorkshopStepScreen(),
-                    ),
-                  );
-                },
+                isLoading: _isLoading,
+                onPressed: _onNext,
               ),
             ),
           ],

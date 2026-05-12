@@ -19,18 +19,23 @@ class UserProfileProvider extends ChangeNotifier {
   Future<void> _load() async {
     _isLoading = true;
     notifyListeners();
-    _profile = await _repository.getProfile();
+    try {
+      _profile = await _repository.getProfile();
+    } catch (_) {
+      // Profile doesn't exist yet (new user) — start with default
+      _profile = null;
+    }
     _isLoading = false;
     notifyListeners();
   }
 
-  void updateFromSetup({
+  Future<void> updateFromSetup({
     required String name,
     required String businessName,
     required String businessType,
     required String currency,
     required double monthlyGoal,
-  }) {
+  }) async {
     final safeName = name.trim();
     final safeBusinessName = businessName.trim();
     if (safeName.isEmpty || safeBusinessName.isEmpty) return;
@@ -44,7 +49,7 @@ class UserProfileProvider extends ChangeNotifier {
 
     final initials = initialsParts.isEmpty ? 'IA' : initialsParts.join();
 
-    _profile = (_profile ?? const UserProfileEntity(
+    final updatedProfile = (_profile ?? const UserProfileEntity(
       id: 'local-user',
       name: 'Usuario',
       businessName: 'Mi Negocio',
@@ -63,6 +68,19 @@ class UserProfileProvider extends ChangeNotifier {
       avatarInitials: initials,
     );
 
+    // Persist to Firestore
+    try {
+      await _repository.saveProfile(updatedProfile);
+    } catch (_) {
+      // Fallback: saveProfile failed, try updateProfile
+      await _repository.updateProfile(updatedProfile);
+    }
+
+    _profile = updatedProfile;
     notifyListeners();
+  }
+
+  Future<void> refresh() async {
+    await _load();
   }
 }

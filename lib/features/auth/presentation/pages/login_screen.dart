@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_social_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
+import '../../../../core/services/firebase_auth_service.dart';
 import 'post_login_welcome_screen.dart';
 import 'welcome_screen.dart';
+import '../../../dashboard/presentation/pages/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,8 +49,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onLogin() async {
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
       AppFeedback.showMessage(
         context,
         'Completa correo y contraseña para continuar.',
@@ -56,12 +61,29 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    _goToPostLoginWelcome();
-  }
 
+    try {
+      await context.read<FirebaseAuthService>().signInWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (final _) => const DashboardScreen()),
+        (final route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Error al iniciar sesión. Verifica tus credenciales.',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(final BuildContext context) => Scaffold(

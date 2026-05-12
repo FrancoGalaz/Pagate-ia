@@ -11,6 +11,9 @@ class WorkshopStepScreen extends StatefulWidget {
 }
 
 class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
+  final _workshopController = TextEditingController();
+  final _specialtyController = TextEditingController();
+
   final List<String> _categories = [
     'Carpintería',
     'Textil',
@@ -18,6 +21,16 @@ class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
     'Joyería',
   ];
   final Set<String> _selectedCategories = {};
+
+  @override
+  void dispose() {
+    _workshopController.dispose();
+    _specialtyController.dispose();
+    super.dispose();
+  }
+
+  String get _selectedCategory =>
+      _selectedCategories.isNotEmpty ? _selectedCategories.first : '';
 
   @override
   Widget build(final BuildContext context) {
@@ -112,7 +125,8 @@ class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
                           child: PagateLabel('Nombre de tu Taller'),
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        const PagateTextField(
+                        PagateTextField(
+                          controller: _workshopController,
                           hintText: 'Ej: El Arte de la Madera',
                         ),
 
@@ -128,6 +142,7 @@ class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
 
                               // Search input
                               PagateTextField(
+                                controller: _specialtyController,
                                 hintText: 'Ej: Carpintería, Joyería...',
                                 prefixIcon: Icons.search,
                                 suffix: Container(
@@ -166,7 +181,8 @@ class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
 
                               const PagateLabel('Nicho / Especialidad'),
                               const SizedBox(height: AppSpacing.xs),
-                              const PagateTextField(
+                              PagateTextField(
+                                controller: _specialtyController,
                                 hintText: 'Ej: Muebles de autor, Restauración',
                               ),
                             ],
@@ -199,7 +215,10 @@ class _WorkshopStepScreenState extends State<WorkshopStepScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (final context) =>
-                                  const FinancialGoalStepScreen(),
+                                  FinancialGoalStepScreen(
+                                businessName: _workshopController.text.trim(),
+                                businessType: _selectedCategory,
+                              ),
                             ),
                           );
                         },

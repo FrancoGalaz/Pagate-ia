@@ -1,0 +1,61 @@
+// Firebase Firestore Security Rules para Pagate-IA
+// Copia esto en: Firebase Console > Firestore Database > Rules
+// Asegura que cada usuario solo lea/escriba sus propios datos
+//
+// ⚠️ ANTES de desplegar:
+// 1. Reemplazar `YOUR_PROJECT_ID` con el ID real de tu proyecto
+// 2. Habilitar Firebase Authentication en la consola
+// 3. Estos rules bloquean todo acceso no autenticado
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Función helper: permite acceso solo al dueño del recurso
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regla por defecto: DENEGAR todo
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---- Colecciones protegidas por userId ----
+
+    // Perfiles de usuario (docId = userId)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Perfiles de usuario (colección user_profiles, docId = userId)
+    match /user_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Items de inventario
+    match /inventory_items/{itemId} {
+      allow read, write: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // Datos financieros (subcolecciones por usuario)
+    // Ej: finances/{userId}/summaries/{docId}
+    // Ej: finances/{userId}/transactions/{docId}
+    match /finances/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ---- Validaciones de escritura extra (opcionales) ----
+    match /inventory_items/{itemId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}
