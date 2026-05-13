@@ -41,12 +41,38 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _goToSignupWelcome() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (final _) => const WelcomeScreen()),
-    );
+  Future<void> _onForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      AppFeedback.showMessage(
+        context,
+        'Ingresa tu correo primero para enviarte el enlace de recuperación.',
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await context
+          .read<FirebaseAuthService>()
+          .sendPasswordReset(email: email);
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Te enviamos un enlace de recuperación a $email',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Error al enviar recuperación. Verifica que el correo esté registrado.',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
+
+  void _goToSignupWelcome() {
 
   Future<void> _onLogin() async {
     final email = _emailController.text.trim();
@@ -151,10 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => AppFeedback.showMessage(
-                    context,
-                    'Te enviaremos recuperación por correo próximamente.',
-                  ),
+                  onPressed: _onForgotPassword,
                   child: Text(
                     '¿Olvidaste tu contraseña?',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

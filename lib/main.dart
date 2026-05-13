@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/firebase_auth_service.dart';
+import 'core/services/ai_service.dart';
 
 // Hourly Value
 import 'features/hourly_value/domain/usecases/calculate_hourly_rate.dart';
@@ -27,6 +28,9 @@ import 'features/finances/presentation/providers/finances_provider.dart';
 import 'features/user_profile/data/datasources/user_profile_firebase_datasource.dart';
 import 'features/user_profile/data/repositories/user_profile_repository_impl.dart';
 import 'features/user_profile/presentation/providers/user_profile_provider.dart';
+
+// AI Chat
+import 'features/dashboard/presentation/providers/ai_provider.dart';
 
 // Auth
 import 'features/auth/presentation/pages/login_screen.dart';
@@ -79,6 +83,13 @@ UserProfileProvider _createUserProfileProvider(String userId) {
   );
 }
 
+/// Factory for creating AiProvider.
+AiProvider _createAiProvider() {
+  return AiProvider(
+    service: AiService(),
+  );
+}
+
 class PagateIAApp extends StatelessWidget {
   const PagateIAApp({super.key});
 
@@ -115,6 +126,11 @@ class PagateIAApp extends StatelessWidget {
           create: (_) => _createUserProfileProvider('anonymous'),
           update: (_, auth, previous) =>
               _createUserProfileProvider(auth.userId),
+        ),
+
+        // AI Chat - standalone provider, context injected via method calls
+        ChangeNotifierProvider(
+          create: (_) => _createAiProvider(),
         ),
       ],
       child: MaterialApp(

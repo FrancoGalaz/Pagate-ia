@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/constants/app_constants.dart';
-import '../../../../../core/constants/app_mock_data.dart';
+import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
 
@@ -23,7 +23,7 @@ class HomeTab extends StatelessWidget {
   final VoidCallback onNotificationsTap;
 
   @override
-  Widget build(final BuildContext context) => SingleChildScrollView(
+  Widget build(BuildContext context) => SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -47,7 +47,7 @@ class _HomeHeader extends StatelessWidget {
   final VoidCallback onNotificationsTap;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final profile = context.watch<UserProfileProvider>().profile;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -83,7 +83,7 @@ class _HomeHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hola, ${profile?.name.split(' ').first ?? 'Artesano'} 👋',
+                  'Hola, ${profile?.name?.split(' ').first ?? 'Artesano'} 👋',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.textPrimaryDark,
                         fontWeight: FontWeight.w700,
@@ -133,13 +133,18 @@ class _BalanceCard extends StatelessWidget {
   const _BalanceCard();
 
   @override
-  Widget build(final BuildContext context) {
-    final summary = context.watch<FinancesProvider>().selected;
-    final income = summary?.totalIncome ?? 23800;
-    final expenses = summary?.totalExpenses ?? 8300;
+  Widget build(BuildContext context) {
+    final finances = context.watch<FinancesProvider>();
+    final summary = finances.selected;
+
+    // Real data or zeros
+    final income = summary?.totalIncome ?? 0.0;
+    final expenses = summary?.totalExpenses ?? 0.0;
     final balance = income - expenses;
-    final progress = summary?.goalProgress ?? 0.68;
-    final goal = summary?.monthlyGoal ?? 35000;
+    final goal = summary?.monthlyGoal ?? 0.0;
+    final progress = goal > 0 ? (income / goal).clamp(0.0, 1.0) : 0.0;
+    final month = summary?.month;
+    final hasData = finances.hasData;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
@@ -174,7 +179,7 @@ class _BalanceCard extends StatelessWidget {
                     borderRadius: AppRadius.pillBorder,
                   ),
                   child: Text(
-                    summary?.month ?? 'Marzo 2025',
+                    hasData ? (month ?? 'Este mes') : 'Sin datos',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -185,7 +190,7 @@ class _BalanceCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '\$${_fmt(balance)}',
+              hasData ? '\$${_fmt(balance)}' : '\$0',
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -200,22 +205,30 @@ class _BalanceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            ClipRRect(
-              borderRadius: AppRadius.pillBorder,
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                backgroundColor: Colors.white.withValues(alpha: 0.25),
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            if (hasData) ...[
+              ClipRRect(
+                borderRadius: AppRadius.pillBorder,
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: Colors.white.withValues(alpha: 0.25),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              'Meta: \$${_fmt(goal)}  •  ${(progress * 100).toStringAsFixed(0)}% completado',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white70,
-                  ),
-            ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Meta: \$${_fmt(goal)}  •  ${(progress * 100).toStringAsFixed(0)}% completado',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
+              ),
+            ] else
+              Text(
+                'Registra tus primeros ingresos y gastos en Finanzas',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
+              ),
           ],
         ),
       ),
@@ -240,7 +253,7 @@ class _MiniStat extends StatelessWidget {
   final bool isPositive;
 
   @override
-  Widget build(final BuildContext context) => Row(
+  Widget build(BuildContext context) => Row(
         children: [
           Icon(icon, color: Colors.white70, size: 14),
           const SizedBox(width: 4),
@@ -304,7 +317,7 @@ class _QuickActions extends StatelessWidget {
   ];
 
   @override
-  Widget build(final BuildContext context) => Padding(
+  Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +368,7 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(final BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Column(
           children: [
@@ -386,24 +399,62 @@ class _ActionButton extends StatelessWidget {
       );
 }
 
-// ─── Recent Activity ──────────────────────────────────────────────────────
+// ─── Recent Activity (now from Firestore) ────────────────────────────────
 class _RecentActivity extends StatelessWidget {
   const _RecentActivity();
 
   @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Actividad Reciente',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final finances = context.watch<FinancesProvider>();
+    final transactions = finances.recentTransactions;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Actividad Reciente',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimaryDark,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (transactions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: AppRadius.xxlBorder,
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    color: AppColors.textSecondaryDark,
+                    size: 32,
                   ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Aún no hay actividad registrada',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondaryDark,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    'Registra tu primera venta o gasto en Finanzas',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondaryDark,
+                        ),
+                  ),
+                ],
+              ),
+            )
+          else
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surfaceDark,
@@ -411,29 +462,34 @@ class _RecentActivity extends StatelessWidget {
                 border: Border.all(color: AppColors.borderDark),
               ),
               child: Column(
-                children: AppMockData.recentActivity
+                children: transactions
                     .asMap()
                     .entries
-                    .map((final e) => _ActivityRow(
-                          item: e.value,
-                          isLast: e.key == AppMockData.recentActivity.length - 1,
+                    .map((entry) => _TransactionRow(
+                          transaction: entry.value,
+                          isLast: entry.key == transactions.length - 1,
                         ))
                     .toList(),
               ),
             ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }
 
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.item, required this.isLast});
-  final Map<String, String> item;
+class _TransactionRow extends StatelessWidget {
+  const _TransactionRow({
+    required this.transaction,
+    required this.isLast,
+  });
+
+  final FinancesTransactionEntity transaction;
   final bool isLast;
 
   @override
-  Widget build(final BuildContext context) {
-    final isIncome = item['type'] == 'income';
+  Widget build(BuildContext context) {
+    final isIncome = transaction.type == 'income';
     final color = isIncome ? AppColors.success : AppColors.error;
 
     return Column(
@@ -464,14 +520,14 @@ class _ActivityRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item['title'] ?? '',
+                      transaction.description,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textPrimaryDark,
                             fontWeight: FontWeight.w600,
                           ),
                     ),
                     Text(
-                      item['time'] ?? '',
+                      _formatDate(transaction.date),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondaryDark,
                           ),
@@ -480,7 +536,7 @@ class _ActivityRow extends StatelessWidget {
                 ),
               ),
               Text(
-                item['amount'] ?? '',
+                '${isIncome ? '+' : '-'}\$${_fmt(transaction.amount)}',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: color,
                       fontWeight: FontWeight.w700,
@@ -498,5 +554,16 @@ class _ActivityRow extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  String _fmt(double v) =>
+      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}K' : v.toStringAsFixed(0);
+
+  String _formatDate(DateTime date) {
+    final months = [
+      '', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+    ];
+    return '${date.day} ${months[date.month]}, ${date.year}';
   }
 }

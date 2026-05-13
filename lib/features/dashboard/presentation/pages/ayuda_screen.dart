@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/constants/app_mock_data.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 
@@ -13,6 +12,29 @@ class AyudaScreen extends StatefulWidget {
 
 class _AyudaScreenState extends State<AyudaScreen> {
   int? _expandedIndex;
+
+  static const List<Map<String, String>> _faqItems = [
+    {
+      'question': '¿Cómo registro un nuevo ingreso?',
+      'answer':
+          'Ve a Inicio y toca el botón "Venta" en las acciones rápidas. Ingresa el monto, concepto y cliente. El ingreso se registrará automáticamente en tu resumen del mes.',
+    },
+    {
+      'question': '¿Cómo funciona la meta mensual?',
+      'answer':
+          'La meta mensual es el objetivo de ingresos que estableces para tu negocio. Puedes configurarla en la sección de Finanzas. La app te mostrará tu progreso en tiempo real.',
+    },
+    {
+      'question': '¿Cómo agrego productos al inventario?',
+      'answer':
+          'En la sección Inventario, toca el botón + en la esquina inferior derecha. Completa los datos del producto o material y guarda.',
+    },
+    {
+      'question': '¿Qué significa el stock en rojo?',
+      'answer':
+          'El stock en rojo indica que el producto tiene 0 unidades disponibles (sin stock). El amarillo significa que está por debajo del mínimo configurado. El verde indica stock suficiente.',
+    },
+  ];
 
   @override
   Widget build(final BuildContext context) => Scaffold(
@@ -110,7 +132,7 @@ class _AyudaScreenState extends State<AyudaScreen> {
                         border: Border.all(color: AppColors.borderDark),
                       ),
                       child: Column(
-                        children: AppMockData.faqItems
+                        children: _faqItems
                             .asMap()
                             .entries
                             .map((final e) {
