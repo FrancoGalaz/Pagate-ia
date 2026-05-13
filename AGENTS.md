@@ -44,3 +44,22 @@
 - `components/` and `frames/` contain JSX design/prototype artifacts; they are not part of the Flutter build/test pipeline.
 - Root `.mcp.json` config is project-local MCP setup for OpenCode tooling; keep repo path values aligned if the project folder is moved.
 - `lib/core/constants/app_mock_data.dart` is dead code (no imports), kept for reference.
+
+## Web Deployment
+- Build: `flutter build web --release`
+- Deploy: `firebase deploy --only hosting`
+- Or use the script: `./scripts/deploy-web.sh`
+- URL: `https://pagate-17211.web.app`
+- The app auto-detects web vs mobile via `LayoutBuilder` (breakpoint 720px).
+  - Desktop: NavigationRail sidebar
+  - Mobile: BottomNavigationBar
+- Google Sign-In works automatically on web (Firebase Auth popup).
+- For the AI chat, compile with:
+  `flutter build web --release --dart-define=OPENROUTER_API_KEY=sk-or-...`
+
+## Web Firebase Configuration
+The web Firebase config in `firebase_options.dart` needs updating before deployment:
+1. Go to Firebase Console → Project Settings → Add app → Web
+2. Copy the `apiKey` and `appId` into `firebase_options.dart`
+3. In Firebase Console → Authentication → Sign-in method → Enable Google provider
+

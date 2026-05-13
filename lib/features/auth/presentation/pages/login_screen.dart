@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_social_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../../../../core/services/firebase_auth_service.dart';
+import '../../../../core/services/google_auth_service.dart';
 import 'post_login_welcome_screen.dart';
 import 'welcome_screen.dart';
 import '../../../dashboard/presentation/pages/dashboard_screen.dart';
@@ -72,7 +75,58 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _goToSignupWelcome() {
+  Future<void> _onGoogleSignIn() async {
+    if (!kIsWeb) {
+      AppFeedback.showMessage(
+        context,
+        'Google Sign-In en Android requiere configuración adicional.',
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final googleAuth = GoogleAuthService();
+      await googleAuth.signIn();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (final _) => const DashboardScreen()),
+        (final route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'web-config-not-found' ||
+          e.code == 'configuration-not-found') {
+        AppFeedback.showMessage(
+          context,
+          'Configura una App Web en Firebase Console para usar Google Sign-In.',
+        );
+      } else if (e.code == 'popup-closed-by-user') {
+        // User closed the popup, do nothing
+      } else {
+        AppFeedback.showMessage(
+          context,
+          'Error al iniciar con Google: ${e.message ?? e.code}',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showMessage(
+        context,
+        'Google Sign-In no disponible en esta plataforma.',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _onAppleSignIn() {
+    AppFeedback.showMessage(
+      context,
+      'Apple Sign-In estará disponible próximamente.',
+    );
+  }
 
   Future<void> _onLogin() async {
     final email = _emailController.text.trim();
@@ -219,13 +273,13 @@ class _LoginScreenState extends State<LoginScreen> {
               PagateSocialButton(
                 label: 'Continuar con Google',
                 icon: Icons.g_mobiledata_rounded,
-                onPressed: _goToPostLoginWelcome,
+                onPressed: _onGoogleSignIn,
               ),
               const SizedBox(height: AppSpacing.sm),
               PagateSocialButton(
                 label: 'Continuar con Apple',
                 icon: Icons.apple_rounded,
-                onPressed: _goToPostLoginWelcome,
+                onPressed: _onAppleSignIn,
               ),
 
               const SizedBox(height: AppSpacing.xxl),

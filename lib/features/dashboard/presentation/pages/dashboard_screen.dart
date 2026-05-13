@@ -19,6 +19,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  // ─── Navigation Items ──────────────────────────────────────────────
+
   static const List<_NavItem> _navItems = [
     _NavItem(
       icon: Icons.home_outlined,
@@ -47,91 +49,199 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   ];
 
-  void _onTap(final int index) {
-    HapticFeedback.selectionClick();
-    setState(() => _currentIndex = index);
-  }
+  // ─── Pages ─────────────────────────────────────────────────────────
 
-  void _onHomeQuickAction(final HomeQuickAction action) {
-    switch (action) {
-      case HomeQuickAction.sale:
-        _onTap(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar una venta.',
-        );
-        return;
-      case HomeQuickAction.expense:
-        _onTap(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar un gasto.',
-        );
-        return;
-      case HomeQuickAction.inventory:
-        _onTap(2);
-        return;
-      case HomeQuickAction.ai:
-        _onTap(3);
-        return;
-    }
-  }
-
-  void _openHelpFromHome() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (final _) => const AyudaScreen()),
-    );
-  }
+  late final List<Widget> _pages;
 
   @override
-  Widget build(final BuildContext context) {
-    final pages = [
+  void initState() {
+    super.initState();
+    _pages = [
       HomeTab(
-        onQuickActionTap: _onHomeQuickAction,
-        onNotificationsTap: _openHelpFromHome,
+        onQuickActionTap: _onQuickAction,
+        onNotificationsTap: _openHelp,
       ),
       const FinanzasTab(),
       const InventarioTab(),
       const IaTab(),
       const PerfilTab(),
     ];
+  }
 
+  void _onQuickAction(HomeQuickAction action) {
+    switch (action) {
+      case HomeQuickAction.sale:
+        _setPage(1);
+        AppFeedback.showMessage(
+          context,
+          'Abre Finanzas para registrar una venta.',
+        );
+      case HomeQuickAction.expense:
+        _setPage(1);
+        AppFeedback.showMessage(
+          context,
+          'Abre Finanzas para registrar un gasto.',
+        );
+      case HomeQuickAction.inventory:
+        _setPage(2);
+      case HomeQuickAction.ai:
+        _setPage(3);
+    }
+  }
+
+  void _setPage(int index) {
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
+  }
+
+  void _openHelp() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AyudaScreen()),
+    );
+  }
+
+  // ─── Build ─────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+
+        if (isWide) {
+          return _buildDesktopLayout();
+        }
+        return _buildMobileLayout();
+      },
+    );
+  }
+
+  // ─── Desktop Layout (NavigationRail) ───────────────────────────────
+
+  Widget _buildDesktopLayout() {
     return Scaffold(
-        backgroundColor: AppColors.backgroundDark,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: pages,
-        ),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceDark,
-            border: Border(
-              top: BorderSide(color: AppColors.borderDark, width: 1),
+      backgroundColor: AppColors.backgroundDark,
+      body: Row(
+        children: [
+          // Rail
+          NavigationRail(
+            backgroundColor: AppColors.surfaceDark,
+            selectedIndex: _currentIndex,
+            onDestinationSelected: _setPage,
+            labelType: NavigationRailLabelType.all,
+            elevation: 0,
+            minWidth: 80,
+            groupAlignment: 0.8,
+            leading: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.md),
+              child: Column(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.brandGradient,
+                      borderRadius: AppRadius.xlBorder,
+                    ),
+                    child: const Icon(
+                      Icons.bolt_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pagate',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondaryDark,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            destinations: _navItems
+                .map((item) => NavigationRailDestination(
+                      icon: Icon(item.icon, color: AppColors.textSecondaryDark),
+                      selectedIcon:
+                          Icon(item.activeIcon, color: AppColors.brand),
+                      label: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: _currentIndex == _navItems.indexOf(item)
+                              ? AppColors.brand
+                              : AppColors.textSecondaryDark,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+
+          // Separator
+          const VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: AppColors.borderDark,
+          ),
+
+          // Content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: AppSpacing.screenHorizontal,
+                right: AppSpacing.screenHorizontal,
+              ),
+              child: _pages[_currentIndex],
             ),
           ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 64,
-              child: Row(
-                children: List.generate(
-                  _navItems.length,
-                  (final i) => Expanded(
-                    child: _NavButton(
-                      item: _navItems[i],
-                      isSelected: _currentIndex == i,
-                      onTap: () => _onTap(i),
-                    ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Mobile Layout (BottomNavigationBar) ───────────────────────────
+
+  Widget _buildMobileLayout() {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundDark,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceDark,
+          border: Border(
+            top: BorderSide(color: AppColors.borderDark, width: 1),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: List.generate(
+                _navItems.length,
+                (i) => Expanded(
+                  child: _NavButton(
+                    item: _navItems[i],
+                    isSelected: _currentIndex == i,
+                    onTap: () => _setPage(i),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
+
+// ─── Navigation Item Models ─────────────────────────────────────────────
 
 class _NavItem {
   const _NavItem({
@@ -150,12 +260,13 @@ class _NavButton extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
+
   final _NavItem item;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
-  Widget build(final BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
