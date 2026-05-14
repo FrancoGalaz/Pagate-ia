@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
+import WaitlistForm from './WaitlistForm';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -52,7 +53,7 @@ export default function CTA() {
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Text */}
+          {/* Text + Form */}
           <div className="cta-content">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-brand-light text-sm font-semibold mb-6">
               <Download className="w-4 h-4" />
@@ -65,24 +66,12 @@ export default function CTA() {
             </h2>
 
             <p className="mt-6 text-lg lg:text-xl text-text-muted max-w-xl leading-relaxed">
-              Únete a miles de freelancers y pymes que ya descubrieron su valor real. 
-              Sin compromisos, sin tarjeta de crédito.
+              Únete a la lista de espera. Sé de los primeros en usar Pagate 
+              y descubre cuánto vale realmente tu trabajo.
             </p>
 
-            <div className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <a
-                href="#"
-                className="group inline-flex items-center gap-3 px-8 py-4 rounded-full bg-accent text-white font-semibold text-base shadow-xl shadow-accent/25 hover:bg-accent-dark hover:shadow-accent/40 transition-all hover:scale-105 active:scale-95"
-              >
-                Crear cuenta gratis
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </a>
-              <a
-                href="#features"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white/5 text-white font-semibold text-base border border-white/10 hover:bg-white/10 transition-all"
-              >
-                Conocer más
-              </a>
+            <div className="mt-10">
+              <WaitlistForm />
             </div>
 
             <p className="mt-6 text-sm text-text-muted">

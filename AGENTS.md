@@ -79,10 +79,10 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 ### Fase 3 — AI + Finanzas
 8. ✅ Mejorar chat AI con más contexto (historial, preferencias)
 9. ✅ Exportación de reportes financieros (PDF)
-10. Sincronización de gastos automáticos (bank integration?)
+10. Sincronización de gastos automáticos (bank integration) 📋 (investigación completa en docs/bank-integration-research.md — recomienda: Fase 1 = carga manual PDF/CSV, Fase 2 = Belvo Connect)
 
 ### Fase 4 — Monetización
-11. Landing page pública con waitlist
+11. ✅ Landing page con formulario de waitlist — formulario captura email + nombre, almacena en localStorage (listo para migrar a Firestore cuando haya credenciales web)
 12. Pricing tiers (freemium + premium)
 13. Pasarela de pago integrada
 
