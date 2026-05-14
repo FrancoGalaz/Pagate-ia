@@ -4,6 +4,7 @@ import '../../../../../core/constants/app_constants.dart';
 import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../widgets/financial_charts.dart';
 
 enum HomeQuickAction {
   sale,
@@ -32,6 +33,8 @@ class HomeTab extends StatelessWidget {
             const _BalanceCard(),
             const SizedBox(height: AppSpacing.xl),
             _QuickActions(onActionTap: onQuickActionTap),
+            const SizedBox(height: AppSpacing.xl),
+            const _ChartsSection(),
             const SizedBox(height: AppSpacing.xl),
             const _RecentActivity(),
             const SizedBox(height: AppSpacing.xxl),
@@ -397,6 +400,36 @@ class _ActionButton extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ─── Charts Section ──────────────────────────────────────────────────
+class _ChartsSection extends StatelessWidget {
+  const _ChartsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Métricas Financieras',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimaryDark,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const MonthlyBarChart(),
+          const SizedBox(height: AppSpacing.md),
+          const NetBalanceLineChart(),
+          const SizedBox(height: AppSpacing.md),
+          const CategoryPieChart(),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Recent Activity (now from Firestore) ────────────────────────────────

@@ -63,3 +63,33 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 2. Copy the `apiKey` and `appId` into `firebase_options.dart`
 3. In Firebase Console → Authentication → Sign-in method → Enable Google provider
 
+## Roadmap (orden de prioridad)
+
+### Fase 1 — Deploy y Pulido (AHORA)
+1. Actualizar firebase_options.dart con credenciales web reales
+2. Deploy a Firebase Hosting: `./scripts/deploy-web.sh`
+3. Test Google Sign-In en producción
+4. Pulir UI mobile — revisar BottomNavigationBar en pantallas chicas
+
+### Fase 2 — Features Core
+5. Completar dashboard con métricas financieras reales (gráficos, resumen mensual)
+6. CRUD completo de inventario (agregar/editar/eliminar items con fotos)
+7. Perfil de usuario con edición de datos
+
+### Fase 3 — AI + Finanzas
+8. Mejorar chat AI con más contexto (historial, preferencias)
+9. Exportación de reportes financieros (PDF)
+10. Sincronización de gastos automáticos (bank integration?)
+
+### Fase 4 — Monetización
+11. Landing page pública con waitlist
+12. Pricing tiers (freemium + premium)
+13. Pasarela de pago integrada
+
+## Reglas para Agentes Autónomos
+- Avanzar sin preguntar. Solo pausar ante blockers reales.
+- `flutter analyze` debe pasar antes de commitear.
+- Commits atómicos con push inmediato.
+- Usar tokens de diseño de `app_constants.dart`, no hardcodear estilos.
+- Features nuevas deben seguir el patrón `data/domain/presentation` con Provider.
+

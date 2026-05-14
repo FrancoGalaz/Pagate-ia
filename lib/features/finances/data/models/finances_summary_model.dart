@@ -20,7 +20,7 @@ class FinancesSummaryModel extends FinancesSummaryEntity {
         [];
 
     return FinancesSummaryModel(
-      month: json['month'] as int,
+      month: (json['month'] ?? '').toString(),
       totalIncome: (json['totalIncome'] as num).toDouble(),
       totalExpenses: (json['totalExpenses'] as num).toDouble(),
       monthlyGoal: (json['monthlyGoal'] as num).toDouble(),
