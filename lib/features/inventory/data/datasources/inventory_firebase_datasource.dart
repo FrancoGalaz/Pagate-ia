@@ -67,12 +67,15 @@ class InventoryFirebaseDataSource {
   Future<void> saveItem(InventoryItemEntity item) async {
     final model = InventoryItemModel.fromEntity(item);
 
-    await _itemsCollection.doc(item.id).set({
+    final docRef = await _itemsCollection.add({
       ...model.toJson(),
       'userId': _userId,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // Store the auto-generated ID back on the document
+    await docRef.update({'id': docRef.id});
   }
 
   /// Updates an item in Firestore.

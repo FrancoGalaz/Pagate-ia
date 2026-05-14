@@ -7,9 +7,6 @@ class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
 
   List<InventoryItemEntity> _items = [];
-  final List<InventoryItemEntity> _customItems = [];
-  final Map<String, int> _stockOverrides = {};
-  final Set<String> _deletedIds = {};
   InventoryItemType _activeTab = InventoryItemType.product;
   String _searchQuery = '';
   bool _isLoading = false;
@@ -28,23 +25,11 @@ class InventoryProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final repoItems = await _repository.searchItems(_activeTab, _searchQuery);
-    final customItems = _customItems
-        .where((item) => item.type == _activeTab)
-        .where((item) => _matchesQuery(item, _searchQuery))
-        .toList();
-
-    _items = [
-      ...customItems,
-      ...repoItems,
-    ]
-        .where((item) => !_deletedIds.contains(item.id))
-        .map(
-          (item) => item.copyWith(
-            stock: _stockOverrides[item.id] ?? item.stock,
-          ),
-        )
-        .toList();
+    try {
+      _items = await _repository.searchItems(_activeTab, _searchQuery);
+    } catch (_) {
+      _items = [];
+    }
 
     _isLoading = false;
     notifyListeners();
@@ -70,7 +55,7 @@ class InventoryProvider extends ChangeNotifier {
     required String unit,
   }) async {
     final item = InventoryItemEntity(
-      id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
+      id: '', // Firestore will generate the ID
       name: name,
       type: type,
       price: price,
@@ -80,7 +65,7 @@ class InventoryProvider extends ChangeNotifier {
       supplier: 'Manual',
       code: null,
     );
-    _customItems.insert(0, item);
+    await _repository.saveItem(item);
     await _load();
   }
 
@@ -88,21 +73,12 @@ class InventoryProvider extends ChangeNotifier {
     required String itemId,
     required int newStock,
   }) async {
-    _stockOverrides[itemId] = newStock;
+    await _repository.updateStock(itemId, newStock);
     await _load();
   }
 
   Future<void> deleteItem(String itemId) async {
-    _deletedIds.add(itemId);
-    _stockOverrides.remove(itemId);
-    _customItems.removeWhere((item) => item.id == itemId);
+    await _repository.deleteItem(itemId);
     await _load();
-  }
-
-  bool _matchesQuery(InventoryItemEntity item, String query) {
-    if (query.isEmpty) return true;
-    final lower = query.toLowerCase();
-    return item.name.toLowerCase().contains(lower) ||
-        (item.code?.toLowerCase().contains(lower) ?? false);
   }
 }
