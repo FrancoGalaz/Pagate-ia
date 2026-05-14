@@ -78,7 +78,7 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 
 ### Fase 3 — AI + Finanzas
 8. ✅ Mejorar chat AI con más contexto (historial, preferencias)
-9. Exportación de reportes financieros (PDF)
+9. ✅ Exportación de reportes financieros (PDF)
 10. Sincronización de gastos automáticos (bank integration?)
 
 ### Fase 4 — Monetización

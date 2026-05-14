@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/pdf_report_service.dart';
 import '../providers/finances_provider.dart';
 import '../../domain/entities/finances_summary_entity.dart';
 
@@ -37,10 +39,43 @@ class FinanzasTab extends StatelessWidget {
 }
 
 // ─── Header + month selector ──────────────────────────────────────────────
-class _FinanzasHeader extends StatelessWidget {
+class _FinanzasHeader extends StatefulWidget {
   const _FinanzasHeader({required this.months, required this.selectedIndex});
   final List<FinancesSummaryEntity> months;
   final int selectedIndex;
+
+  @override
+  State<_FinanzasHeader> createState() => _FinanzasHeaderState();
+}
+
+class _FinanzasHeaderState extends State<_FinanzasHeader> {
+  bool _isExporting = false;
+
+  Future<void> _onExport() async {
+    final provider = context.read<FinancesProvider>();
+    final summary = provider.selected;
+    if (summary == null) return;
+
+    setState(() => _isExporting = true);
+    try {
+      final allTransactions = provider.recentTransactions;
+      final pdfBytes = await PdfReportService.generateReport(
+        summary: summary,
+        transactions: allTransactions,
+      );
+      await PdfReportService.share(
+        pdfBytes: pdfBytes,
+        month: summary.month,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al exportar: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
 
   @override
   Widget build(final BuildContext context) => Padding(
@@ -53,23 +88,46 @@ class _FinanzasHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Finanzas',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w800,
-                  ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Finanzas',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: AppColors.textPrimaryDark,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                IconButton(
+                  onPressed: _isExporting ? null : _onExport,
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.brand,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.file_download_outlined,
+                          color: AppColors.textSecondaryDark,
+                        ),
+                  tooltip: 'Exportar PDF',
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             SizedBox(
               height: 36,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: months.length,
+                itemCount: widget.months.length,
                 separatorBuilder: (final context, final index) =>
                     const SizedBox(width: AppSpacing.xs),
                 itemBuilder: (final context, final i) {
-                  final isSelected = i == selectedIndex;
+                  final isSelected = i == widget.selectedIndex;
                   return GestureDetector(
                     onTap: () => context.read<FinancesProvider>().selectMonth(i),
                     child: AnimatedContainer(
@@ -86,7 +144,7 @@ class _FinanzasHeader extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        months[i].month,
+                        widget.months[i].month,
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
                               color: isSelected ? Colors.white : AppColors.textSecondaryDark,
                               fontWeight: FontWeight.w600,
