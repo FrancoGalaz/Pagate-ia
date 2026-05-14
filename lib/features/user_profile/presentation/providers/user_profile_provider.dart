@@ -80,6 +80,17 @@ class UserProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update the full profile with new values and persist to Firestore.
+  Future<void> updateProfile(UserProfileEntity updated) async {
+    try {
+      await _repository.saveProfile(updated);
+    } catch (_) {
+      await _repository.updateProfile(updated);
+    }
+    _profile = updated;
+    notifyListeners();
+  }
+
   Future<void> refresh() async {
     await _load();
   }

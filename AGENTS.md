@@ -74,7 +74,7 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 ### Fase 2 — Features Core
 5. ✅ Completar dashboard con métricas financieras reales (gráficos, resumen mensual)
 6. ✅ CRUD completo de inventario (agregar/editar/eliminar items con fotos) — Firestore persistence
-7. Perfil de usuario con edición de datos (falta UI de edición en Configuración)
+7. ✅ Perfil de usuario con edición de datos (Configuración con datos reales Firestore)
 
 ### Fase 3 — AI + Finanzas
 8. Mejorar chat AI con más contexto (historial, preferencias)

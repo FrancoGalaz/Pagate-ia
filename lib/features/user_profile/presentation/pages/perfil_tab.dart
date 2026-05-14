@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../auth/presentation/pages/login_screen.dart';
@@ -179,11 +180,16 @@ class PerfilTab extends StatelessWidget {
                   icon: Icons.logout_rounded,
                   label: 'Cerrar Sesión',
                   isDestructive: true,
-                  onTap: () => Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (final _) => const LoginScreen()),
-                    (final route) => false,
-                  ),
+                  onTap: () async {
+                    await context.read<FirebaseAuthService>().signOut();
+                    if (!context.mounted) return;
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (final _) => const LoginScreen()),
+                      (final route) => false,
+                    );
+                  },
                 ),
               ],
             ),
