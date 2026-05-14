@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/firebase_auth_service.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
+import '../../../inventory/presentation/providers/inventory_provider.dart';
+import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../providers/ai_provider.dart';
 
@@ -22,19 +25,36 @@ class _IaTabState extends State<IaTab> {
     super.initState();
     // Initialize the AI chat after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AiProvider>().init();
-      // Inject financial context
-      _refreshContext();
+      _injectFullContext();
     });
   }
 
-  void _refreshContext() {
+  /// Injects all available context from across the app into the AI provider.
+  void _injectFullContext() {
+    final aiProvider = context.read<AiProvider>();
     final profile = context.read<UserProfileProvider>().profile;
-    final summary = context.read<FinancesProvider>().selected;
-    context.read<AiProvider>().updateContext(
-          profile: profile,
-          currentSummary: summary,
-        );
+    final finances = context.read<FinancesProvider>();
+    final inventory = context.read<InventoryProvider>();
+    final hourlyRate = context.read<HourlyRateProvider>().currentRate;
+
+    aiProvider.updateContext(
+      profile: profile,
+      currentSummary: finances.selected,
+      recentTransactions: finances.recentTransactions,
+      inventoryItems: inventory.items,
+      hourlyRate: hourlyRate,
+      allMonths: finances.months,
+      currency: profile?.currency ?? 'MXN',
+    );
+
+    // Set userId for Firestore persistence
+    final authUserId =
+        context.read<FirebaseAuthService>().userId;
+    if (authUserId != 'anonymous') {
+      aiProvider.setUserId(authUserId);
+    }
+
+    aiProvider.init();
   }
 
   @override
@@ -47,7 +67,8 @@ class _IaTabState extends State<IaTab> {
   void _sendMessage() {
     final text = _controller.text;
     if (text.trim().isEmpty) return;
-    _refreshContext();
+    // Refresh context before each message to get latest data
+    _injectFullContext();
     context.read<AiProvider>().sendMessage(text);
     _controller.clear();
     // Scroll to bottom after sending
@@ -232,9 +253,7 @@ class _IaTabState extends State<IaTab> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: isLoading
-                        ? AppColors.brandGradient
-                        : AppColors.brandGradient,
+                    gradient: AppColors.brandGradient,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.send_rounded,

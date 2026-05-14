@@ -77,7 +77,7 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 7. ✅ Perfil de usuario con edición de datos (Configuración con datos reales Firestore)
 
 ### Fase 3 — AI + Finanzas
-8. Mejorar chat AI con más contexto (historial, preferencias)
+8. ✅ Mejorar chat AI con más contexto (historial, preferencias)
 9. Exportación de reportes financieros (PDF)
 10. Sincronización de gastos automáticos (bank integration?)
 

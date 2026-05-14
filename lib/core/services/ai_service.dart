@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../../features/finances/domain/entities/finances_transaction_entity.dart';
 
 /// Service that calls OpenRouter API for the AI assistant.
 ///
@@ -66,7 +67,7 @@ class AiService {
         ...messages,
       ],
       'temperature': 0.7,
-      'max_tokens': 1024,
+      'max_tokens': 2048,
     };
 
     try {
@@ -105,13 +106,22 @@ class AiService {
     }
   }
 
-  /// Builds a default system prompt with financial context.
+  /// Builds a system prompt enriched with the user's financial context.
   static String systemPromptWithContext({
     String? businessName,
     String? businessType,
     double? monthlyGoal,
     double? monthlyIncome,
     double? monthlyExpenses,
+    List<FinancesTransactionEntity>? recentTransactions,
+    int? inventoryCount,
+    int? productsCount,
+    int? materialsCount,
+    double? hourlyRate,
+    String? currency,
+    int? monthsAvailable,
+    double? latestMonthIncome,
+    double? latestMonthExpenses,
   }) {
     final buffer = StringBuffer();
     buffer.writeln(
@@ -124,34 +134,117 @@ class AiService {
       'optimizar precios y tomar mejores decisiones.',
     );
 
-    if (businessName != null || businessType != null) {
-      buffer.writeln('');
-      buffer.writeln('Contexto del negocio del usuario:');
-    }
+    // ─── Business context ──────────────────────────────────────────
+    buffer.writeln('');
+    buffer.writeln('=== CONTEXTO DEL NEGOCIO ===');
+
     if (businessName != null) {
-      buffer.writeln('- Nombre del negocio: $businessName');
+      buffer.writeln('Negocio: $businessName');
     }
     if (businessType != null) {
-      buffer.writeln('- Tipo: $businessType');
+      buffer.writeln('Tipo: $businessType');
     }
+    if (currency != null) {
+      buffer.writeln('Moneda: $currency');
+    }
+
+    // ─── Financial summary ─────────────────────────────────────────
+    buffer.writeln('');
+    buffer.writeln('=== RESUMEN FINANCIERO ===');
+
     if (monthlyGoal != null) {
-      buffer.writeln('- Meta mensual: \$${monthlyGoal.toStringAsFixed(0)}');
+      buffer.writeln('Meta mensual: \$${monthlyGoal.toStringAsFixed(0)}');
     }
     if (monthlyIncome != null) {
-      buffer.writeln('- Ingresos del mes: \$${monthlyIncome.toStringAsFixed(0)}');
+      buffer.writeln('Ingresos del mes: \$${monthlyIncome.toStringAsFixed(0)}');
     }
     if (monthlyExpenses != null) {
       buffer.writeln(
-        '- Gastos del mes: \$${monthlyExpenses.toStringAsFixed(0)}',
+        'Gastos del mes: \$${monthlyExpenses.toStringAsFixed(0)}',
+      );
+    }
+    if (monthlyIncome != null && monthlyExpenses != null) {
+      final balance = monthlyIncome - monthlyExpenses;
+      buffer.writeln('Balance mensual: \$${balance.toStringAsFixed(0)}');
+      if (monthlyGoal != null && monthlyIncome >= monthlyGoal) {
+        buffer.writeln('✅ Meta mensual alcanzada');
+      } else if (monthlyGoal != null) {
+        final progress = (monthlyIncome / monthlyGoal * 100).toStringAsFixed(0);
+        buffer.writeln('Progreso hacia meta: $progress%');
+      }
+    }
+
+    // ─── Trend data ────────────────────────────────────────────────
+    if (monthsAvailable != null && monthsAvailable > 1) {
+      buffer.writeln('Meses con datos: $monthsAvailable');
+    }
+    if (latestMonthIncome != null && monthlyIncome != null &&
+        monthlyIncome != 0 && latestMonthIncome != 0) {
+      final change = ((monthlyIncome - latestMonthIncome) /
+          latestMonthIncome * 100);
+      final arrow = change >= 0 ? '↑' : '↓';
+      buffer.writeln(
+        'Variación vs mes anterior: $arrow ${change.abs().toStringAsFixed(1)}%',
       );
     }
 
+    // ─── Recent transactions ───────────────────────────────────────
+    if (recentTransactions != null && recentTransactions.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('=== ÚLTIMAS TRANSACCIONES ===');
+      for (final t in recentTransactions) {
+        final type = t.type == TransactionType.income ? '💵 Ingreso' : '💸 Gasto';
+        buffer.writeln(
+          '- $type: ${t.title} — \$${t.amount.toStringAsFixed(0)} (${t.category})',
+        );
+      }
+    }
+
+    // ─── Inventory summary ────────────────────────────────────────
+    if (inventoryCount != null && inventoryCount > 0) {
+      buffer.writeln('');
+      buffer.writeln('=== INVENTARIO ===');
+      buffer.writeln('Total items: $inventoryCount');
+      if (productsCount != null) {
+        buffer.writeln('Productos: $productsCount');
+      }
+      if (materialsCount != null) {
+        buffer.writeln('Materiales: $materialsCount');
+      }
+    }
+
+    // ─── Hourly rate ──────────────────────────────────────────────
+    if (hourlyRate != null) {
+      buffer.writeln('');
+      buffer.writeln('=== TARIFA POR HORA ===');
+      buffer.writeln('Valor hora: \$${hourlyRate.toStringAsFixed(0)}/h');
+    }
+
+    // ─── Instructions ──────────────────────────────────────────────
     buffer.writeln('');
+    buffer.writeln('=== INSTRUCCIONES ===');
     buffer.writeln(
-      'Sé conciso (máximo 3 párrafos). '
-      'Usa números concretos cuando sea posible. '
-      'No inventes datos que no estén en el contexto. '
-      'Si no sabes algo, dilo honestamente.',
+      '1. Sé conciso — máximo 3 párrafos por respuesta.',
+    );
+    buffer.writeln(
+      '2. Usa números concretos del contexto cuando sea posible.',
+    );
+    buffer.writeln(
+      '3. No inventes datos que no estén en el contexto proporcionado.',
+    );
+    buffer.writeln(
+      '4. Si no sabes algo, dilo honestamente.',
+    );
+    buffer.writeln(
+      '5. Da sugerencias prácticas y accionables.',
+    );
+    buffer.writeln(
+      '6. Si el usuario pide análisis financiero, usa los datos disponibles '
+      'de transacciones, inventario y tarifa por hora.',
+    );
+    buffer.writeln(
+      '7. Recuerda que esta es una conversación continua — puedes '
+      'referenciar mensajes anteriores.',
     );
 
     return buffer.toString();
