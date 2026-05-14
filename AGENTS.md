@@ -66,15 +66,15 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 ## Roadmap (orden de prioridad)
 
 ### Fase 1 — Deploy y Pulido (AHORA)
-1. Actualizar firebase_options.dart con credenciales web reales
-2. Deploy a Firebase Hosting: `./scripts/deploy-web.sh`
-3. Test Google Sign-In en producción
+1. Actualizar firebase_options.dart con credenciales web reales ⏳ (requiere credenciales de Firebase Console)
+2. Deploy a Firebase Hosting: `./scripts/deploy-web.sh` ⏳ (bloqueado por #1)
+3. Test Google Sign-In en producción ⏳ (bloqueado por #2)
 4. Pulir UI mobile — revisar BottomNavigationBar en pantallas chicas
 
 ### Fase 2 — Features Core
-5. Completar dashboard con métricas financieras reales (gráficos, resumen mensual)
-6. CRUD completo de inventario (agregar/editar/eliminar items con fotos)
-7. Perfil de usuario con edición de datos
+5. ✅ Completar dashboard con métricas financieras reales (gráficos, resumen mensual)
+6. ✅ CRUD completo de inventario (agregar/editar/eliminar items con fotos) — Firestore persistence
+7. Perfil de usuario con edición de datos (falta UI de edición en Configuración)
 
 ### Fase 3 — AI + Finanzas
 8. Mejorar chat AI con más contexto (historial, preferencias)
