@@ -69,7 +69,7 @@ The web Firebase config in `firebase_options.dart` needs updating before deploym
 1. Actualizar firebase_options.dart con credenciales web reales ⏳ (requiere credenciales de Firebase Console)
 2. Deploy a Firebase Hosting: `./scripts/deploy-web.sh` ⏳ (bloqueado por #1)
 3. Test Google Sign-In en producción ⏳ (bloqueado por #2)
-4. Pulir UI mobile — revisar BottomNavigationBar en pantallas chicas
+4. ✅ Pulir UI mobile — BottomNavigationBar adaptativa (iconos solo en pantallas <380px, indicador activo)
 
 ### Fase 2 — Features Core
 5. ✅ Completar dashboard con métricas financieras reales (gráficos, resumen mensual)

@@ -112,7 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (isWide) {
           return _buildDesktopLayout();
         }
-        return _buildMobileLayout();
+        return _buildMobileLayout(compact: constraints.maxWidth < 380);
       },
     );
   }
@@ -204,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ─── Mobile Layout (BottomNavigationBar) ───────────────────────────
 
-  Widget _buildMobileLayout() {
+  Widget _buildMobileLayout({required bool compact}) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: IndexedStack(
@@ -221,7 +221,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 64,
+            height: compact ? 56 : 64,
             child: Row(
               children: List.generate(
                 _navItems.length,
@@ -229,6 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _NavButton(
                     item: _navItems[i],
                     isSelected: _currentIndex == i,
+                    compact: compact,
                     onTap: () => _setPage(i),
                   ),
                 ),
@@ -258,11 +259,13 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
     required this.isSelected,
+    required this.compact,
     required this.onTap,
   });
 
   final _NavItem item;
   final bool isSelected;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -271,31 +274,55 @@ class _NavButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppDurations.fast,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
             children: [
-              AnimatedSwitcher(
-                duration: AppDurations.fast,
-                child: Icon(
-                  isSelected ? item.activeIcon : item.icon,
-                  key: ValueKey(isSelected),
-                  color: isSelected
-                      ? AppColors.brand
-                      : AppColors.textSecondaryDark,
-                  size: AppIconSize.md,
+              // Active indicator
+              if (isSelected)
+                Positioned(
+                  top: 0,
+                  left: 16,
+                  right: 16,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.brandGradient,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: const Radius.circular(2),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                item.label,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 10,
-                  fontWeight:
-                      isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.brand
-                      : AppColors.textSecondaryDark,
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: AppDurations.fast,
+                      child: Icon(
+                        isSelected ? item.activeIcon : item.icon,
+                        key: ValueKey('$isSelected-${compact}'),
+                        color: isSelected
+                            ? AppColors.brand
+                            : AppColors.textSecondaryDark,
+                        size: compact ? 20 : AppIconSize.md,
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 10,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? AppColors.brand
+                              : AppColors.textSecondaryDark,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
