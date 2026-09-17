@@ -4,7 +4,7 @@ import '../constants/app_constants.dart';
 /// Informational callout card used for tips and contextual hints.
 ///
 /// Displays an icon + rich text inside a light-brand-colored container.
-/// Used in FinancialGoalStepScreen and similar informational contexts.
+/// Tarjeta informativa reutilizable (onboarding y ayuda).
 class PagateInfoCard extends StatelessWidget {
   final IconData icon;
   final Widget child;

@@ -73,7 +73,7 @@ service cloud.firestore {
         && isNonEmptyStr(d.name, 200)
         && (!('businessName' in d) || isStr(d.businessName, 200))
         && (!('businessType' in d) || isStr(d.businessType, 200))
-        && isNonEmptyStr(d.currency, 10)
+        && d.currency in ['CLP', 'USD']
         && (!('monthlyGoal' in d) || isNonNegNumber(d.monthlyGoal))
         && (!('avatarInitials' in d) || isStr(d.avatarInitials, 10))
         && (!('hourlyRate' in d) || d.hourlyRate == null || validHourlyRate(d.hourlyRate))

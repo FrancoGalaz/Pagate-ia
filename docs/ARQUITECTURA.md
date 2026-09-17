@@ -28,7 +28,7 @@ users/{uid}                              perfil + configuración (owner: read/wr
   name: string
   businessName: string
   businessType: string
-  currency: string            ('CLP' por defecto)
+  currency: 'CLP' | 'USD'     ('CLP' por defecto)
   monthlyGoal: number
   avatarInitials: string
   plan: 'free' | 'pro'        (solo lo escribe el backend; el cliente lo lee)

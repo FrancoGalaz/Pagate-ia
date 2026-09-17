@@ -4,15 +4,9 @@ import 'package:equatable/equatable.dart';
 const String kDefaultCurrency = 'CLP';
 
 /// Monedas que el usuario puede elegir en onboarding y en Editar perfil.
-const List<String> kSupportedCurrencies = [
-  'CLP',
-  'USD',
-  'ARS',
-  'COP',
-  'PEN',
-  'MXN',
-  'EUR',
-];
+/// Por ahora solo Chile (CLP) y dólar (USD); las reglas de Firestore
+/// rechazan cualquier otro valor.
+const List<String> kSupportedCurrencies = ['CLP', 'USD'];
 
 /// Rubros ofrecidos en onboarding y en Editar perfil.
 const List<String> kBusinessTypes = [

@@ -161,6 +161,12 @@ describe('users/{uid}', () => {
     await assertFails(setDoc(doc(aliceDb(), 'users', ALICE), { ...validProfile(), createdAt: 'hoy' }));
   });
 
+  it('solo acepta moneda CLP o USD', async () => {
+    await assertSucceeds(setDoc(doc(aliceDb(), 'users', ALICE), { ...validProfile(), currency: 'USD' }));
+    await assertFails(setDoc(doc(aliceDb(), 'users', ALICE), { ...validProfile(), currency: 'MXN' }));
+    await assertFails(setDoc(doc(aliceDb(), 'users', ALICE), { ...validProfile(), currency: 'EUR' }));
+  });
+
   it('no puede escribir el perfil de otro', async () => {
     await assertFails(setDoc(doc(bobDb(), 'users', ALICE), validProfile()));
   });

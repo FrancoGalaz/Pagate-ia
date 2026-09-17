@@ -6,7 +6,7 @@ import '../../../../core/services/google_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import 'login_screen.dart';
-import 'phone_input_screen.dart';
+import '../../../onboarding/presentation/pages/identity_step_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -220,7 +220,7 @@ class WelcomeScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (final context) =>
-                                  const PhoneInputScreen(),
+                                  const IdentityStepScreen(),
                             ),
                           );
                         },
