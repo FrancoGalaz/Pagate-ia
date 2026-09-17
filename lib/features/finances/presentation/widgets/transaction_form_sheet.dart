@@ -181,17 +181,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderDark,
-                    borderRadius: AppRadius.pillBorder,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+              // El tema ya dibuja el drag handle (showDragHandle: true).
               Row(
                 children: [
                   Container(
@@ -237,8 +227,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 hintText: isIncome ? 'Ej: Venta de mesa' : 'Ej: Madera pino',
                 prefixIcon: Icons.edit_outlined,
                 maxLength: 200,
-                validator: (final v) =>
-                    (v == null || v.trim().isEmpty) ? 'Escribe un título' : null,
+                validator: (final v) => (v == null || v.trim().isEmpty)
+                    ? 'Escribe un título'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.md),
 
@@ -248,8 +239,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 controller: _amountController,
                 hintText: '0',
                 prefixIcon: Icons.attach_money_rounded,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
@@ -307,8 +299,18 @@ class _DateField extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _months = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
   ];
 
   @override
@@ -342,9 +344,9 @@ class _DateField extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: AppColors.textPrimaryDark,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
             const Icon(

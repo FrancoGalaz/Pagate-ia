@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/google_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
@@ -22,7 +23,14 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  // La bienvenida está diseñada en claro; se fuerza el tema claro para que
+  // los botones y textos se vean aunque la app corra en modo oscuro.
+  Widget build(final BuildContext context) => Theme(
+    data: AppTheme.lightTheme,
+    child: Builder(builder: _buildBody),
+  );
+
+  Widget _buildBody(final BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final googleAvailable = GoogleAuthService().isAvailable;

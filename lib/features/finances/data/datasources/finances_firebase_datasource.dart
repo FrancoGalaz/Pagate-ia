@@ -18,8 +18,8 @@ class FinancesFirebaseDataSource {
   FinancesFirebaseDataSource({
     required FirebaseFirestore firestore,
     required String userId,
-  })  : _firestore = firestore,
-        _userId = userId;
+  }) : _firestore = firestore,
+       _userId = userId;
 
   DocumentReference<Map<String, dynamic>> get _user =>
       _firestore.collection('users').doc(_userId);
@@ -42,37 +42,41 @@ class FinancesFirebaseDataSource {
   /// `monthKey + date`.
   Stream<List<FinancesTransactionEntity>> watchTransactions(
     final String monthKey,
-  ) =>
-      _transactions.where('monthKey', isEqualTo: monthKey).snapshots().map(
-        (final snapshot) {
-          final items = snapshot.docs
-              .map((final doc) =>
-                  FinancesTransactionModel.fromDoc(doc.id, doc.data()))
-              .toList();
-          items.sort((final a, final b) => b.date.compareTo(a.date));
-          return items;
-        },
-      );
+  ) => _transactions.where('monthKey', isEqualTo: monthKey).snapshots().map((
+    final snapshot,
+  ) {
+    final items = snapshot.docs
+        .map(
+          (final doc) => FinancesTransactionModel.fromDoc(doc.id, doc.data()),
+        )
+        .toList();
+    items.sort((final a, final b) => b.date.compareTo(a.date));
+    return items;
+  });
 
-  /// Resúmenes mensuales ordenados por id (`yyyy-MM`) descendente, es decir,
-  /// del mes más reciente al más antiguo.
+  /// Resúmenes mensuales del más reciente al más antiguo. Firestore no admite
+  /// ordenar por id de documento en forma descendente, así que se pide
+  /// ascendente (`yyyy-MM` ordena cronológicamente) y se invierte en memoria.
   Stream<List<FinancesSummaryEntity>> watchMonths() => _months
-      .orderBy(FieldPath.documentId, descending: true)
+      .orderBy(FieldPath.documentId)
       .snapshots()
       .map(
-        (final snapshot) => snapshot.docs
-            .map((final doc) => FinancesSummaryModel.fromDoc(doc.id, doc.data()))
+        (final snapshot) => snapshot.docs.reversed
+            .map(
+              (final doc) => FinancesSummaryModel.fromDoc(doc.id, doc.data()),
+            )
             .toList(),
       );
 
   /// Gastos fijos ordenados por nombre.
-  Stream<List<FixedExpenseEntity>> watchFixedExpenses() =>
-      _fixedExpenses.orderBy('name').snapshots().map(
-            (final snapshot) => snapshot.docs
-                .map((final doc) =>
-                    FixedExpenseModel.fromDoc(doc.id, doc.data()))
-                .toList(),
-          );
+  Stream<List<FixedExpenseEntity>> watchFixedExpenses() => _fixedExpenses
+      .orderBy('name')
+      .snapshots()
+      .map(
+        (final snapshot) => snapshot.docs
+            .map((final doc) => FixedExpenseModel.fromDoc(doc.id, doc.data()))
+            .toList(),
+      );
 
   // ─── Escrituras ───────────────────────────────────────────────────
 
