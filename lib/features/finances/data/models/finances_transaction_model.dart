@@ -1,7 +1,11 @@
-import '../entities/finances_transaction_entity.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../../domain/entities/finances_transaction_entity.dart';
 
-/// Model for FinancesTransaction with manual JSON serialization.
-/// No code generation required.
+/// Modelo de transacción con serialización manual hacia/desde Firestore.
+///
+/// El documento NO contiene `id` ni `userId`: el id es el del documento y el
+/// usuario viene dado por la ruta `users/{uid}/transactions`.
 class FinancesTransactionModel extends FinancesTransactionEntity {
   const FinancesTransactionModel({
     required super.id,
@@ -13,49 +17,94 @@ class FinancesTransactionModel extends FinancesTransactionEntity {
     required super.category,
   });
 
-  factory FinancesTransactionModel.fromJson(Map<String, dynamic> json) {
+  /// Construye el modelo desde un documento. Nunca lanza por tipos
+  /// inesperados: usa valores por defecto seguros y lo registra.
+  factory FinancesTransactionModel.fromDoc(
+    final String id,
+    final Map<String, dynamic> data,
+  ) {
+    final rawType = data['type'];
     TransactionType type;
-    if (json['type'] == 'income') {
+    if (rawType == 'income') {
       type = TransactionType.income;
-    } else if (json['type'] == 'expense') {
+    } else if (rawType == 'expense') {
       type = TransactionType.expense;
     } else {
-      throw FormatException('Invalid TransactionType: ${json['type']}');
+      debugPrint(
+        'FinancesTransactionModel[$id]: type inesperado "$rawType", '
+        'se asume expense',
+      );
+      type = TransactionType.expense;
     }
 
     return FinancesTransactionModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String? ?? '',
-      amount: (json['amount'] as num).toDouble(),
+      id: id,
+      title: _string(data['title'], id, 'title'),
+      description: _string(data['description'], id, 'description'),
+      amount: _double(data['amount'], id, 'amount'),
       type: type,
-      date: (json['date'] as String).isNotEmpty
-          ? DateTime.parse(json['date'] as String)
-          : DateTime.now(),
-      category: json['category'] as String? ?? '',
+      date: _date(data['date'], id),
+      category: _string(data['category'], id, 'category'),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
+  /// Campos que se escriben en Firestore al crear o actualizar. No incluye
+  /// `createdAt`/`updatedAt`: los agrega el datasource con serverTimestamp.
+  Map<String, dynamic> toFirestore() => {
         'title': title,
         'description': description,
         'amount': amount,
         'type': type == TransactionType.income ? 'income' : 'expense',
-        'date': date.toIso8601String(),
         'category': category,
+        'date': Timestamp.fromDate(date),
+        'monthKey': monthKey,
       };
 
   factory FinancesTransactionModel.fromEntity(
-      FinancesTransactionEntity entity) {
-    return FinancesTransactionModel(
-      id: entity.id,
-      title: entity.title,
-      description: entity.description,
-      amount: entity.amount,
-      type: entity.type,
-      date: entity.date,
-      category: entity.category,
-    );
+    final FinancesTransactionEntity entity,
+  ) =>
+      FinancesTransactionModel(
+        id: entity.id,
+        title: entity.title,
+        description: entity.description,
+        amount: entity.amount,
+        type: entity.type,
+        date: entity.date,
+        category: entity.category,
+      );
+
+  static String _string(
+    final Object? value,
+    final String id,
+    final String field,
+  ) {
+    if (value is String) return value;
+    if (value != null) {
+      debugPrint(
+        'FinancesTransactionModel[$id]: $field no es String ($value)',
+      );
+    }
+    return '';
+  }
+
+  static double _double(
+    final Object? value,
+    final String id,
+    final String field,
+  ) {
+    if (value is num) return value.toDouble();
+    debugPrint('FinancesTransactionModel[$id]: $field no es num ($value)');
+    return 0;
+  }
+
+  static DateTime _date(final Object? value, final String id) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    debugPrint('FinancesTransactionModel[$id]: date inválida ($value)');
+    return DateTime.now();
   }
 }

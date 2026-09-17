@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 
 class EditarPerfilScreen extends StatefulWidget {
   const EditarPerfilScreen({super.key});
@@ -18,21 +19,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
   late TextEditingController _businessController;
   late TextEditingController _goalController;
   String _selectedBusinessType = '';
-  String _selectedCurrency = 'MXN';
+  String _selectedCurrency = kDefaultCurrency;
   bool _isSaving = false;
   bool _initialized = false;
-
-  static const List<String> _businessTypes = [
-    'Taller Mecánico',
-    'Carpintería',
-    'Herrería',
-    'Electrónica',
-    'Costura / Moda',
-    'Construcción',
-    'Otro',
-  ];
-
-  static const List<String> _currencies = ['MXN', 'USD', 'EUR', 'ARS', 'COP'];
 
   @override
   void initState() {
@@ -53,7 +42,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       _goalController.text =
           profile?.monthlyGoal.toStringAsFixed(0) ?? '';
       _selectedBusinessType = profile?.businessType ?? '';
-      _selectedCurrency = profile?.currency ?? 'MXN';
+      _selectedCurrency = profile?.currency ?? kDefaultCurrency;
     }
   }
 
@@ -97,34 +86,20 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
 
     setState(() => _isSaving = true);
 
-    final initialsParts = name
-        .split(' ')
-        .where((p) => p.trim().isNotEmpty)
-        .take(2)
-        .map((p) => p.trim()[0].toUpperCase())
-        .toList();
-    final initials = initialsParts.isEmpty ? 'IA' : initialsParts.join();
-
-    final currentProfile = context.read<UserProfileProvider>().profile;
-    final updated = UserProfileEntity(
-      id: currentProfile?.id ?? 'local-user',
-      name: name,
-      businessName: businessName,
-      businessType: _selectedBusinessType,
-      currency: _selectedCurrency,
-      monthlyGoal: goal,
-      isPro: currentProfile?.isPro ?? false,
-      avatarInitials: initials,
-    );
-
     try {
-      await context.read<UserProfileProvider>().updateProfile(updated);
+      await context.read<UserProfileProvider>().updateFromSetup(
+            name: name,
+            businessName: businessName,
+            businessType: _selectedBusinessType,
+            currency: _selectedCurrency,
+            monthlyGoal: goal,
+          );
       if (!mounted) return;
       AppFeedback.showMessage(context, 'Perfil actualizado correctamente.');
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, 'Error al guardar. Intenta de nuevo.');
+      AppFeedback.showMessage(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -205,7 +180,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             Wrap(
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
-              children: _businessTypes.map((type) {
+              children: kBusinessTypes.map((type) {
                 final isSelected = type == _selectedBusinessType;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedBusinessType = type),
@@ -255,7 +230,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             const SizedBox(height: AppSpacing.xs),
             Wrap(
               spacing: AppSpacing.xs,
-              children: _currencies.map((code) {
+              children: kSupportedCurrencies.map((code) {
                 final isSelected = code == _selectedCurrency;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedCurrency = code),

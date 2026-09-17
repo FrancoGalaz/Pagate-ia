@@ -46,3 +46,26 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secretos y configuración local
+.mcp.json
+*.env
+.env.*
+!*.env.example
+landing/.env
+landing/.env.local
+landing/.npmrc
+functions/.npmrc
+
+# Cloud Functions (los parámetros no secretos de functions/.env sí se versionan;
+# los secretos van a Secret Manager o a functions/.secret.local)
+functions/node_modules/
+functions/lib/
+functions/.secret.local
+!functions/.env
+
+# Firebase CLI / emuladores
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

@@ -23,19 +23,22 @@ export default function WaitlistForm() {
       await saveWaitlistEntry({
         name: name.trim(),
         email: email.trim(),
-        createdAt: new Date().toISOString(),
         source: 'landing-page',
       });
       setStatus('success');
     } catch (err) {
       setStatus('error');
-      setErrorMsg(err instanceof Error ? err.message : 'Error al registrarte');
+      setErrorMsg(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No pudimos registrarte. Inténtalo de nuevo.',
+      );
     }
   };
 
   if (status === 'success') {
     return (
-      <div className="text-center py-6">
+      <div role="status" className="text-center py-6">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/20 mb-4">
           <CheckCircle2 className="w-8 h-8 text-success" />
         </div>
@@ -51,7 +54,11 @@ export default function WaitlistForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md">
+    <form
+      onSubmit={handleSubmit}
+      className="w-full max-w-md"
+      aria-busy={status === 'submitting'}
+    >
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 space-y-3 sm:space-y-0 sm:flex sm:gap-3">
           <input
@@ -92,7 +99,9 @@ export default function WaitlistForm() {
       </div>
 
       {status === 'error' && (
-        <p className="mt-2 text-sm text-red-300">{errorMsg}</p>
+        <p role="alert" className="mt-2 text-sm text-red-300">
+          {errorMsg}
+        </p>
       )}
 
       <p className="mt-3 text-xs text-text-muted">

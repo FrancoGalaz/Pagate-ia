@@ -57,7 +57,13 @@ class PagatePrimaryButton extends StatelessWidget {
                     Icon(leadingIcon, size: AppIconSize.md),
                     const SizedBox(width: AppSpacing.xs),
                   ],
-                  Text(label),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   if (trailingIcon != null) ...[
                     const SizedBox(width: AppSpacing.xs),
                     Icon(trailingIcon, size: AppIconSize.md),

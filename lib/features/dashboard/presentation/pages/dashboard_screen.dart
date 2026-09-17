@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
 import 'ayuda_screen.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/ia_tab.dart';
+import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/pages/finanzas_tab.dart';
+import '../../../finances/presentation/providers/finances_provider.dart';
+import '../../../finances/presentation/widgets/transaction_form_sheet.dart';
 import '../../../inventory/presentation/pages/inventario_tab.dart';
 import '../../../user_profile/presentation/pages/perfil_tab.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -71,17 +75,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _onQuickAction(HomeQuickAction action) {
     switch (action) {
       case HomeQuickAction.sale:
-        _setPage(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar una venta.',
-        );
+        showTransactionSheet(context, initialType: TransactionType.income);
       case HomeQuickAction.expense:
-        _setPage(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar un gasto.',
-        );
+        showTransactionSheet(context, initialType: TransactionType.expense);
       case HomeQuickAction.inventory:
         _setPage(2);
       case HomeQuickAction.ai:
@@ -105,15 +101,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 720;
+    return _MonthlyGoalSync(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
 
-        if (isWide) {
-          return _buildDesktopLayout();
-        }
-        return _buildMobileLayout(compact: constraints.maxWidth < 380);
-      },
+          if (isWide) {
+            return _buildDesktopLayout();
+          }
+          return _buildMobileLayout(compact: constraints.maxWidth < 380);
+        },
+      ),
     );
   }
 
@@ -140,7 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Container(
                     width: 44,
                     height: 44,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: AppColors.brandGradient,
                       borderRadius: AppRadius.xlBorder,
                     ),
@@ -242,6 +240,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+// ─── Meta mensual: perfil → finanzas ────────────────────────────────────
+
+/// La meta mensual vive en `users/{uid}.monthlyGoal`. Este widget la copia al
+/// [FinancesProvider] cada vez que cambia en el perfil, fuera del build.
+class _MonthlyGoalSync extends StatelessWidget {
+  const _MonthlyGoalSync({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = context.select<UserProfileProvider, double>(
+      (p) => p.profile?.monthlyGoal ?? 0,
+    );
+    final finances = Provider.of<FinancesProvider>(context, listen: false);
+    if (finances.monthlyGoal != goal) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => finances.setMonthlyGoal(goal),
+      );
+    }
+    return child;
+  }
+}
+
 // ─── Navigation Item Models ─────────────────────────────────────────────
 
 class _NavItem {
@@ -284,10 +305,10 @@ class _NavButton extends StatelessWidget {
                   right: 16,
                   child: Container(
                     height: 3,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       gradient: AppColors.brandGradient,
                       borderRadius: BorderRadius.vertical(
-                        bottom: const Radius.circular(2),
+                        bottom: Radius.circular(2),
                       ),
                     ),
                   ),
@@ -300,7 +321,7 @@ class _NavButton extends StatelessWidget {
                       duration: AppDurations.fast,
                       child: Icon(
                         isSelected ? item.activeIcon : item.icon,
-                        key: ValueKey('$isSelected-${compact}'),
+                        key: ValueKey('$isSelected-$compact'),
                         color: isSelected
                             ? AppColors.brand
                             : AppColors.textSecondaryDark,

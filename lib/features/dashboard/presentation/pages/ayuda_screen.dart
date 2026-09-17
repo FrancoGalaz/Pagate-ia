@@ -138,8 +138,7 @@ class _AyudaScreenState extends State<AyudaScreen> {
                             .map((final e) {
                           final i = e.key;
                           final faq = e.value;
-                          final isLast =
-                              i == AppMockData.faqItems.length - 1;
+                          final isLast = i == _faqItems.length - 1;
                           final isExpanded = _expandedIndex == i;
 
                           return Column(

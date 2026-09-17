@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
-import 'workshop_step_screen.dart';
+import '../../../user_profile/domain/entities/user_profile_entity.dart';
 
+/// Registro con correo y contraseña.
+///
+/// Al crear la cuenta el `AuthGate` detecta la sesión y muestra el onboarding
+/// (`SetupInicialScreen`) dentro del `UserScope`; el nombre se guarda en el
+/// `displayName` de Auth para precargarlo ahí. No navega manualmente.
 class IdentityStepScreen extends StatefulWidget {
   const IdentityStepScreen({super.key});
 
@@ -17,7 +23,7 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedCurrency = 'MXN';
+  String _selectedCurrency = kDefaultCurrency;
   bool _isLoading = false;
 
   @override
@@ -55,21 +61,12 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
       await context.read<FirebaseAuthService>().createUserWithEmailAndPassword(
             email: email,
             password: password,
+            displayName: name,
           );
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (final context) => const WorkshopStepScreen(),
-        ),
-      );
+      // El AuthGate detecta la sesión nueva y abre el onboarding.
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al crear cuenta. El correo podría ya estar registrado.',
-      );
+      AppFeedback.showMessage(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -288,7 +285,7 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  'México',
+                  'Chile',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: AppColors.textPrimary,
                       ),
@@ -312,7 +309,7 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
         ),
         child: Row(
           children: [
-            _buildCurrencyTab('MXN', _selectedCurrency == 'MXN'),
+            _buildCurrencyTab('CLP', _selectedCurrency == 'CLP'),
             _buildCurrencyTab('USD', _selectedCurrency == 'USD'),
           ],
         ),

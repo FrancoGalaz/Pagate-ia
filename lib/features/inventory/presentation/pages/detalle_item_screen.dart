@@ -247,6 +247,7 @@ class DetalleItemScreen extends StatelessWidget {
 
   Future<void> _showUpdateStockDialog(final BuildContext context) async {
     final controller = TextEditingController(text: item.stock.toString());
+    final provider = context.read<InventoryProvider>();
 
     await showDialog<void>(
       context: context,
@@ -281,19 +282,29 @@ class DetalleItemScreen extends StatelessWidget {
               final stock = int.tryParse(controller.text.trim());
               if (stock == null || stock < 0) {
                 AppFeedback.showMessage(
-                  context,
+                  dialogContext,
                   'Ingresa una cantidad válida de stock.',
                 );
                 return;
               }
 
-              await context.read<InventoryProvider>().updateStock(
-                    itemId: item.id,
-                    newStock: stock,
-                  );
+              try {
+                await provider.updateStock(itemId: item.id, newStock: stock);
+              } catch (e) {
+                if (!dialogContext.mounted) return;
+                AppFeedback.showMessage(
+                  dialogContext,
+                  InventoryProvider.describeError(
+                    e,
+                    fallback: 'No se pudo actualizar el stock',
+                  ),
+                );
+                return;
+              }
 
               if (!dialogContext.mounted) return;
               Navigator.pop(dialogContext);
+              if (!context.mounted) return;
               AppFeedback.showMessage(context, 'Stock actualizado.');
             },
             child: const Text('Guardar'),
@@ -337,7 +348,17 @@ class DetalleItemScreen extends StatelessWidget {
 
     if (!shouldDelete || !context.mounted) return;
 
-    await context.read<InventoryProvider>().deleteItem(item.id);
+    final provider = context.read<InventoryProvider>();
+    try {
+      await provider.deleteItem(item.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      AppFeedback.showMessage(
+        context,
+        InventoryProvider.describeError(e, fallback: 'No se pudo eliminar'),
+      );
+      return;
+    }
     if (!context.mounted) return;
     AppFeedback.showMessage(context, 'Item eliminado.');
     Navigator.pop(context);

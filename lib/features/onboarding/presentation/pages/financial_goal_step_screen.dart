@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
+import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
-import '../../../dashboard/presentation/pages/dashboard_screen.dart';
 
+/// Paso 3 del onboarding multipaso. Requiere los providers del `UserScope`.
+/// Hoy ninguna ruta lo abre (el gate usa `SetupInicialScreen`).
 class FinancialGoalStepScreen extends StatefulWidget {
   final String businessName;
   final String businessType;
@@ -31,38 +35,34 @@ class _FinancialGoalStepScreenState extends State<FinancialGoalStepScreen> {
   Future<void> _onStart() async {
     setState(() => _isSaving = true);
 
-    try {
-      // Save profile to Firestore
-      await context.read<UserProfileProvider>().updateFromSetup(
-            name: '', // Will be added when identity step passes this forward
-            businessName: widget.businessName,
-            businessType: widget.businessType,
-            currency: 'MXN',
-            monthlyGoal: _currentValue,
-          );
+    final profileProvider = context.read<UserProfileProvider>();
+    final hourlyRateProvider = context.read<HourlyRateProvider>();
+    final name = context.read<FirebaseAuthService>().displayName ?? 'Artesano';
 
-      // Calculate and save hourly rate based on goal
-      await context.read<HourlyRateProvider>().calculateAndSave(
-            desiredSalary: _currentValue,
-            workingDays: 22,
-            hoursPerDay: 8,
-          );
+    try {
+      await profileProvider.updateFromSetup(
+        name: name,
+        businessName: widget.businessName,
+        businessType: widget.businessType,
+        currency: kDefaultCurrency,
+        monthlyGoal: _currentValue,
+      );
+
+      final saved = await hourlyRateProvider.calculateAndSave(
+        desiredSalary: _currentValue,
+        workingDays: 22,
+        hoursPerDay: 8,
+      );
+      if (!saved) {
+        throw StateError(hourlyRateProvider.saveError ?? 'No se pudo guardar');
+      }
 
       if (!mounted) return;
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (final context) => const DashboardScreen(),
-        ),
-        (final route) => false,
-      );
+      // Con el perfil guardado, el gate muestra el dashboard en la raíz.
+      Navigator.of(context).popUntil((final route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al guardar configuración. Intenta nuevamente.',
-      );
+      AppFeedback.showMessage(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

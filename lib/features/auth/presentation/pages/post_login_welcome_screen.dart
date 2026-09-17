@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../dashboard/presentation/pages/dashboard_screen.dart';
 import '../../../onboarding/presentation/pages/setup_inicial_screen.dart';
 
+/// Bienvenida tras iniciar sesión. Solo tiene sentido dentro del `UserScope`
+/// (usa los providers del usuario). Hoy ninguna ruta la abre: el `AuthGate`
+/// decide entre onboarding y dashboard por sí solo.
 class PostLoginWelcomeScreen extends StatelessWidget {
   const PostLoginWelcomeScreen({
     super.key,
@@ -54,17 +56,17 @@ class PostLoginWelcomeScreen extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                _FeatureBullet(
+                const _FeatureBullet(
                   icon: Icons.bar_chart_rounded,
                   text: 'Monitorea ingresos y gastos en tiempo real.',
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                _FeatureBullet(
+                const _FeatureBullet(
                   icon: Icons.inventory_2_outlined,
                   text: 'Controla inventario y alertas de stock bajo.',
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                _FeatureBullet(
+                const _FeatureBullet(
                   icon: Icons.smart_toy_outlined,
                   text: 'Usa IA para decisiones de precios y margen.',
                 ),
@@ -74,7 +76,7 @@ class PostLoginWelcomeScreen extends StatelessWidget {
                   height: AppSizes.buttonHeight,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pushReplacement(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (final _) => const SetupInicialScreen(),
@@ -90,14 +92,8 @@ class PostLoginWelcomeScreen extends StatelessWidget {
                   width: double.infinity,
                   height: AppSizes.buttonHeight,
                   child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (final _) => const DashboardScreen(),
-                        ),
-                      );
-                    },
+                    onPressed: () => Navigator.of(context)
+                        .popUntil((final route) => route.isFirst),
                     child: const Text('Entrar al Dashboard ahora'),
                   ),
                 ),

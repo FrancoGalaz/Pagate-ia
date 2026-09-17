@@ -1,36 +1,39 @@
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/fixed_expense_entity.dart';
 
-/// Model for FixedExpense with manual JSON serialization.
+/// Modelo de gasto fijo con serialización manual hacia/desde Firestore.
 class FixedExpenseModel extends FixedExpenseEntity {
   const FixedExpenseModel({
     required super.id,
     required super.name,
     required super.amount,
-    required super.category,
   });
 
-  factory FixedExpenseModel.fromJson(Map<String, dynamic> json) {
+  /// Construye el modelo desde un documento. Nunca lanza por tipos
+  /// inesperados: usa valores por defecto seguros y lo registra.
+  factory FixedExpenseModel.fromDoc(
+    final String id,
+    final Map<String, dynamic> data,
+  ) {
+    final rawName = data['name'];
+    final rawAmount = data['amount'];
+    if (rawName is! String) {
+      debugPrint('FixedExpenseModel[$id]: name no es String ($rawName)');
+    }
+    if (rawAmount is! num) {
+      debugPrint('FixedExpenseModel[$id]: amount no es num ($rawAmount)');
+    }
     return FixedExpenseModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      category: json['category'] as String? ?? '',
+      id: id,
+      name: rawName is String ? rawName : '',
+      amount: rawAmount is num ? rawAmount.toDouble() : 0,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
+  /// Campos que se escriben en Firestore (sin `id`; `createdAt`/`updatedAt`
+  /// los agrega el datasource).
+  Map<String, dynamic> toFirestore() => {
         'name': name,
         'amount': amount,
-        'category': category,
       };
-
-  factory FixedExpenseModel.fromEntity(FixedExpenseEntity entity) {
-    return FixedExpenseModel(
-      id: entity.id,
-      name: entity.name,
-      amount: entity.amount,
-      category: entity.category,
-    );
-  }
 }

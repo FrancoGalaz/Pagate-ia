@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
-import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import 'editar_perfil_screen.dart';
@@ -77,7 +78,7 @@ class ConfiguracionScreen extends StatelessWidget {
                       _ItemRow(
                         icon: Icons.currency_exchange_rounded,
                         label: 'Moneda',
-                        subtitle: profile?.currency ?? 'MXN',
+                        subtitle: profile?.currency ?? 'CLP',
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -167,7 +168,7 @@ class ConfiguracionScreen extends StatelessWidget {
   Future<void> _resetPassword(BuildContext context) async {
     final auth = context.read<FirebaseAuthService>();
     final email = auth.email;
-    if (email.isEmpty) {
+    if (email == null || email.isEmpty) {
       AppFeedback.showMessage(
         context,
         'No hay un correo asociado a esta cuenta.',
@@ -183,10 +184,7 @@ class ConfiguracionScreen extends StatelessWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al enviar correo. Intenta de nuevo.',
-      );
+      AppFeedback.showMessage(context, describeFirebaseError(e));
     }
   }
 }

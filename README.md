@@ -1,25 +1,110 @@
-# Pagate-IA
+# Págate-IA
 
-[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/)
+[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/) · [App web](https://pagate-17211.web.app)
 
-Asistente de finanzas personales con IA. App móvil desarrollada en Flutter.
+Asistente financiero con IA para artesanos y creadores independientes. App Flutter + Firebase.
 
-Personal finance assistant powered by AI. Mobile app built with Flutter.
+AI-powered financial assistant for artisans and independent makers. Flutter + Firebase app.
 
 ---
 
 ## Español
 
-Pagate-IA ayuda a llevar el control de tus finanzas personales sin tener que pelearte con planillas de Excel ni apps llenas de gráficos que no dicen nada. La idea es simple: registras tus gastos e ingresos, y una IA los interpreta para darte respuestas concretas sobre en qué se te va la plata y dónde podrías ajustar.
+Págate-IA ayuda a quien vive de lo que hace con sus manos (cerámica, textil, joyería, madera, repostería, etc.) a saber cuánto vale su hora, cuánto cobrar por cada pieza, llevar el inventario de materiales y productos, y registrar ingresos y gastos. Una IA responde preguntas concretas sobre el negocio usando esos datos.
 
 ### Estado actual
 
-MVP funcional. Hay una base trabajando y se siguen sumando funcionalidades. No es un producto terminado todavía, pero ya se puede usar de punta a punta para el flujo principal.
+MVP funcional. Flujo completo: registro → configuración del valor hora → dashboard con finanzas, inventario y chat con IA. Todavía no es un producto terminado.
 
-### Stack
+### Arquitectura
 
-- Flutter (Dart) — app móvil multiplataforma
-- Integración con modelos de lenguaje para la capa de análisis financiero
+El contrato completo (modelo de datos, API del backend, convenciones del cliente) está en [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md). Resumen:
+
+- **Cliente:** Flutter (Dart, canal beta), estado con `provider`, estructura `features/<feature>/{data,domain,presentation}`. Lee Firestore con streams (`snapshots()`); los providers exponen `error` y `retry()`.
+- **Datos:** todo cuelga de `users/{uid}` (perfil, `inventory`, `transactions`, `fixedExpenses`, `months`, `conversations/{id}/messages`, `meta/usage`). Una sola regla de propiedad cubre el árbol. `months/*`, `conversations/*` y `meta/usage` los escribe **solo el backend**. `waitlist/*` no es accesible desde el cliente.
+- **Backend:** Cloud Functions 2ª gen (TypeScript, Node 22, región `southamerica-west1`):
+  - `chat` (callable): valida auth y cuota diaria (`free` 30 / `pro` 300), arma el prompt en el servidor con el contexto del usuario, llama a OpenRouter con el secreto `OPENROUTER_API_KEY` y persiste la conversación.
+  - `onTransactionWritten` (trigger Firestore): recalcula `users/{uid}/months/{yyyy-MM}` con consultas agregadas. Idempotente.
+  - `waitlist` (HTTP): recibe `{name, email, source}` desde la landing y escribe en `waitlist/{id}`. CORS limitado a los dominios de la landing y límite por IP.
+- **Seguridad:** ningún secreto viaja en el cliente. App Check (Play Integrity en Android, reCAPTCHA v3 en web) se activa con `--dart-define=APP_CHECK_SITE_KEY=...` y se exige en el backend con el parámetro `ENFORCE_APP_CHECK=true`.
+
+### Correr en local
+
+Requisitos: Flutter beta (`.metadata` → `channel: beta`), Node 22, Java 21 (para el emulador de Firestore).
+
+```bash
+# 1. Dependencias
+flutter pub get
+npm --prefix functions ci
+
+# 2. Emuladores (Auth 9099, Firestore 8080, Functions 5001, UI 4000)
+./scripts/dev.sh          # equivale a: npm --prefix functions exec -- firebase emulators:start
+
+# 3. App apuntando a los emuladores (en otra terminal)
+flutter run --dart-define=PAGATE_ENV=dev
+```
+
+Sin `PAGATE_ENV=dev` la app usa el proyecto real (`prod`). En el emulador de Android los emuladores se resuelven en `10.0.2.2`.
+
+Para el chat en local hay que definir el secreto también en el emulador: crea `functions/.secret.local` con `OPENROUTER_API_KEY=sk-or-...` (está ignorado por git).
+
+### Verificar
+
+```bash
+flutter analyze
+flutter test
+npm --prefix functions run build && npm --prefix functions test   # levanta el emulador de Firestore
+npm --prefix landing run lint && npm --prefix landing test && npm --prefix landing run build
+```
+
+CI (`.github/workflows/ci.yml`) ejecuta exactamente esos tres bloques en paralelo en cada push y pull request.
+
+### Desplegar
+
+Manual, desde una máquina con sesión iniciada (`npm --prefix functions exec -- firebase login`):
+
+```bash
+APP_CHECK_SITE_KEY=6Lc... ./scripts/deploy-web.sh   # hosting + reglas de Firestore + functions
+```
+
+Automático: el workflow `.github/workflows/deploy-web.yml` corre con `workflow_dispatch` o al crear un tag `v*`. Secretos que hay que crear en GitHub (Settings → Secrets and variables → Actions):
+
+| Secreto | Contenido |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | JSON completo de una cuenta de servicio del proyecto `pagate-17211` con roles *Firebase Hosting Admin*, *Cloud Functions Admin*, *Firebase Rules Admin*, *Service Account User*, *Cloud Run Admin* y *Artifact Registry Administrator* (o simplemente *Editor* para empezar). `firebase init hosting:github` la genera con permisos de hosting; hay que ampliarlos para functions. |
+| `APP_CHECK_SITE_KEY` | Site key de reCAPTCHA v3 registrada en App Check para la app web. Si no existe, el build sigue pero App Check queda desactivado en web. |
+
+### Checklist de configuración en consola (solo el dueño del proyecto)
+
+Estas tareas requieren acceso a la consola de Firebase / Google Cloud y no puede hacerlas un agente:
+
+1. **App web en Firebase.** Consola → Project settings → *Add app* → Web. Copiar la configuración generada en `lib/firebase_options.dart` (`web` y, si aplica, `android`). Habilitar Google como proveedor en Authentication → Sign-in method.
+2. **Plan Blaze.** Cloud Functions 2ª gen y los secretos requieren facturación. Activar el plan y crear **alertas de presupuesto** en Google Cloud → Billing → Budgets (p. ej. USD 5 y USD 20).
+3. **Secreto de OpenRouter.** Crear una clave nueva en OpenRouter y guardarla con:
+   ```bash
+   npm --prefix functions exec -- firebase functions:secrets:set OPENROUTER_API_KEY
+   ```
+   **Rotar (revocar) la clave antigua** que se compiló en versiones anteriores del cliente con `--dart-define=OPENROUTER_API_KEY`: cualquier build anterior la expone.
+4. **App Check.** Consola → App Check → registrar la app Android con *Play Integrity* (subir SHA-256 del keystore de release) y la app web con *reCAPTCHA v3* (crear la clave en Google Cloud → reCAPTCHA, dominio `pagate-17211.web.app`). Guardar la site key como secreto `APP_CHECK_SITE_KEY` (GitHub) y usarla en `scripts/deploy-web.sh`. Cuando ambas apps reporten tokens válidos en el panel de App Check, cambiar el parámetro de Functions `ENFORCE_APP_CHECK` a `true` (archivo `functions/.env` o en el deploy) y volver a desplegar.
+5. **Restringir las API keys** en Google Cloud → APIs & Services → Credentials:
+   - Clave Android: restricción por aplicación Android (paquete `com.example.pagate_ia` o el que quede en `android/app/build.gradle`) + SHA-1 de debug y release.
+   - Clave web: restricción por *HTTP referrer* (`https://pagate-17211.web.app/*`, `https://pagate-17211.firebaseapp.com/*`, `http://localhost:*` para desarrollo).
+   - En ambas, limitar las APIs a las que usa Firebase (Identity Toolkit, Firestore, Cloud Functions, Firebase App Check, Token Service).
+6. **Cuenta de servicio para CI** (ver tabla de secretos más arriba).
+7. **Dominio de la landing** en el CORS de `waitlist` (`functions/src`) si cambia de `francogalaz.github.io`.
+
+### Estructura del repo
+
+```
+lib/            app Flutter (features/<feature>/{data,domain,presentation})
+functions/      Cloud Functions (TypeScript)
+firestore.rules reglas de seguridad
+landing/        landing page (Vite + React); build publicado en landing-page/
+landing-page/   build estático servido por GitHub Pages (no editar a mano)
+docs/           ARQUITECTURA.md (contrato), investigación, prototipos HTML/JSX
+scripts/        dev.sh (emuladores) y deploy-web.sh
+test/           tests de Flutter
+```
 
 ### Autor
 
@@ -29,16 +114,27 @@ Franco Galaz — estudiante de Ingeniería, Universidad Andrés Bello (Chile).
 
 ## English
 
-Pagate-IA is a personal finance assistant that helps you keep track of your money without fighting spreadsheets or finance apps full of charts that say nothing. The idea is simple: you log your expenses and income, and an AI makes sense of them — telling you where your money actually goes and where you could cut back.
+Págate-IA helps people who make a living with their hands (ceramics, textiles, jewelry, woodwork, baking, etc.) figure out what their hour is worth, how much to charge per piece, keep track of materials and products, and log income and expenses. An AI answers concrete questions about the business using that data.
 
 ### Current status
 
-Working MVP. The core flow runs end to end and new features are being added on top. Not a finished product yet, but already usable.
+Working MVP. Full flow: sign up → hourly-rate setup → dashboard with finances, inventory and AI chat. Not a finished product yet.
 
-### Stack
+### Architecture
 
-- Flutter (Dart) — cross-platform mobile app
-- LLM integration for the financial analysis layer
+See [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) (Spanish) for the full contract. In short: Flutter client reading Firestore through streams; every user document lives under `users/{uid}`; monthly aggregates, conversations and usage counters are written only by the backend; Cloud Functions 2nd gen (`chat`, `onTransactionWritten`, `waitlist`) in `southamerica-west1`; the OpenRouter key lives in Secret Manager; App Check enforced once `ENFORCE_APP_CHECK=true`.
+
+### Run locally
+
+```bash
+flutter pub get && npm --prefix functions ci
+./scripts/dev.sh                                  # Firebase emulators
+flutter run --dart-define=PAGATE_ENV=dev          # app against the emulators
+```
+
+### Deploy
+
+`APP_CHECK_SITE_KEY=... ./scripts/deploy-web.sh`, or run the `Deploy` GitHub workflow (needs the `FIREBASE_SERVICE_ACCOUNT` and `APP_CHECK_SITE_KEY` secrets).
 
 ### Author
 

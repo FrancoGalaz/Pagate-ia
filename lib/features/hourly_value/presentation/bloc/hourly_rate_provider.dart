@@ -1,91 +1,104 @@
-import 'package:flutter/foundation.dart';
-import '../../domain/entities/hourly_rate_entity.dart';
-import '../../domain/usecases/calculate_hourly_rate.dart';
-import '../../domain/repositories/hourly_rate_repository.dart';
+import 'dart:async';
 
-/// State management for Hourly Rate configuration
-/// Using ChangeNotifier for reactive UI updates
+import 'package:flutter/foundation.dart';
+
+import '../../../../core/config/firebase_errors.dart';
+import '../../domain/entities/hourly_rate_entity.dart';
+import '../../domain/repositories/hourly_rate_repository.dart';
+import '../../domain/usecases/calculate_hourly_rate.dart';
+
+/// Estado del valor hora, alimentado por el stream de `users/{uid}`.
+///
+/// - [isLoading]: aún no llegó el primer snapshot.
+/// - [error]: fallo de lectura; [retry] vuelve a suscribirse.
+/// - [saveError]: último fallo al guardar, visible hasta el próximo intento.
 class HourlyRateProvider extends ChangeNotifier {
   final CalculateHourlyRate _calculateUseCase;
   final HourlyRateRepository _repository;
 
+  StreamSubscription<HourlyRateEntity?>? _subscription;
   HourlyRateEntity? _currentRate;
-  bool _isLoading = false;
-  String? _errorMessage;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _error;
+  String? _saveError;
 
   HourlyRateProvider({
     required final CalculateHourlyRate calculateUseCase,
     required final HourlyRateRepository repository,
   })  : _calculateUseCase = calculateUseCase,
         _repository = repository {
-    _loadSavedRate();
+    _subscribe();
   }
 
-  // Getters
   HourlyRateEntity? get currentRate => _currentRate;
   bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+  bool get isSaving => _isSaving;
+  String? get error => _error;
+  String? get saveError => _saveError;
   bool get hasConfiguration => _currentRate != null;
 
-  /// Load saved hourly rate from repository
-  Future<void> _loadSavedRate() async {
+  void _subscribe() {
+    _subscription?.cancel();
     _isLoading = true;
-    notifyListeners();
-
-    try {
-      _currentRate = await _repository.getHourlyRate();
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'Error al cargar configuración: $e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    _error = null;
+    _subscription = _repository.watchHourlyRate().listen(
+      (final rate) {
+        _currentRate = rate;
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      },
+      onError: (final Object e) {
+        _isLoading = false;
+        _error = describeFirebaseError(e);
+        notifyListeners();
+      },
+    );
   }
 
-  /// Calculate and save hourly rate
+  void retry() {
+    _subscribe();
+    notifyListeners();
+  }
+
+  /// Calcula y guarda el valor hora. Devuelve `true` si se guardó; si falla,
+  /// deja el motivo en [saveError].
   Future<bool> calculateAndSave({
     required final double desiredSalary,
     required final int workingDays,
     required final double hoursPerDay,
   }) async {
-    _isLoading = true;
-    _errorMessage = null;
+    _isSaving = true;
+    _saveError = null;
     notifyListeners();
 
     try {
-      // Calculate using the use case
-      final calculatedRate = _calculateUseCase.execute(
+      final rate = _calculateUseCase.execute(
         desiredSalary: desiredSalary,
         workingDays: workingDays,
         hoursPerDay: hoursPerDay,
       );
-
-      // Save to repository
-      await _repository.saveHourlyRate(calculatedRate);
-
-      // Update local state
-      _currentRate = calculatedRate;
-      _isLoading = false;
-      notifyListeners();
-
+      await _repository.saveHourlyRate(rate);
+      _currentRate = rate;
       return true;
     } catch (e) {
-      _errorMessage = 'Error al guardar configuración: $e';
-      _isLoading = false;
-      notifyListeners();
+      _saveError = describeFirebaseError(e);
       return false;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
     }
   }
 
-  /// Clear error message
-  void clearError() {
-    _errorMessage = null;
+  void clearSaveError() {
+    _saveError = null;
     notifyListeners();
   }
 
-  /// Refresh configuration from repository
-  Future<void> refresh() async {
-    await _loadSavedRate();
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 }

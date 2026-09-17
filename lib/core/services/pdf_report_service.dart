@@ -6,32 +6,22 @@ import '../../features/finances/domain/entities/finances_summary_entity.dart';
 import '../../features/finances/domain/entities/finances_transaction_entity.dart';
 import '../../features/finances/domain/entities/fixed_expense_entity.dart';
 
-/// Generates financial report PDFs.
-///
-/// Produces a branded report with the app's style:
-/// - Header with month name
-/// - Summary card (income, expenses, balance)
-/// - Monthly goal progress
-/// - Fixed expenses table
-/// - Recent transactions
-/// - Footer with generation date
+/// Genera reportes financieros en PDF con el estilo de la app:
+/// encabezado con el mes, resumen (ingresos, gastos, balance), progreso de la
+/// meta mensual, tabla de gastos fijos, transacciones y pie con la fecha.
 class PdfReportService {
   static const PdfColor _brand = PdfColor.fromInt(0xFF006B5F);
-  static const PdfColor _accent = PdfColor.fromInt(0xFFFF735C);
   static const PdfColor _success = PdfColor.fromInt(0xFF10B981);
   static const PdfColor _error = PdfColor.fromInt(0xFFEF4444);
   static const PdfColor _textPrimary = PdfColor.fromInt(0xFF16213E);
   static const PdfColor _textSecondary = PdfColor.fromInt(0xFF6B7280);
-  static const PdfColor _surface = PdfColor.fromInt(0xFFFFFFFF);
   static const PdfColor _bg = PdfColor.fromInt(0xFFF3F4F6);
   static const PdfColor _border = PdfColor.fromInt(0xFFE5E7EB);
 
-  /// Formats a number as currency: $1,234,567
+  /// Formatea un número como moneda: $1.234.567
   static String _fmt(double value) {
     final negative = value < 0;
-    final abs = value.abs();
-    final parts = abs.toStringAsFixed(0).split('.');
-    final intPart = parts[0];
+    final intPart = value.abs().toStringAsFixed(0);
     final formatted = StringBuffer();
     for (var i = 0; i < intPart.length; i++) {
       if (i > 0 && (intPart.length - i) % 3 == 0) {
@@ -42,13 +32,17 @@ class PdfReportService {
     return '${negative ? '-' : ''}\$$formatted';
   }
 
-  /// Generates a PDF report for a given month's finances.
+  /// Genera el reporte de un mes. La meta mensual vive en el perfil y los
+  /// gastos fijos en su propia colección, por eso llegan por separado.
   static Future<Uint8List> generateReport({
     required FinancesSummaryEntity summary,
     required List<FinancesTransactionEntity> transactions,
+    List<FixedExpenseEntity> fixedExpenses = const [],
+    double monthlyGoal = 0,
   }) async {
     final fontRegular = await PdfGoogleFonts.nunitoRegular();
     final fontBold = await PdfGoogleFonts.nunitoBold();
+    final goalProgress = summary.goalProgress(monthlyGoal);
 
     final doc = pw.Document(
       title: 'Reporte Financiero - ${summary.month}',
@@ -60,7 +54,7 @@ class PdfReportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(40),
         build: (pw.Context context) => [
-          // ─── Header ────────────────────────────────────────────────
+          // ─── Encabezado ────────────────────────────────────────────
           pw.Container(
             padding: const pw.EdgeInsets.only(bottom: 24),
             decoration: const pw.BoxDecoration(
@@ -108,12 +102,14 @@ class PdfReportService {
 
           pw.SizedBox(height: 28),
 
-          // ─── Summary Section ───────────────────────────────────────
+          // ─── Resumen ───────────────────────────────────────────────
           _sectionTitle('Resumen del Mes', fontBold),
           pw.SizedBox(height: 12),
-          _summaryRow('Ingresos', summary.totalIncome, _success, fontRegular, fontBold),
+          _summaryRow(
+              'Ingresos', summary.totalIncome, _success, fontRegular, fontBold),
           pw.Divider(color: _border, height: 20),
-          _summaryRow('Gastos', summary.totalExpenses, _error, fontRegular, fontBold),
+          _summaryRow(
+              'Gastos', summary.totalExpenses, _error, fontRegular, fontBold),
           pw.Divider(color: _border, height: 20),
           _summaryRow(
             'Balance',
@@ -123,89 +119,90 @@ class PdfReportService {
             fontBold,
             isBold: true,
           ),
-
-          pw.SizedBox(height: 28),
-
-          // ─── Monthly Goal ──────────────────────────────────────────
-          _sectionTitle('Meta Mensual', fontBold),
-          pw.SizedBox(height: 12),
-          pw.Container(
-            padding: const pw.EdgeInsets.all(16),
-            decoration: pw.BoxDecoration(
-              color: _bg,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Progreso',
-                      style: pw.TextStyle(
-                        font: fontRegular,
-                        fontSize: 12,
-                        color: _textSecondary,
-                      ),
-                    ),
-                    pw.Text(
-                      '${(summary.goalProgress * 100).toStringAsFixed(0)}%',
-                      style: pw.TextStyle(
-                        font: fontBold,
-                        fontSize: 14,
-                        color: _brand,
-                      ),
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 8),
-                pw.Container(
-                  height: 10,
-                  decoration: pw.BoxDecoration(
-                    color: _border,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-                  ),
-                  child: pw.ClipRRect(
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-                    child: pw.LinearProgressBar(
-                      value: summary.goalProgress,
-                      color: _brand,
-                      backgroundColor: PdfColors.transparent,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Text(
-                  'Objetivo: ${_fmt(summary.monthlyGoal)}',
-                  style: pw.TextStyle(
-                    font: fontRegular,
-                    fontSize: 11,
-                    color: _textSecondary,
-                  ),
-                ),
-              ],
+          pw.SizedBox(height: 8),
+          pw.Text(
+            '${summary.transactionCount} movimiento(s) registrado(s)',
+            style: pw.TextStyle(
+              font: fontRegular,
+              fontSize: 10,
+              color: _textSecondary,
             ),
           ),
 
           pw.SizedBox(height: 28),
 
-          // ─── Fixed Expenses ────────────────────────────────────────
-          if (summary.fixedExpenses.isNotEmpty) ...[
-            _sectionTitle('Gastos Fijos', fontBold),
+          // ─── Meta mensual ──────────────────────────────────────────
+          if (monthlyGoal > 0) ...[
+            _sectionTitle('Meta Mensual', fontBold),
             pw.SizedBox(height: 12),
-            _expensesTable(summary.fixedExpenses, fontRegular, fontBold),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                color: _bg,
+                borderRadius: pw.BorderRadius.circular(12),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'Progreso',
+                        style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 12,
+                          color: _textSecondary,
+                        ),
+                      ),
+                      pw.Text(
+                        '${(goalProgress * 100).toStringAsFixed(0)}%',
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 14,
+                          color: _brand,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.LinearProgressIndicator(
+                    value: goalProgress,
+                    valueColor: _brand,
+                    backgroundColor: PdfColors.grey300,
+                    minHeight: 10,
+                  ),
+                  pw.SizedBox(height: 6),
+                  pw.Text(
+                    'Objetivo: ${_fmt(monthlyGoal)}',
+                    style: pw.TextStyle(
+                      font: fontRegular,
+                      fontSize: 11,
+                      color: _textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             pw.SizedBox(height: 28),
           ],
 
-          // ─── Recent Transactions ──────────────────────────────────
+          // ─── Gastos fijos ──────────────────────────────────────────
+          if (fixedExpenses.isNotEmpty) ...[
+            _sectionTitle('Gastos Fijos', fontBold),
+            pw.SizedBox(height: 12),
+            _expensesTable(fixedExpenses, fontRegular, fontBold),
+            pw.SizedBox(height: 28),
+          ],
+
+          // ─── Transacciones ─────────────────────────────────────────
           if (transactions.isNotEmpty) ...[
-            _sectionTitle('Transacciones Recientes', fontBold),
+            _sectionTitle('Movimientos del Mes', fontBold),
             pw.SizedBox(height: 12),
             _transactionsTable(transactions, fontRegular, fontBold),
           ],
 
-          // ─── Footer ───────────────────────────────────────────────
+          // ─── Pie ───────────────────────────────────────────────────
           pw.SizedBox(height: 40),
           pw.Divider(color: _border),
           pw.SizedBox(height: 8),
@@ -233,15 +230,19 @@ class PdfReportService {
     return doc.save();
   }
 
-  /// Shares the PDF using the platform share sheet or downloads on web.
-  static Future<void> share({required Uint8List pdfBytes, required String month}) async {
+  /// Comparte el PDF con la hoja de compartir de la plataforma (o descarga
+  /// en web).
+  static Future<void> share({
+    required Uint8List pdfBytes,
+    required String month,
+  }) async {
     await Printing.sharePdf(
       bytes: pdfBytes,
       filename: 'Reporte_${month.replaceAll(' ', '_')}.pdf',
     );
   }
 
-  // ─── Private Helpers ──────────────────────────────────────────────
+  // ─── Helpers privados ─────────────────────────────────────────────
 
   static pw.Widget _sectionTitle(String title, pw.Font font) {
     return pw.Text(
@@ -291,28 +292,25 @@ class PdfReportService {
     pw.Font regularFont,
     pw.Font boldFont,
   ) {
+    final total = expenses.fold<double>(0, (s, e) => s + e.amount);
     return pw.Table(
       border: pw.TableBorder.all(color: _border, width: 0.5),
       columnWidths: {
-        0: const pw.FlexColumnWidth(3),
-        1: const pw.FlexColumnWidth(2),
-        2: const pw.FlexColumnWidth(1.5),
+        0: const pw.FlexColumnWidth(4),
+        1: const pw.FlexColumnWidth(1.5),
       },
       children: [
-        // Header row
         pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF006B5F)),
+          decoration: const pw.BoxDecoration(color: _brand),
           children: [
             _tableCell('Nombre', boldFont, PdfColors.white, isHeader: true),
-            _tableCell('Categoría', boldFont, PdfColors.white, isHeader: true),
-            _tableCell('Monto', boldFont, PdfColors.white, isHeader: true, align: pw.Alignment.centerRight),
+            _tableCell('Monto', boldFont, PdfColors.white,
+                isHeader: true, align: pw.Alignment.centerRight),
           ],
         ),
-        // Data rows
         ...expenses.map((e) => pw.TableRow(
               children: [
                 _tableCell(e.name, regularFont, _textPrimary),
-                _tableCell(e.category, regularFont, _textSecondary),
                 _tableCell(
                   '-${_fmt(e.amount)}',
                   boldFont,
@@ -321,6 +319,18 @@ class PdfReportService {
                 ),
               ],
             )),
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: _bg),
+          children: [
+            _tableCell('Total mensual', boldFont, _textPrimary),
+            _tableCell(
+              '-${_fmt(total)}',
+              boldFont,
+              _error,
+              align: pw.Alignment.centerRight,
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -339,17 +349,16 @@ class PdfReportService {
         3: const pw.FlexColumnWidth(1.5),
       },
       children: [
-        // Header row
         pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF006B5F)),
+          decoration: const pw.BoxDecoration(color: _brand),
           children: [
-            _tableCell('Descripción', boldFont, PdfColors.white, isHeader: true),
+            _tableCell('Título', boldFont, PdfColors.white, isHeader: true),
             _tableCell('Categoría', boldFont, PdfColors.white, isHeader: true),
             _tableCell('Fecha', boldFont, PdfColors.white, isHeader: true),
-            _tableCell('Monto', boldFont, PdfColors.white, isHeader: true, align: pw.Alignment.centerRight),
+            _tableCell('Monto', boldFont, PdfColors.white,
+                isHeader: true, align: pw.Alignment.centerRight),
           ],
         ),
-        // Data rows
         ...transactions.map((t) {
           final isIncome = t.type == TransactionType.income;
           return pw.TableRow(
@@ -397,7 +406,7 @@ class PdfReportService {
   }
 
   static String _formatDate(DateTime date) {
-    final months = [
+    const months = [
       'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
     ];

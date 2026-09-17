@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/widgets/pagate_error_state.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../providers/inventory_provider.dart';
 import '../../domain/entities/inventory_item_entity.dart';
@@ -22,6 +23,7 @@ class InventarioTab extends StatelessWidget {
     final unitController = TextEditingController(
       text: type == InventoryItemType.product ? 'piezas' : 'unidades',
     );
+    final provider = context.read<InventoryProvider>();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -32,7 +34,7 @@ class InventarioTab extends StatelessWidget {
           top: Radius.circular(AppRadius.xl),
         ),
       ),
-      builder: (final sheetContext) => Padding(
+      builder: (final sheetContext) => SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.md,
           AppSpacing.md,
@@ -108,27 +110,40 @@ class InventarioTab extends StatelessWidget {
                     stock == null ||
                     minStock == null ||
                     unit.isEmpty ||
-                    price <= 0 ||
+                    price < 0 ||
                     stock < 0 ||
                     minStock < 0) {
                   AppFeedback.showMessage(
-                    context,
+                    sheetContext,
                     'Completa todos los campos con valores válidos.',
                   );
                   return;
                 }
 
-                await context.read<InventoryProvider>().addItem(
-                      name: name,
-                      type: type,
-                      price: price,
-                      stock: stock,
-                      minStock: minStock,
-                      unit: unit,
-                    );
+                try {
+                  await provider.addItem(
+                    name: name,
+                    type: type,
+                    price: price,
+                    stock: stock,
+                    minStock: minStock,
+                    unit: unit,
+                  );
+                } catch (e) {
+                  if (!sheetContext.mounted) return;
+                  AppFeedback.showMessage(
+                    sheetContext,
+                    InventoryProvider.describeError(
+                      e,
+                      fallback: 'No se pudo guardar el item',
+                    ),
+                  );
+                  return;
+                }
 
                 if (!sheetContext.mounted) return;
                 Navigator.pop(sheetContext);
+                if (!context.mounted) return;
                 AppFeedback.showMessage(context, 'Item agregado correctamente.');
               },
             ),
@@ -159,7 +174,15 @@ class InventarioTab extends StatelessWidget {
             Expanded(
               child: provider.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _ItemList(items: provider.items),
+                  : provider.error != null
+                      ? PagateErrorState(
+                          message: provider.error!,
+                          onRetry: provider.retry,
+                        )
+                      : _ItemList(
+                          items: provider.items,
+                          isSearching: provider.searchQuery.isNotEmpty,
+                        ),
             ),
           ],
         ),
@@ -167,7 +190,10 @@ class InventarioTab extends StatelessWidget {
           right: AppSpacing.xl,
           bottom: AppSpacing.xl,
           child: FloatingActionButton(
-            onPressed: () => _openAddItemSheet(context, provider.activeTab),
+            heroTag: 'inventario_agregar',
+            onPressed: provider.error != null
+                ? null
+                : () => _openAddItemSheet(context, provider.activeTab),
             backgroundColor: AppColors.brand,
             child: const Icon(Icons.add_rounded, color: Colors.white),
           ),
@@ -299,8 +325,9 @@ class _TypeTab extends StatelessWidget {
 
 // ─── Item List ────────────────────────────────────────────────────────────
 class _ItemList extends StatelessWidget {
-  const _ItemList({required this.items});
+  const _ItemList({required this.items, this.isSearching = false});
   final List<InventoryItemEntity> items;
+  final bool isSearching;
 
   @override
   Widget build(final BuildContext context) {
@@ -313,7 +340,9 @@ class _ItemList extends StatelessWidget {
                 color: AppColors.textSecondaryDark, size: 48),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'No hay items registrados',
+              isSearching
+                  ? 'Sin resultados para tu búsqueda'
+                  : 'No hay items registrados',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondaryDark,
                   ),

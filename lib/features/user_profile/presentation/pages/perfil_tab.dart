@@ -4,7 +4,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../providers/user_profile_provider.dart';
-import '../../../auth/presentation/pages/login_screen.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
 import '../../../dashboard/presentation/pages/ayuda_screen.dart';
 
@@ -102,7 +101,7 @@ class PerfilTab extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       label: 'Moneda',
-                      value: profile?.currency ?? 'MXN',
+                      value: profile?.currency ?? 'CLP',
                     ),
                   ),
                   Container(
@@ -122,8 +121,13 @@ class PerfilTab extends StatelessWidget {
                     height: 40,
                     color: AppColors.borderDark,
                   ),
-                  const Expanded(
-                    child: _StatItem(label: 'Negocio', value: 'Taller'),
+                  Expanded(
+                    child: _StatItem(
+                      label: 'Negocio',
+                      value: (profile?.businessType.isNotEmpty ?? false)
+                          ? profile!.businessType
+                          : 'Sin definir',
+                    ),
                   ),
                 ],
               ),
@@ -180,16 +184,8 @@ class PerfilTab extends StatelessWidget {
                   icon: Icons.logout_rounded,
                   label: 'Cerrar Sesión',
                   isDestructive: true,
-                  onTap: () async {
-                    await context.read<FirebaseAuthService>().signOut();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (final _) => const LoginScreen()),
-                      (final route) => false,
-                    );
-                  },
+                  // El AuthGate vuelve a Welcome al cerrar la sesión.
+                  onTap: () => context.read<FirebaseAuthService>().signOut(),
                 ),
               ],
             ),

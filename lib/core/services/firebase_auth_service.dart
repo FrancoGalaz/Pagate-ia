@@ -1,51 +1,70 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart' as auth;
 
-/// Service that wraps FirebaseAuth and provides reactive auth state.
-/// Exposes currentUserId for use by datasources and repositories.
+/// Envuelve [FirebaseAuth] y expone el usuario actual de forma reactiva.
+///
+/// Escucha `userChanges()` (sesión + cambios de perfil como `displayName`)
+/// para notificar a la UI; el gate de autenticación usa [authStateChanges],
+/// que solo emite al iniciar o cerrar sesión.
 class FirebaseAuthService extends ChangeNotifier {
-  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
-  auth.User? _user;
+  final FirebaseAuth _auth;
+  late final StreamSubscription<User?> _subscription;
+  User? _user;
 
-  FirebaseAuthService() {
-    _auth.authStateChanges().listen((auth.User? user) {
+  FirebaseAuthService({FirebaseAuth? auth})
+      : _auth = auth ?? FirebaseAuth.instance {
+    _user = _auth.currentUser;
+    _subscription = _auth.userChanges().listen((user) {
       _user = user;
       notifyListeners();
     });
   }
 
-  auth.User? get user => _user;
+  /// Emite al iniciar o cerrar sesión. Es la fuente de verdad del `AuthGate`.
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  User? get user => _user;
   bool get isAuthenticated => _user != null;
-  String get userId => _user?.uid ?? 'anonymous';
-  String get email => _user?.email ?? '';
 
-  Future<auth.UserCredential> signInWithEmailAndPassword({
+  /// `null` cuando no hay sesión. Ya no existe el usuario `'anonymous'`.
+  String? get userId => _user?.uid;
+  String? get email => _user?.email;
+  String? get displayName => _user?.displayName;
+
+  Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
-  }) async {
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return credential;
-  }
+  }) =>
+      _auth.signInWithEmailAndPassword(email: email, password: password);
 
-  Future<auth.UserCredential> createUserWithEmailAndPassword({
+  /// Crea la cuenta y, si se indica, guarda [displayName] en el perfil de
+  /// Auth para que el onboarding pueda precargar el nombre.
+  Future<UserCredential> createUserWithEmailAndPassword({
     required String email,
     required String password,
+    String? displayName,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
+    final name = displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      await credential.user?.updateDisplayName(name);
+    }
     return credential;
   }
 
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
+  Future<void> signOut() => _auth.signOut();
 
-  Future<void> sendPasswordReset({required String email}) async {
-    await _auth.sendPasswordResetEmail(email: email);
+  Future<void> sendPasswordReset({required String email}) =>
+      _auth.sendPasswordResetEmail(email: email);
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 }

@@ -1,19 +1,31 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/google_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import 'login_screen.dart';
-import 'post_login_welcome_screen.dart';
 import 'phone_input_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  Future<void> _signInWithGoogle(final BuildContext context) async {
+    try {
+      await GoogleAuthService().signIn();
+      // El AuthGate detecta la sesión nueva.
+    } catch (e) {
+      if (!context.mounted) return;
+      AppFeedback.showMessage(context, describeFirebaseError(e));
+    }
+  }
+
   @override
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    final googleAvailable = GoogleAuthService().isAvailable;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -106,8 +118,9 @@ class WelcomeScreen extends StatelessWidget {
                                     ],
                                   ),
                                   border: Border.all(
-                                    color: AppColors.surface
-                                        .withValues(alpha: 0.5),
+                                    color: AppColors.surface.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     width: AppSizes.borderThin,
                                   ),
                                   boxShadow: AppShadows.xl,
@@ -115,8 +128,9 @@ class WelcomeScreen extends StatelessWidget {
                                 child: Icon(
                                   Icons.handyman_outlined,
                                   size: 80,
-                                  color: AppColors.textTertiary
-                                      .withValues(alpha: 0.3),
+                                  color: AppColors.textTertiary.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
                               ),
 
@@ -214,36 +228,21 @@ class WelcomeScreen extends StatelessWidget {
 
                       const SizedBox(height: AppSpacing.sm),
 
-                      PagateSocialButton(
-                        label: 'Continuar con Google',
-                        icon: Icons.g_mobiledata,
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final _) =>
-                                  const PostLoginWelcomeScreen(
-                                userName: 'Artesano',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
+                      if (googleAvailable) ...[
+                        PagateSocialButton(
+                          label: 'Continuar con Google',
+                          icon: Icons.g_mobiledata,
+                          onPressed: () => _signInWithGoogle(context),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                      ],
                       PagateSocialButton(
                         label: 'Continuar con Apple',
                         icon: Icons.apple,
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final _) =>
-                                  const PostLoginWelcomeScreen(
-                                userName: 'Artesano',
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: () => AppFeedback.showMessage(
+                          context,
+                          'Apple Sign-In estará disponible próximamente.',
+                        ),
                       ),
 
                       const SizedBox(height: AppSpacing.lg),
@@ -251,7 +250,7 @@ class WelcomeScreen extends StatelessWidget {
                       // Login link
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushReplacement(
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (final _) => const LoginScreen(),
@@ -328,48 +327,54 @@ class _FloatingStatsCard extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xs,
+    ),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: AppRadius.mdBorder,
+      boxShadow: AppShadows.md,
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xxs + 2),
+          decoration: BoxDecoration(
+            color: iconBackground,
+            borderRadius: AppRadius.xsBorder,
+          ),
+          child: Icon(icon, color: iconColor, size: AppIconSize.xs),
         ),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.mdBorder,
-          boxShadow: AppShadows.md,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.xxs + 2),
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: AppRadius.xsBorder,
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textTertiary,
+                  fontSize: 10,
+                  letterSpacing: 0.5,
+                ),
               ),
-              child: Icon(icon, color: iconColor, size: AppIconSize.xs),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                ),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
-            ),
-          ],
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(color: AppColors.textPrimary),
+              ),
+            ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }

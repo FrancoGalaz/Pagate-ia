@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/hourly_rate_model.dart';
 
-/// Local data source for HourlyRate using Firestore with offline persistence.
-/// Firestore automatically handles caching for offline-first functionality.
+/// Persistencia del valor hora en el mapa `hourlyRate` de `users/{uid}`.
+///
+/// El nombre "Local" es histórico: la persistencia offline la aporta la caché
+/// de Firestore. Toda escritura usa `merge` para no pisar el perfil.
 class HourlyRateLocalDataSource {
   final FirebaseFirestore _firestore;
   final String _userId;
@@ -13,45 +16,32 @@ class HourlyRateLocalDataSource {
   })  : _firestore = firestore,
         _userId = userId;
 
-  /// Collection reference for user preferences.
-  CollectionReference get _userCollection => _firestore.collection('users');
+  DocumentReference<Map<String, dynamic>> get _userDoc =>
+      _firestore.collection('users').doc(_userId);
 
-  /// Document reference for the current user's hourly rate configuration.
-  DocumentReference get _hourlyRateDoc => _userCollection.doc(_userId);
-
-  /// Fetches the hourly rate from Firestore (with offline cache support).
-  Future<HourlyRateModel?> getHourlyRate() async {
-    try {
-      final doc = await _hourlyRateDoc.get();
-
-      if (!doc.exists) return null;
-
-      final data = doc.data() as Map<String, dynamic>?;
-      if (data == null || !data.containsKey('hourlyRate')) return null;
-
-      return HourlyRateModel.fromJson(
-          data['hourlyRate'] as Map<String, dynamic>);
-    } catch (e) {
-      // In case of offline mode or errors, return null gracefully.
-      return null;
-    }
+  static HourlyRateModel? _fromData(final Map<String, dynamic>? data) {
+    final raw = data?['hourlyRate'];
+    if (raw is! Map<String, dynamic>) return null;
+    final hours = (raw['availableHoursPerMonth'] as num?)?.toDouble() ?? 0;
+    if (hours <= 0) return null;
+    return HourlyRateModel.fromJson(raw);
   }
 
-  /// Saves the hourly rate to Firestore.
-  /// Uses merge to avoid overwriting other user data fields.
-  Future<void> saveHourlyRate(final HourlyRateModel model) async {
-    await _hourlyRateDoc.set(
-      {
-        'hourlyRate': model.toJson(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-  }
+  /// Valor hora en tiempo real; `null` si no está configurado. Los errores se
+  /// propagan por el stream.
+  Stream<HourlyRateModel?> watchHourlyRate() =>
+      _userDoc.snapshots().map((snapshot) => _fromData(snapshot.data()));
 
-  /// Checks if configuration exists.
-  Future<bool> hasConfiguration() async {
-    final rate = await getHourlyRate();
-    return rate != null;
-  }
+  Future<HourlyRateModel?> getHourlyRate() async =>
+      _fromData((await _userDoc.get()).data());
+
+  Future<void> saveHourlyRate(final HourlyRateModel model) => _userDoc.set(
+        {
+          'hourlyRate': model.toJson(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+  Future<bool> hasConfiguration() async => await getHourlyRate() != null;
 }

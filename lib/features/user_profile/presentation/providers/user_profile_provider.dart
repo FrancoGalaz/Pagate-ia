@@ -1,97 +1,119 @@
-import 'package:flutter/foundation.dart';
-import '../../domain/repositories/user_profile_repository.dart';
-import '../../domain/entities/user_profile_entity.dart';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
+import '../../../../core/config/firebase_errors.dart';
+import '../../domain/entities/user_profile_entity.dart';
+import '../../domain/repositories/user_profile_repository.dart';
+
+/// Estado del perfil del usuario, alimentado por el stream de `users/{uid}`.
+///
+/// - [isLoading]: aún no llegó el primer snapshot.
+/// - [profile]: `null` cuando el usuario todavía no completó el onboarding.
+/// - [error]: fallo de lectura (permisos, red). [retry] vuelve a suscribirse.
+///
+/// Los guardados fallidos se relanzan al llamador para que la pantalla los
+/// muestre; nunca se silencian.
 class UserProfileProvider extends ChangeNotifier {
   final UserProfileRepository _repository;
 
+  StreamSubscription<UserProfileEntity?>? _subscription;
   UserProfileEntity? _profile;
-  bool _isLoading = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _error;
 
   UserProfileProvider({required UserProfileRepository repository})
       : _repository = repository {
-    _load();
+    _subscribe();
   }
 
   UserProfileEntity? get profile => _profile;
   bool get isLoading => _isLoading;
+  bool get isSaving => _isSaving;
+  String? get error => _error;
 
-  Future<void> _load() async {
+  void _subscribe() {
+    _subscription?.cancel();
     _isLoading = true;
-    notifyListeners();
-    try {
-      _profile = await _repository.getProfile();
-    } catch (_) {
-      // Profile doesn't exist yet (new user) — start with default
-      _profile = null;
-    }
-    _isLoading = false;
+    _error = null;
+    _subscription = _repository.watchProfile().listen(
+      (final profile) {
+        _profile = profile;
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      },
+      onError: (final Object e) {
+        _isLoading = false;
+        _error = describeFirebaseError(e);
+        notifyListeners();
+      },
+    );
+  }
+
+  /// Vuelve a suscribirse al perfil tras un error.
+  void retry() {
+    _subscribe();
     notifyListeners();
   }
 
+  /// Guarda el perfil completo. Relanza el error tras registrarlo.
+  Future<void> saveProfile(final UserProfileEntity profile) async {
+    _isSaving = true;
+    notifyListeners();
+    try {
+      await _repository.saveProfile(profile);
+      // El stream actualizará [_profile]; se refleja ya para evitar parpadeos.
+      _profile = profile;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Crea o actualiza el perfil con los datos del onboarding / Editar perfil.
+  /// Lanza [ArgumentError] si nombre o negocio vienen vacíos.
   Future<void> updateFromSetup({
     required String name,
     required String businessName,
     required String businessType,
     required String currency,
     required double monthlyGoal,
-  }) async {
+  }) {
     final safeName = name.trim();
     final safeBusinessName = businessName.trim();
-    if (safeName.isEmpty || safeBusinessName.isEmpty) return;
+    if (safeName.isEmpty || safeBusinessName.isEmpty) {
+      throw ArgumentError('Nombre y negocio son obligatorios.');
+    }
 
-    final initialsParts = safeName
-        .split(' ')
-        .where((part) => part.trim().isNotEmpty)
-        .take(2)
-        .map((part) => part.trim()[0].toUpperCase())
-        .toList();
+    final base = _profile ??
+        UserProfileEntity(
+          id: '',
+          name: safeName,
+          businessName: safeBusinessName,
+          businessType: businessType,
+          currency: currency,
+          monthlyGoal: monthlyGoal,
+          isPro: false,
+          avatarInitials: UserProfileEntity.initialsFor(safeName),
+        );
 
-    final initials = initialsParts.isEmpty ? 'IA' : initialsParts.join();
-
-    final updatedProfile = (_profile ?? const UserProfileEntity(
-      id: 'local-user',
-      name: 'Usuario',
-      businessName: 'Mi Negocio',
-      businessType: 'Taller',
-      currency: 'MXN',
-      monthlyGoal: 0,
-      isPro: false,
-      avatarInitials: 'IA',
-    ))
-        .copyWith(
-      name: safeName,
-      businessName: safeBusinessName,
-      businessType: businessType,
-      currency: currency,
-      monthlyGoal: monthlyGoal,
-      avatarInitials: initials,
+    return saveProfile(
+      base.copyWith(
+        name: safeName,
+        businessName: safeBusinessName,
+        businessType: businessType,
+        currency: currency,
+        monthlyGoal: monthlyGoal,
+        avatarInitials: UserProfileEntity.initialsFor(safeName),
+      ),
     );
-
-    // Persist to Firestore
-    try {
-      await _repository.saveProfile(updatedProfile);
-    } catch (_) {
-      // Fallback: saveProfile failed, try updateProfile
-      await _repository.updateProfile(updatedProfile);
-    }
-
-    _profile = updatedProfile;
-    notifyListeners();
   }
 
-  /// Update the full profile with new values and persist to Firestore.
-  Future<void> updateProfile(UserProfileEntity updated) async {
-    try {
-      await _repository.saveProfile(updated);
-    } catch (_) {
-      await _repository.updateProfile(updated);
-    }
-    _profile = updated;
-    notifyListeners();
-  }
-
-  Future<void> refresh() async {
-    await _load();
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 }

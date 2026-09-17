@@ -4,7 +4,8 @@ import '../../../../../core/constants/app_constants.dart';
 import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
-import '../../../widgets/financial_charts.dart';
+import '../../../../../core/widgets/pagate_error_state.dart';
+import '../../widgets/financial_charts.dart';
 
 enum HomeQuickAction {
   sale,
@@ -86,7 +87,7 @@ class _HomeHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hola, ${profile?.name?.split(' ').first ?? 'Artesano'} 👋',
+                  'Hola, ${profile?.name.split(' ').first ?? 'Artesano'} 👋',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.textPrimaryDark,
                         fontWeight: FontWeight.w700,
@@ -138,15 +139,14 @@ class _BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final summary = finances.selected;
+    final summary = finances.summary;
 
-    // Real data or zeros
-    final income = summary?.totalIncome ?? 0.0;
-    final expenses = summary?.totalExpenses ?? 0.0;
-    final balance = income - expenses;
-    final goal = summary?.monthlyGoal ?? 0.0;
-    final progress = goal > 0 ? (income / goal).clamp(0.0, 1.0) : 0.0;
-    final month = summary?.month;
+    final income = summary.totalIncome;
+    final expenses = summary.totalExpenses;
+    final balance = summary.balance;
+    final goal = finances.monthlyGoal;
+    final progress = finances.goalProgress;
+    final month = summary.month;
     final hasData = finances.hasData;
 
     return Padding(
@@ -182,7 +182,7 @@ class _BalanceCard extends StatelessWidget {
                     borderRadius: AppRadius.pillBorder,
                   ),
                   child: Text(
-                    hasData ? (month ?? 'Este mes') : 'Sin datos',
+                    hasData ? month : 'Sin datos',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
@@ -208,7 +208,7 @@ class _BalanceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            if (hasData) ...[
+            if (hasData && goal > 0) ...[
               ClipRRect(
                 borderRadius: AppRadius.pillBorder,
                 child: LinearProgressIndicator(
@@ -227,7 +227,9 @@ class _BalanceCard extends StatelessWidget {
               ),
             ] else
               Text(
-                'Registra tus primeros ingresos y gastos en Finanzas',
+                hasData
+                    ? 'Define tu meta mensual en tu perfil para ver el progreso'
+                    : 'Registra tus primeros ingresos y gastos en Finanzas',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.white70,
                     ),
@@ -439,7 +441,8 @@ class _RecentActivity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final transactions = finances.recentTransactions;
+    final transactions = finances.transactions.take(5).toList();
+    final error = finances.error;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
@@ -454,7 +457,18 @@ class _RecentActivity extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: AppSpacing.md),
-          if (transactions.isEmpty)
+          if (error != null)
+            PagateErrorState(
+              message: error,
+              onRetry: finances.retry,
+              compact: true,
+            )
+          else if (finances.isLoading || finances.isLoadingTransactions)
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.xl),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (transactions.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.xl),
@@ -522,7 +536,7 @@ class _TransactionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = transaction.type == 'income';
+    final isIncome = transaction.isIncome;
     final color = isIncome ? AppColors.success : AppColors.error;
 
     return Column(
@@ -553,7 +567,11 @@ class _TransactionRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      transaction.description,
+                      transaction.title.isNotEmpty
+                          ? transaction.title
+                          : transaction.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.textPrimaryDark,
                             fontWeight: FontWeight.w600,

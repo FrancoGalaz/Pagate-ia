@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../bloc/hourly_rate_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/premium_text_field.dart';
@@ -75,8 +76,14 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
       hoursPerDay: double.parse(_hoursController.text),
     );
 
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
       _showSuccessDialog();
+    } else {
+      AppFeedback.showMessage(
+        context,
+        provider.saveError ?? 'No se pudo guardar el valor hora.',
+      );
     }
   }
 
@@ -175,6 +182,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
                         const SizedBox(height: AppSpacing.xl),
                         _buildHeader(),
                         const SizedBox(height: AppSpacing.xxl),
+                        _buildLoadError(),
                         _buildInputCard(),
                         const SizedBox(height: AppSpacing.xl),
                         _buildSubmitButton(),
@@ -284,12 +292,54 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
         ),
       );
 
+  /// Aviso visible si el valor hora guardado no se pudo leer.
+  Widget _buildLoadError() => Consumer<HourlyRateProvider>(
+        builder: (final context, final provider, final child) {
+          final error = provider.error;
+          if (error == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: AppRadius.smBorder,
+                border:
+                    Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.error,
+                    size: AppIconSize.sm,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondaryDark,
+                          ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: provider.retry,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
   Widget _buildSubmitButton() => Consumer<HourlyRateProvider>(
         builder: (final context, final provider, final child) => SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: provider.isLoading ? null : _handleSubmit,
-            child: provider.isLoading
+            onPressed: provider.isSaving ? null : _handleSubmit,
+            child: provider.isSaving
                 ? const SizedBox(
                     height: AppIconSize.sm,
                     width: AppIconSize.sm,

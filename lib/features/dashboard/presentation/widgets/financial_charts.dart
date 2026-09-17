@@ -20,7 +20,9 @@ class MonthlyBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final months = finances.months;
+    // El provider entrega del más reciente al más antiguo; los gráficos van
+    // en orden cronológico.
+    final months = finances.months.reversed.toList();
 
     return _ChartCard(
       title: _title,
@@ -163,7 +165,7 @@ class NetBalanceLineChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final months = finances.months;
+    final months = finances.months.reversed.toList();
 
     if (months.length < 2) {
       return _ChartCard(
@@ -312,8 +314,8 @@ class CategoryPieChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final transactions = finances.recentTransactions.where(
-      (t) => t.type == TransactionType.expense,
+    final transactions = finances.transactions.where(
+      (t) => t.type == TransactionType.expense && t.amount > 0,
     );
 
     // Aggregate by category
@@ -323,19 +325,20 @@ class CategoryPieChart extends StatelessWidget {
       categoryTotals.update(cat, (v) => v + t.amount, ifAbsent: () => t.amount);
     }
 
-    if (categoryTotals.isEmpty) {
-      return _ChartCard(
+    final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
+    if (categoryTotals.isEmpty || total <= 0) {
+      return const _ChartCard(
         title: _title,
         icon: Icons.pie_chart_rounded,
-        child: const _EmptyChartMessage(
+        child: _EmptyChartMessage(
           message: 'Registra gastos para ver el desglose',
         ),
       );
     }
 
     final colors = _pieColors;
-    final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
-    final entries = categoryTotals.entries.toList();
+    final entries = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return _ChartCard(
       title: _title,
