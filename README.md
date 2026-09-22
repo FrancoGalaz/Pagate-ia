@@ -14,6 +14,8 @@ Págate-IA ayuda a quien vive de lo que hace con sus manos (cerámica, textil, j
 
 ### Estado actual
 
+Auditoría técnica y plan de trabajo por fases: [`docs/AUDITORIA-2026-09.md`](docs/AUDITORIA-2026-09.md) y [`docs/PLAN.md`](docs/PLAN.md).
+
 MVP funcional. Flujo completo: registro → configuración del valor hora → dashboard con finanzas, inventario y chat con IA. Todavía no es un producto terminado.
 
 ### Arquitectura
@@ -74,6 +76,8 @@ Automático: el workflow `.github/workflows/deploy-web.yml` corre con `workflow_
 | `FIREBASE_SERVICE_ACCOUNT` | JSON completo de una cuenta de servicio del proyecto `pagate-17211` con roles *Firebase Hosting Admin*, *Cloud Functions Admin*, *Firebase Rules Admin*, *Service Account User*, *Cloud Run Admin* y *Artifact Registry Administrator* (o simplemente *Editor* para empezar). `firebase init hosting:github` la genera con permisos de hosting; hay que ampliarlos para functions. |
 | `APP_CHECK_SITE_KEY` | Site key de reCAPTCHA v3 registrada en App Check para la app web. Si no existe, el build sigue pero App Check queda desactivado en web. |
 
+**Landing (GitHub Pages).** `landing-page/` lo regenera el workflow `.github/workflows/landing-pages.yml` en cada push a `main` que toque `landing/` (lint + test + build y commit automático de `landing-page/`). La URL de la función `waitlist` viene de `landing/.env.production` (o de la variable de repositorio `VITE_WAITLIST_URL`). Para regenerarlo a mano: `npm --prefix landing run build` y copiar `landing/dist/` sobre `landing-page/` (borrando antes los assets viejos).
+
 ### Checklist de configuración en consola (solo el dueño del proyecto)
 
 Estas tareas requieren acceso a la consola de Firebase / Google Cloud y no puede hacerlas un agente:
@@ -87,7 +91,7 @@ Estas tareas requieren acceso a la consola de Firebase / Google Cloud y no puede
    **Rotar (revocar) la clave antigua** que se compiló en versiones anteriores del cliente con `--dart-define=OPENROUTER_API_KEY`: cualquier build anterior la expone.
 4. **App Check.** Consola → App Check → registrar la app Android con *Play Integrity* (subir SHA-256 del keystore de release) y la app web con *reCAPTCHA v3* (crear la clave en Google Cloud → reCAPTCHA, dominio `pagate-17211.web.app`). Guardar la site key como secreto `APP_CHECK_SITE_KEY` (GitHub) y usarla en `scripts/deploy-web.sh`. Cuando ambas apps reporten tokens válidos en el panel de App Check, cambiar el parámetro de Functions `ENFORCE_APP_CHECK` a `true` (archivo `functions/.env` o en el deploy) y volver a desplegar.
 5. **Restringir las API keys** en Google Cloud → APIs & Services → Credentials:
-   - Clave Android: restricción por aplicación Android (paquete `com.example.pagate_ia` o el que quede en `android/app/build.gradle`) + SHA-1 de debug y release.
+   - Clave Android: restricción por aplicación Android (paquete `com.pagate.apppagate`, el `applicationId` de `android/app/build.gradle.kts`) + SHA-1 de debug y release.
    - Clave web: restricción por *HTTP referrer* (`https://pagate-17211.web.app/*`, `https://pagate-17211.firebaseapp.com/*`, `http://localhost:*` para desarrollo).
    - En ambas, limitar las APIs a las que usa Firebase (Identity Toolkit, Firestore, Cloud Functions, Firebase App Check, Token Service).
 6. **Cuenta de servicio para CI** (ver tabla de secretos más arriba).
@@ -100,7 +104,7 @@ lib/            app Flutter (features/<feature>/{data,domain,presentation})
 functions/      Cloud Functions (TypeScript)
 firestore.rules reglas de seguridad
 landing/        landing page (Vite + React); build publicado en landing-page/
-landing-page/   build estático servido por GitHub Pages (no editar a mano)
+landing-page/   build estático servido por GitHub Pages (no editar a mano; lo regenera landing-pages.yml)
 docs/           ARQUITECTURA.md (contrato), investigación, prototipos HTML/JSX
 scripts/        dev.sh (emuladores) y deploy-web.sh
 test/           tests de Flutter
