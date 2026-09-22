@@ -19,6 +19,13 @@ import 'env.dart';
 /// falló fue un paso posterior, no se vuelve a inicializar (evita
 /// `duplicate-app`).
 Future<void> bootstrapFirebase() async {
+  if (kIsWeb && !DefaultFirebaseOptions.webIsConfigured) {
+    throw StateError(
+      'Falta la configuración de Firebase para web (apiKey/appId) en '
+      'lib/firebase_options.dart. Ver tarea F0-01.',
+    );
+  }
+
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
