@@ -52,6 +52,9 @@ app.*.map.json
 *.env
 .env.*
 !*.env.example
+# landing/.env.production solo contiene la URL pública de la función waitlist
+# (no es un secreto); se versiona para que el build de landing-page/ la incluya.
+!landing/.env.production
 landing/.env
 landing/.env.local
 landing/.npmrc

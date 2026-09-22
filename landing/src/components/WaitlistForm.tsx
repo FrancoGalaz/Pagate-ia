@@ -10,7 +10,8 @@ export default function WaitlistForm() {
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const isValid = email.trim().length > 0 && email.includes('@');
+  const isValid =
+    name.trim().length > 0 && email.trim().length > 0 && email.includes('@');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,6 +64,7 @@ export default function WaitlistForm() {
         <div className="flex-1 space-y-3 sm:space-y-0 sm:flex sm:gap-3">
           <input
             type="text"
+            required
             placeholder="Tu nombre"
             value={name}
             onChange={(e) => setName(e.target.value)}
