@@ -46,6 +46,8 @@ export const onTransactionWritten = onDocumentWritten(
     document: 'users/{uid}/transactions/{txId}',
     region: REGION,
     memory: '256MiB',
+    // Tope de gasto: limita el escalado del trigger ante ráfagas de escrituras.
+    maxInstances: 10,
   },
   async (event) => {
     const uid = event.params.uid;

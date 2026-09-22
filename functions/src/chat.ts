@@ -139,6 +139,10 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
     secrets: [OPENROUTER_API_KEY],
     timeoutSeconds: 60,
     memory: '256MiB',
+    // Tope de gasto: evita escalado descontrolado ante abuso o picos.
+    maxInstances: 5,
+    // Orígenes web permitidos: hosting de producción y desarrollo local contra emuladores.
+    cors: ['https://pagate-17211.web.app', 'https://pagate-17211.firebaseapp.com', /^http:\/\/localhost(:\d+)?$/],
   },
   async (request) => {
     // 1. Autenticación y App Check.

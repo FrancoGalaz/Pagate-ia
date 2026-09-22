@@ -6,6 +6,10 @@ export const REGION = 'southamerica-west1';
 /** Clave de OpenRouter: vive en Secret Manager, nunca en el cliente. */
 export const OPENROUTER_API_KEY = defineSecret('OPENROUTER_API_KEY');
 
+// Los valores de producción de los parámetros no secretos (defineString/defineBoolean)
+// viven en `functions/.env` (versionado y desplegado). Los secretos (defineSecret)
+// solo en Secret Manager. Sin `.env`, se usan los `default` declarados aquí.
+
 /** Modelo usado por el asistente. */
 export const OPENROUTER_MODEL = defineString('OPENROUTER_MODEL', {
   default: 'deepseek/deepseek-v4-flash',
