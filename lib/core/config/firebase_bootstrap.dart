@@ -13,8 +13,17 @@ import 'env.dart';
 ///
 /// App Check nunca impide el arranque: cualquier fallo se registra con
 /// [debugPrint] y la app continúa.
+///
+/// Es seguro llamarla más de una vez (reintento desde `BootstrapErrorApp`):
+/// si `Firebase.initializeApp` ya terminó en un intento anterior y lo que
+/// falló fue un paso posterior, no se vuelve a inicializar (evita
+/// `duplicate-app`).
 Future<void> bootstrapFirebase() async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   _enableFirestorePersistence();
 
