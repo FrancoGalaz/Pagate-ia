@@ -33,10 +33,10 @@ Objetivo: login funciona en web y Android contra el proyecto real, el chat respo
 
 | ID | Tarea | Carril | Tam | Estado | Depende | Rama | Notas |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| F0-02 | `firebase_options.dart`: `currentPlatform` con `UnsupportedError` para plataformas sin config; valores web pendientes de F0-01 | C | S | todo | F0-01 | `lane/client-auth` | Sin inventar keys |
-| F0-03 | `main.dart`: try/catch alrededor de `bootstrapFirebase()`, pantalla de error con reintento, widget test | C | S | todo | — | `lane/client-auth` | Reutilizar `session_error_view.dart` / `pagate_error_state.dart` |
-| F0-05 | `maxInstances` (`chat` 5, `onTransactionWritten` 10, `waitlist` 2), `cors` restringido en `chat`, `functions/.env` (`ENFORCE_APP_CHECK=false`, `OPENROUTER_MODEL=deepseek/deepseek-v4-flash`) + `.env.example` | A | S | todo | — | `lane/backend` | `.gitignore` ya tiene `!functions/.env` |
-| F0-06 | `landing/.env.production` con `VITE_WAITLIST_URL`, rebuild de `landing-page/`, workflow `landing-pages.yml` | E | M | todo | — | `lane/infra` | URL pública ya en `landing/.env.example` |
+| F0-02 | `firebase_options.dart`: `currentPlatform` con `UnsupportedError` para plataformas sin config; valores web pendientes de F0-01 | C | S | parcial: Android listo, web blocked-F0-01 | F0-01 | `lane/client-auth` | Sin inventar keys |
+| F0-03 | `main.dart`: try/catch alrededor de `bootstrapFirebase()`, pantalla de error con reintento, widget test | C | S | done | — | `lane/client-auth` | Reutilizar `session_error_view.dart` / `pagate_error_state.dart` |
+| F0-05 | `maxInstances` (`chat` 5, `onTransactionWritten` 10, `waitlist` 2), `cors` restringido en `chat`, `functions/.env` (`ENFORCE_APP_CHECK=false`, `OPENROUTER_MODEL=deepseek/deepseek-v4-flash`) + `.env.example` | A | S | done (153f84f) | — | `lane/backend` | `.gitignore` ya tiene `!functions/.env` |
+| F0-06 | `landing/.env.production` con `VITE_WAITLIST_URL`, rebuild de `landing-page/`, workflow `landing-pages.yml` | E | M | done | — | `lane/infra` | URL pública ya en `landing/.env.example` |
 
 ### Smoke test de producción (F0-08, reutilizable en cada deploy)
 
