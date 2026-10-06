@@ -19,6 +19,7 @@ import {
   BUZON,
   CANAL_ALTERNATIVO,
   DELETION_SLA_DAYS,
+  FUNCIONES_APP,
   LEGAL_ROUTES,
   siteUrl,
 } from '../content/legal-meta';
@@ -131,6 +132,15 @@ export default function EliminarCuentaPage() {
             'Tu inscripción en la lista de espera de este sitio, si coincide con el correo de la cuenta.',
           ]}
         />
+        {FUNCIONES_APP.lectorBoletas && (
+          <p>
+            Las fotos y los documentos de boletas <strong>no están en esta lista</strong>,
+            y no es un olvido: la app los lee en tu propio teléfono y los descarta en
+            el momento, así que nunca llegaron a guardarse. No hay nada que borrar.
+            Sí se borra, con el resto del inventario, lo que confirmaste a partir de
+            esa lectura.
+          </p>
+        )}
       </LegalSection>
 
       <LegalSection id="que-no-se-borra" title="Qué no se borra, y por qué">

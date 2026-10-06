@@ -11,9 +11,20 @@
 // literal: no comprueba intenciones, comprueba que nadie copie y pegue de
 // vuelta el bloque que ya nos costó un hallazgo crítico de auditoría.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { FUNCIONES_APP } from './content/legal-meta';
 
 const SRC = join(import.meta.dirname, '.');
 
@@ -109,6 +120,175 @@ const CAMPOS_C3: Array<{ wire: string; donde: string }> = [
   { wire: 'boleta_venta', donde: 'docType de una transacción' },
   { wire: 'platformFee', donde: 'la comisión del medio de pago' },
 ];
+
+/** Todos los `.dart` bajo un directorio, recursivamente. */
+function dartSources(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      dartSources(full, acc);
+    } else if (entry.endsWith('.dart')) {
+      acc.push(full);
+    }
+  }
+  return acc;
+}
+
+/**
+ * Funciones que los documentos legales describen, con la señal que las delata en
+ * el código del cliente.
+ *
+ * Esto existe porque la landing y la app son dos builds distintos: el documento
+ * legal se publica desde `landing/` y las funciones que describe viven en `lib/`,
+ * así que nada impedía que el texto afirmara cosas que la app no hacía. Y las
+ * afirmó: que el usuario podía anotar proveedor y código interno en el inventario
+ * y editar su ficha «cuando quiera», cuando el formulario no pedía ninguno de los
+ * dos campos y ninguna pantalla llamaba a `updateItem`.
+ *
+ * `declarado` es lo que dice `FUNCIONES_APP` en `content/legal-meta.ts`, que es
+ * lo que la página redacta. `detectar()` va a mirar el cliente. Si no coinciden,
+ * este test falla en las DOS direcciones: con la función ya en `lib/` y el
+ * booleano en `false` los documentos se quedan cortos, y al contrario prometen lo
+ * que no existe, que es el caso grave.
+ *
+ * Si un carril implementa una de estas funciones con otra librería o en otra
+ * carpeta, lo que hay que corregir es la señal de aquí, no el booleano.
+ */
+const FUNCIONES_DECLARADAS: Array<{
+  clave: keyof typeof FUNCIONES_APP;
+  descripcion: string;
+  queAfirma: string;
+  detectar: (repo: string) => boolean;
+}> = [
+  {
+    clave: 'fichaInventarioCompleta',
+    descripcion: 'proveedor, código interno y pantalla de editar la ficha',
+    queAfirma:
+      'la política nombra proveedor y código y dice que la ficha de inventario se puede editar',
+    detectar: (repo) => {
+      // Se mira `presentation/` y se deja fuera `providers/`: el provider declara
+      // `updateItem` y acepta `supplier:` desde siempre, así que buscar ahí daría
+      // por hecha una función a la que el usuario no llega. Lo que determina si
+      // existe es que una PANTALLA la use.
+      const dir = join(repo, 'lib', 'features', 'inventory', 'presentation');
+      if (!existsSync(dir)) return false;
+      const dart = dartSources(dir)
+        .filter((f) => !f.includes(`${sep}providers${sep}`))
+        .map((f) => readFileSync(f, 'utf8'))
+        .join('\n');
+      return dart.includes('supplier:') && dart.includes('updateItem(');
+    },
+  },
+  {
+    clave: 'lectorBoletas',
+    descripcion: 'lector de boletas por foto, galería o documento compartido',
+    queAfirma:
+      'la política describe el lector como una función disponible, sin el aviso de que todavía no está',
+    detectar: (repo) => {
+      // La dependencia de reconocimiento de texto es la señal más estable: sin
+      // ella no hay lector, y vive en un archivo que no se toca por accidente.
+      const pubspec = readFileSync(join(repo, 'pubspec.yaml'), 'utf8');
+      return /mlkit_text_recognition/.test(pubspec);
+    },
+  },
+];
+
+describe('lo que los documentos legales describen coincide con la app', () => {
+  const repo = join(SRC, '..', '..');
+
+  for (const { clave, descripcion, queAfirma, detectar } of FUNCIONES_DECLARADAS) {
+    it(`${descripcion}: lo declarado coincide con lib/`, () => {
+      const declarado = FUNCIONES_APP[clave];
+      const detectado = detectar(repo);
+      expect(
+        { clave, declarado, detectado },
+        declarado
+          ? `FUNCIONES_APP.${clave} está en true, así que ${queAfirma}, y en el ` +
+              'cliente no se encuentra. Ponlo en false, o corrige la señal de ' +
+              'FUNCIONES_DECLARADAS si el carril la implementó de otra forma.'
+          : `la función ya está en el cliente y FUNCIONES_APP.${clave} sigue en ` +
+              'false, así que los documentos legales se quedan cortos. Ponlo en ' +
+              'true en landing/src/content/legal-meta.ts.',
+      ).toEqual({ clave, declarado, detectado: declarado });
+    });
+  }
+
+  it('las señales detectan de verdad: ninguna está ciega en silencio', () => {
+    // Sin esto, el test de arriba es el quinto falso verde de este proyecto. Una
+    // señal mal escrita —una ruta que ya no existe, una expresión que no engancha—
+    // devuelve `false` para siempre, coincide con un booleano en `false` y deja
+    // pasar en verde una política que promete de más el día que el carril aterrice.
+    //
+    // Así que se le da un cliente de mentira que SÍ tiene las dos funciones y se
+    // exige que las vea. Si una señal deja de enganchar, falla aquí.
+    const conFunciones = mkdtempSync(join(tmpdir(), 'pagate-senal-si-'));
+    const pages = join(conFunciones, 'lib', 'features', 'inventory', 'presentation', 'pages');
+    mkdirSync(pages, { recursive: true });
+    writeFileSync(
+      join(pages, 'editar_item_screen.dart'),
+      'await provider.updateItem(item.copyWith(supplier: _proveedor.text));\n',
+    );
+    writeFileSync(
+      join(conFunciones, 'pubspec.yaml'),
+      'dependencies:\n  google_mlkit_text_recognition: ^0.17.1\n',
+    );
+
+    try {
+      for (const { clave, detectar } of FUNCIONES_DECLARADAS) {
+        expect(
+          detectar(conFunciones),
+          `la señal de ${clave} no ve una app que sí tiene la función: está ciega`,
+        ).toBe(true);
+      }
+    } finally {
+      rmSync(conFunciones, { recursive: true, force: true });
+    }
+
+    // Y el falso positivo contrario: con las dos cadenas SOLO en `providers/`, que
+    // es donde han estado siempre, la ficha de inventario no está implementada.
+    // Este es el error que daba por buena la afirmación de la política.
+    const soloProvider = mkdtempSync(join(tmpdir(), 'pagate-senal-no-'));
+    const providers = join(
+      soloProvider, 'lib', 'features', 'inventory', 'presentation', 'providers',
+    );
+    mkdirSync(providers, { recursive: true });
+    writeFileSync(
+      join(providers, 'inventory_provider.dart'),
+      'Future<void> updateItem(final InventoryItemEntity item) => _repository.updateItem(item);\n' +
+        '  final String? supplier;\n  addItem(supplier: supplier);\n',
+    );
+    writeFileSync(join(soloProvider, 'pubspec.yaml'), 'dependencies:\n  provider: ^6.1.2\n');
+
+    try {
+      const ficha = FUNCIONES_DECLARADAS.find(
+        (f) => f.clave === 'fichaInventarioCompleta',
+      )!;
+      expect(
+        ficha.detectar(soloProvider),
+        'la señal se conforma con el provider: daría por hecha una función a la que el usuario no llega',
+      ).toBe(false);
+    } finally {
+      rmSync(soloProvider, { recursive: true, force: true });
+    }
+  });
+
+  it('la política describe el lector de boletas y lo esencial de su privacidad', () => {
+    // El apartado no puede desaparecer: Google pide que la política cubra la
+    // función ANTES de publicarla, y el aviso de «todavía no está» es lo que hace
+    // honesto describirla por adelantado. Estas cinco frases son el núcleo: si
+    // alguien recorta el apartado, lo que queda publicado es una app que lee
+    // boletas sin explicar qué hace con la imagen.
+    const privacidad = readFileSync(join(SRC, 'pages', 'PrivacidadPage.tsx'), 'utf8');
+    expect(privacidad).toContain('La imagen no se guarda');
+    expect(privacidad).toContain('El texto se lee dentro de tu teléfono');
+    expect(privacidad).toContain('Lo único que puede salir del teléfono es el texto');
+    expect(privacidad).toContain('Nada entra a tu inventario sin que tú lo confirmes');
+    // La advertencia por los datos del tercero que emitió la boleta.
+    expect(privacidad).toContain('Una boleta puede llevar datos de otra persona');
+    // Y el aviso de función no disponible, que solo se renderiza mientras lo esté.
+    expect(privacidad).toContain('!FUNCIONES_APP.lectorBoletas');
+  });
+});
 
 describe('la landing no vuelve a inventar datos', () => {
   const files = sourceFiles(SRC);

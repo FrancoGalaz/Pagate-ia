@@ -6,6 +6,8 @@
 //   · inventario → lib/features/inventory/data/models/
 //   · lo que sale hacia OpenRouter → functions/src/prompt.ts y chat.ts
 //   · lista de espera → functions/src/waitlist.ts
+//   · qué funciones del cliente existen de verdad → FUNCIONES_APP en
+//     content/legal-meta.ts, comprobado contra lib/ por honestidad.test.ts
 // Si se añade un campo nuevo al modelo de datos, hay que añadirlo aquí: el
 // formulario de Seguridad de Datos de Google Play exige que coincidan.
 
@@ -16,6 +18,7 @@ import {
   BUZON,
   CANAL_ALTERNATIVO,
   DELETION_SLA_DAYS,
+  FUNCIONES_APP,
   LEGAL_ROUTES,
   RESPONSABLE_IDENTIFICADO,
   RESPONSABLE_SIN_IDENTIFICAR,
@@ -123,9 +126,16 @@ export default function PrivacidadPage() {
               <strong>Gastos fijos</strong>: nombre y monto de cada uno.
             </>,
             <>
+              {/* `supplier` y `code` existen en el modelo
+                  (`inventory_item_model.dart`), pero mientras el formulario de alta
+                  no los pida el usuario no tiene forma de indicarlos: nombrarlos
+                  aquí era describir un campo al que no se llega. Lo decide
+                  FUNCIONES_APP, no una suposición. */}
               <strong>Inventario</strong>: nombre del producto o material, tipo, precio,
-              stock actual, stock mínimo, unidad de medida y, si los indicas, proveedor
-              y código interno.
+              stock actual, stock mínimo, unidad de medida
+              {FUNCIONES_APP.fichaInventarioCompleta
+                ? ' y, si los indicas, proveedor y código interno.'
+                : '.'}
             </>,
             <>
               <strong>Resúmenes mensuales</strong> que el servidor calcula a partir de
@@ -183,13 +193,97 @@ export default function PrivacidadPage() {
           ]}
         />
 
-        <h3 className="font-semibold text-text-primary pt-2">2.6 Qué NO recogemos</h3>
+        <h3 className="font-semibold text-text-primary pt-2">
+          2.6 Boletas y facturas que leas con una foto o un documento
+        </h3>
+        {/* La imagen no se guarda en ningún momento, y de ahí sale todo lo demás:
+            no aparece en el §6 de retención, no aparece en la lista de lo que
+            borra la eliminación de cuenta y no se declara como dato recopilado en
+            el formulario de Seguridad de los datos de Play. El razonamiento, con
+            la regla de Play citada, está en docs/SEGURIDAD-DATOS-PLAY.md §1.7. */}
+        {!FUNCIONES_APP.lectorBoletas && (
+          <p>
+            <strong>Esta función todavía no está en la app publicada</strong>: se
+            está construyendo. La describimos aquí desde ya, y no el día que
+            llegue, para que nadie se la encuentre sin haber podido leer antes qué
+            hace con sus datos. Lo que sigue es lo que hará.
+          </p>
+        )}
+        <p>
+          Para que no tengas que teclear material por material lo que compraste, la
+          app te deja leer una boleta o una factura de tres maneras: tomando una
+          foto con la cámara de tu teléfono, eligiendo una imagen que ya tienes en
+          la galería, o compartiendo a la app un PDF o una imagen que te llegó por
+          WhatsApp o por correo.
+        </p>
+        <LegalList
+          items={[
+            <>
+              <strong>La imagen no se guarda.</strong> Ni en tu teléfono ni en
+              nuestros servidores. Se abre, se lee y se descarta en el momento. No
+              hay un álbum de boletas dentro de la app, no se sube a ninguna parte
+              y no queda una copia que podamos ver nosotros, ni ahora ni después.
+            </>,
+            <>
+              <strong>El texto se lee dentro de tu teléfono.</strong> El
+              reconocimiento de texto lo hace el propio teléfono, sin conexión a
+              internet y sin enviar la imagen a ningún servidor, nuestro ni de
+              nadie.
+            </>,
+            <>
+              <strong>Lo único que puede salir del teléfono es el texto.</strong>{' '}
+              El reconocimiento devuelve líneas sueltas, y para convertirlas en
+              artículos con su cantidad, su nombre y su precio ese texto puede
+              viajar por el mismo camino que describe el punto 5.2: nuestro
+              servidor y, desde ahí, OpenRouter y el proveedor del modelo. Viaja el
+              texto; la imagen no.
+            </>,
+            <>
+              <strong>Nada entra a tu inventario sin que tú lo confirmes.</strong>{' '}
+              La app te muestra la lista que entendió para que la corrijas, borres
+              lo que no corresponda y la confirmes. Mientras no confirmes, no se
+              guarda nada.
+            </>,
+            <>
+              <strong>Lo que queda guardado son artículos de inventario</strong>, los
+              mismos campos del punto 2.3, como si los hubieras escrito tú. Nada
+              más.
+            </>,
+          ]}
+        />
+        <p>
+          <strong>El reconocimiento no es perfecto.</strong> Una boleta desvaída,
+          arrugada o impresa en papel térmico gastado da lecturas con errores: una
+          cifra de menos, un nombre partido en dos. Por eso el paso de revisión no
+          se puede saltar: la app propone, tú corriges y tú confirmas.
+        </p>
+        <p>
+          <strong>Una boleta puede llevar datos de otra persona.</strong> No lleva
+          solo lo que compraste: casi siempre lleva el nombre, el RUT, la dirección
+          o el teléfono de quien te la emitió, y a veces los tuyos. Eso son datos
+          personales de un tercero, y la app no los separa por ti, igual que no
+          separa el nombre de un cliente escrito en el título de una transacción. Si
+          el texto reconocido sale para ordenarlo, esos datos salen con él. Si
+          prefieres evitarlo, escribe los materiales a mano: la pantalla de revisión
+          te deja corregir lo que entra a tu inventario, pero para poder proponerte
+          esa lista el texto ya habrá viajado.
+        </p>
+
+        <h3 className="font-semibold text-text-primary pt-2">2.7 Qué NO recogemos</h3>
         <LegalList
           items={[
             'No hay publicidad ni identificadores publicitarios.',
             'No hay SDK de analítica ni de seguimiento de uso.',
-            'No se accede a tus contactos, tu ubicación, tu cámara, tu micrófono ni tus archivos.',
-            'No se conecta a tus cuentas bancarias y no se leen tus movimientos reales: todo lo que ves en la app lo escribes tú.',
+            // La app no pide permiso de cámara ni de fotos: usa la cámara y el
+            // selector del propio teléfono, que no los exigen. Pero decir «no se
+            // accede a tu cámara» con el lector de boletas ya en la app sería
+            // falso, así que la frase cambia con la función.
+            FUNCIONES_APP.lectorBoletas
+              ? 'No se accede a tus contactos, tu ubicación ni tu micrófono. A la cámara y a tus archivos se llega solo cuando tú eliges leer una boleta, con la cámara y el selector del propio teléfono, y la imagen no se guarda (punto 2.6).'
+              : 'No se accede a tus contactos, tu ubicación, tu cámara, tu micrófono ni tus archivos.',
+            FUNCIONES_APP.lectorBoletas
+              ? 'No se conecta a tus cuentas bancarias y no se leen tus movimientos reales: todo lo que ves en la app lo pusiste tú, escribiéndolo o confirmando lo que la app leyó de una boleta.'
+              : 'No se conecta a tus cuentas bancarias y no se leen tus movimientos reales: todo lo que ves en la app lo escribes tú.',
           ]}
         />
       </LegalSection>
@@ -199,6 +293,11 @@ export default function PrivacidadPage() {
           items={[
             'Crear tu cuenta y permitirte entrar.',
             'Mostrarte tus ingresos, gastos, resúmenes mensuales e inventario.',
+            ...(FUNCIONES_APP.lectorBoletas
+              ? [
+                  'Leer el texto de una boleta que fotografíes o compartas, para proponerte los materiales que compraste antes de que los confirmes.',
+                ]
+              : []),
             'Calcular tu valor hora y comparar tus ingresos con tu meta mensual.',
             'Dar contexto al asistente para que sus respuestas se refieran a tu negocio y no a un caso genérico.',
             'Aplicar el límite de mensajes del asistente y evitar abusos del servicio.',
@@ -314,10 +413,20 @@ export default function PrivacidadPage() {
           </a>
           .
         </p>
+        {FUNCIONES_APP.lectorBoletas && (
+          <p>
+            Por este mismo camino sale una segunda cosa, y solo si la pides: el{' '}
+            <strong>texto que la app lee de una boleta</strong> con el lector del
+            punto 2.6, para ordenarlo en artículos de inventario. Sale el texto
+            reconocido, nunca la imagen, y no se guarda como conversación.
+          </p>
+        )}
         <p>
           Si no quieres que esta información salga hacia un tercero, no uses el
-          asistente: el resto de la app (transacciones, inventario, valor hora,
-          resúmenes) funciona sin él y no envía nada a OpenRouter.
+          asistente{FUNCIONES_APP.lectorBoletas ? ' ni el lector de boletas' : ''}:
+          el resto de la app (transacciones, inventario, valor hora, resúmenes)
+          funciona sin {FUNCIONES_APP.lectorBoletas ? 'ellos' : 'él'} y no envía
+          nada a OpenRouter.
         </p>
 
         <h3 className="font-semibold text-text-primary pt-2">
@@ -346,6 +455,11 @@ export default function PrivacidadPage() {
               {BACKUP_RETENTION_DAYS} días más en expirar. Durante ese tiempo los datos
               ya no son accesibles desde la app ni se usan para nada.
             </>,
+            ...(FUNCIONES_APP.lectorBoletas
+              ? [
+                  'Las imágenes de boletas no se conservan ningún tiempo, porque no se guardan en ningún momento: no hay nada que expire ni que haya que borrar después.',
+                ]
+              : []),
             'Tu inscripción en la lista de espera se conserva hasta el lanzamiento de la app o hasta que pidas que la borremos, lo que ocurra primero.',
             'Los registros técnicos de las llamadas al servidor (fecha, función invocada y errores) se conservan según la retención por defecto de Google Cloud Logging y no se usan para identificarte.',
           ]}
@@ -363,9 +477,25 @@ export default function PrivacidadPage() {
               <strong>Acceder</strong> a los datos que tenemos sobre ti y pedir una copia.
             </>,
             <>
-              <strong>Rectificar</strong> los que estén equivocados. Tu perfil, tus
-              transacciones, tus gastos fijos y tu inventario los puedes editar tú mismo
-              desde la app en cualquier momento.
+              {/* Esta frase decía que las cuatro cosas se editaban «en cualquier
+                  momento» y tres eran falsas: ninguna pantalla llama a
+                  `updateTransaction`, `FinancesRepository` no tiene ningún método
+                  para actualizar un gasto fijo (solo `addFixedExpense` y
+                  `deleteFixedExpense`) y del inventario solo se puede ajustar el
+                  stock o borrar la ficha. Lo que sí existe es editar el perfil
+                  (`editar_perfil_screen.dart`) y repetir el cálculo del valor hora
+                  (`hourly_rate_setup_page.dart`), los dos desde Configuración. El
+                  derecho se cumple igual: lo que no puede corregir el usuario lo
+                  corregimos nosotros, y eso es lo que ahora dice la frase. */}
+              <strong>Rectificar</strong> los que estén equivocados. Tu perfil y tu
+              valor hora los cambias tú desde la app, en Perfil → Configuración. Una
+              transacción o un gasto fijo mal anotado se corrige borrándolo y
+              volviéndolo a anotar.
+              {FUNCIONES_APP.fichaInventarioCompleta
+                ? ' De tu inventario puedes editar la ficha completa, ajustar el stock o borrarla.'
+                : ' De tu inventario puedes ajustar el stock o borrar la ficha.'}{' '}
+              Si hay algo que no puedas corregir tú, escríbenos y lo corregimos
+              nosotros.
             </>,
             <>
               <strong>Eliminar</strong> tu cuenta y todos los datos asociados.

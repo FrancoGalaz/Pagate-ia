@@ -166,3 +166,46 @@ export const DATOS_PENDIENTES: readonly string[] = [
   esMarcador(CONTACT.privacy) ? 'correo de privacidad' : null,
   esMarcador(CONTACT.support) ? 'correo de soporte' : null,
 ].filter((x): x is string => x !== null);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Funciones de la app que estos documentos describen
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// La política de privacidad describe funciones que viven en `lib/`, y la landing
+// es un build distinto que no puede leer el código de la app. Eso ya nos mordió:
+// el documento afirmaba que el usuario podía anotar proveedor y código interno
+// en el inventario y editar su ficha «cuando quiera», y en la app no existía ni
+// el campo en el formulario ni la pantalla de editar. Un documento legal
+// publicado que promete de más es exactamente el hallazgo que retira una ficha.
+//
+// La salida no es escribir el texto optimista y esperar: es declarar aquí, con
+// un booleano, qué funciones están de verdad en la app, y que un test compruebe
+// esa declaración contra `lib/`. Mientras el booleano sea `false`, cada página
+// redacta la versión que corresponde al estado real.
+//
+// SI VIENES DE INTEGRAR UN CARRIL DE CLIENTE: pon el booleano en `true`. El test
+// «las funciones que la política describe coinciden con la app» de
+// `landing/src/honestidad.test.ts` falla —y dice qué poner— cuando una función
+// entra en `lib/` y aquí sigue declarada como ausente, y también al contrario.
+export const FUNCIONES_APP = {
+  /**
+   * Ficha de inventario completa: los campos de **proveedor** y **código
+   * interno** en el formulario de alta, y la pantalla de **editar** una ficha ya
+   * creada (hoy solo se puede ajustar el stock o borrarla).
+   *
+   * Señal en el código: `supplier:` y `updateItem(` en
+   * `lib/features/inventory/presentation/`, fuera de `providers/`.
+   */
+  fichaInventarioCompleta: false,
+
+  /**
+   * Lector de boletas: tomar una foto, elegir una imagen de la galería o
+   * compartir un PDF a la app, y que de ahí salgan los artículos para revisarlos
+   * antes de meterlos al inventario. El reconocimiento de texto ocurre **en el
+   * teléfono** y la imagen no se guarda en ninguna parte.
+   *
+   * Señal en el código: la dependencia de reconocimiento de texto en
+   * `pubspec.yaml`.
+   */
+  lectorBoletas: false,
+} as const;
