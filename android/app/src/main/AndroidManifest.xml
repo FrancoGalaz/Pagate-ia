@@ -1,8 +1,49 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ================== Permisos que la app SÍ usa ==================
+         Se declaran aquí explícitamente aunque las AAR de Firebase ya los
+         aportan por fusión de manifiestos. Dejarlos implícitos significa que la
+         superficie de permisos del APK depende de qué versión de qué SDK
+         resuelva Gradle ese día; declararlos hace que `aapt2 dump permissions`
+         sobre el AAB sea una lista revisable y no un efecto colateral. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ========= Permisos que llegan arrastrados y se eliminan =========
+         Ninguno corresponde a una función de la app: Págate no envía ni recibe
+         notificaciones push. La ficha de Google Play muestra los permisos al
+         usuario, así que pedir mensajería que no existe es ruido que resta
+         instalaciones y que además hay que justificar en la revisión.
+
+         Origen exacto de cada uno, leído del informe del fusionador
+         (build/app/outputs/logs/manifest-merger-release-report.txt):
+         - WAKE_LOCK y c2dm.permission.RECEIVE los añade
+           com.google.firebase:firebase-iid, que entra como dependencia
+           transitiva de firebase_auth. Su código solo despierta el dispositivo
+           si hay FCM registrado, y aquí no hay ninguna dependencia de
+           Cloud Messaging.
+         - READ_GSERVICES lo añade com.google.android.recaptcha, que entra por
+           firebase_auth / firebase_app_check. Lo usa el flujo de reCAPTCHA de
+           verificación por SMS; esta app solo autentica con correo y
+           contraseña, nunca con teléfono.
+
+         `tools:node="remove"` necesita que el permiso esté nombrado aquí para
+         poder tacharlo del manifiesto fusionado; no es una declaración de uso.
+         Verificado sobre el APK de release con:
+           build-tools/36.1.0/aapt2.exe dump permissions <apk> -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"
+        tools:node="remove" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"
+        tools:node="remove" />
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"
+        tools:node="remove" />
+
     <application
         android:label="Pagate-IA"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
