@@ -355,7 +355,7 @@ impuestos. Rellenar por defecto un «3,19 %» sería inventarle un dato al usuar
 Pegar tal cual. Play acepta un subconjunto de HTML en este campo; este texto está
 en texto plano a propósito, que es lo que se ve bien en todos los dispositivos.
 
-**3.897 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 103
+**3.931 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 69
 de margen: si hay que añadir una línea, hay que quitar otra, y el recuento se
 hace de verdad y no a ojo. Para volver a contarlo, copiar el bloque a un archivo
 y pedir su longitud en caracteres —no en bytes, que con las tildes no es lo
@@ -384,9 +384,9 @@ Dices cuánto quieres ganar al mes y cuántas horas puedes trabajar de verdad.
 La app calcula lo que tiene que valer tu hora para que eso ocurra. Con ese
 número, poner precio deja de ser una corazonada.
 
-Y te muestra lo que tu hora valió DE VERDAD: si anotas la comisión que te
-descontó el medio de pago, el cálculo sale de lo que recibiste, no de lo que
-cobraste.
+Y al cerrar el mes te muestra dos cifras, con su nombre exacto: lo que te entró
+por hora y lo que te sobró por hora una vez pagados los gastos. No son lo mismo,
+y la diferencia suele sorprender.
 
 
 ORDENA TUS INGRESOS Y GASTOS
@@ -518,16 +518,33 @@ una. Nada de cifras que la app no pueda producir:
    va tu mes, de una mirada».
 2. **Calculadora de valor hora**, con el resultado visible. Titular: «Cuánto
    tiene que valer tu hora».
-3. **Valor hora neto**, la sección que descuenta las comisiones registradas.
-   Titular: «Y cuánto te quedó de verdad». Vale una captura propia porque es la
-   frontera que describe `docs/COMPETENCIA.md` §2: descontar la comisión del
-   medio de pago **no** es un diferenciador —CraftCost lo hace, con perfiles por
-   plataforma— pero hacerlo **sobre los ingresos reales del mes para sacar el
-   valor de la hora** sí lo es, porque ninguna de las siete calculadoras lleva
-   las cuentas del mes. No escribir en la ficha que «nadie descuenta comisiones»:
-   es falso y está desmentido en ese documento. **La sección sale solo en el mes
-   en curso de la cuenta demo**, que es el único con comisiones sembradas (8.995
-   CLP sobre 980.000 de ingresos).
+3. **Lo que la hora valió de verdad**, la sección que la app muestra bajo el
+   valor hora objetivo. Titular: «Lo que te entró y lo que te sobró».
+
+   **Ojo con el titular, que aquí es donde se mintió una vez.** La pantalla
+   muestra **dos** cifras con dos nombres distintos, y no son intercambiables
+   (`net_hourly_value_section.dart`):
+
+   - **«Lo que te entró por hora»** = (ingresos − comisiones) ÷ horas. **No
+     descuenta los gastos.**
+   - **«Lo que te sobró por hora»** = la anterior menos los gastos del mes. Puede
+     ser negativa, y la app no la recorta a cero.
+
+   Con los datos de la cuenta demo de este mes son **$8.092** y **$2.754**: casi
+   el triple de diferencia. Un titular como «cuánto te quedó» sobre la primera
+   cifra es exactamente el error que se corrigió en el código, así que no puede
+   volver por la ficha.
+
+   Vale una captura propia porque es la frontera que describe
+   `docs/COMPETENCIA.md` §1.9: descontar la comisión del medio de pago **no** es
+   un diferenciador —CraftCost lo hace, con perfiles por plataforma— pero hacerlo
+   **sobre los ingresos reales del mes para sacar el valor de la hora** sí lo es,
+   porque ninguna de las siete calculadoras lleva las cuentas del mes. No
+   escribir en la ficha que «nadie descuenta comisiones»: es falso y está
+   desmentido en ese documento.
+
+   **Las dos cifras salen solo en el mes en curso de la cuenta demo**, que es el
+   único con comisiones sembradas (8.995 CLP sobre 980.000 de ingresos).
 4. **Registro de un movimiento**, el formulario abierto, con los campos de
    documento y comisión a la vista. Titular: «Anota una venta en segundos».
 5. **Finanzas**, con la lista de movimientos del mes. Titular: «Todo lo que
