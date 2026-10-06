@@ -134,9 +134,13 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
   valor de acuerdo a la moneda que indique […] no puedo ingresar detalle a
   detalle del material*». El desarrollador responde que ya ajustó ambas cosas.
 - **Lectura:** el problema de «la moneda que elijo no se respeta» es el **mismo
-  bug** que la auditoría encontró en Págate-IA (cinco formateadores distintos,
-  símbolo `$` fijo y `profile.currency` ignorado). Que a un competidor le cueste
-  reseñas de una estrella es la mejor razón para cerrar el hallazgo R-0.
+  bug** que la auditoría había encontrado en Págate-IA (cinco formateadores
+  distintos, símbolo `$` fijo y `profile.currency` ignorado). Que a un
+  competidor le cueste reseñas de una estrella es la mejor confirmación de que
+  valía la pena cerrar el hallazgo R-0, que ya está corregido en
+  `arquitectura-segura` (commit `adc11e5`). Conviene no volver a abrirlo: es un
+  fallo que el usuario ve en la primera pantalla y por el que deja una
+  estrella.
 
 ### 1.6 Craft Pricing Calculator — la referencia en inglés
 
@@ -212,10 +216,11 @@ apps, o una app y una libreta.
    sostener**, no una frase de la landing.
 
 3. **La moneda y el formato chileno hechos bien.** Un competidor directo recibe
-   reseñas negativas porque no respeta la moneda elegida. Págate-IA tiene hoy el
-   mismo problema (hallazgo R-0 de la auditoría). Hacerlo bien —miles con punto,
-   sin decimales en CLP, negativos legibles— es barato y se nota en la primera
-   pantalla.
+   reseñas negativas porque no respeta la moneda elegida. Págate-IA tenía
+   exactamente el mismo fallo (hallazgo R-0) y ya está corregido en
+   `arquitectura-segura` (commit `adc11e5`). Es una ventaja pequeña y real:
+   miles con punto, sin decimales en CLP y negativos legibles se notan en la
+   primera pantalla, y al competidor le cuestan valoraciones.
 
 4. **Soporte con cara.** La única reseña sustantiva de Mi Negocio Simple destaca
    el WhatsApp directo con los desarrolladores. Para este público, poder
