@@ -155,6 +155,10 @@ class FinancesProvider extends ChangeNotifier {
   /// Si el mes de la transacción no existe todavía en [months], no pasa nada:
   /// el trigger lo creará y el stream lo traerá. Mientras tanto la vista
   /// salta a ese mes para que el usuario vea lo que registró.
+  /// [docType] y [platformFee] son los campos del contrato C-3. Solo tienen
+  /// sentido en un ingreso y el formulario únicamente los envía en ese caso;
+  /// aquí no se fuerza nada, pero sí se valida la comisión, porque de ella
+  /// depende el ingreso neto y el valor hora que se muestra.
   Future<void> addTransaction({
     required final String title,
     required final double amount,
@@ -162,6 +166,8 @@ class FinancesProvider extends ChangeNotifier {
     required final String category,
     required final DateTime date,
     final String description = '',
+    final TransactionDocType docType = TransactionDocType.fallback,
+    final double platformFee = 0,
   }) async {
     final safeTitle = title.trim();
     if (safeTitle.isEmpty) {
@@ -169,6 +175,12 @@ class FinancesProvider extends ChangeNotifier {
     }
     if (!amount.isFinite || amount <= 0) {
       throw ArgumentError('El monto debe ser mayor que cero');
+    }
+    if (!platformFee.isFinite || platformFee < 0) {
+      throw ArgumentError('La comisión no puede ser negativa');
+    }
+    if (platformFee > amount) {
+      throw ArgumentError('La comisión no puede ser mayor que el monto');
     }
     final transaction = FinancesTransactionEntity(
       id: '',
@@ -178,6 +190,8 @@ class FinancesProvider extends ChangeNotifier {
       type: type,
       date: date,
       category: category.trim(),
+      docType: docType,
+      platformFee: platformFee,
     );
     await _repository.addTransaction(transaction);
     if (_disposed) return;

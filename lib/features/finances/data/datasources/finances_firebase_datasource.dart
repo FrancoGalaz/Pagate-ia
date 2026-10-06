@@ -118,12 +118,19 @@ class FinancesFirebaseDataSource {
     });
   }
 
+  /// Actualiza una transacción existente.
+  ///
+  /// `forUpdate: true` hace que los campos opcionales del contrato C-3
+  /// (`docType`, `platformFee`) se borren con `FieldValue.delete()` cuando
+  /// vuelven a su valor por defecto. Sin eso, quitar la comisión de un
+  /// movimiento la dejaría intacta en el servidor, porque `update()` solo
+  /// toca las claves que recibe.
   Future<void> updateTransaction(
     final FinancesTransactionEntity transaction,
   ) async {
     final model = FinancesTransactionModel.fromEntity(transaction);
     await _transactions.doc(transaction.id).update({
-      ...model.toFirestore(),
+      ...model.toFirestore(forUpdate: true),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
