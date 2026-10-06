@@ -117,7 +117,12 @@ class _PagateMonthSelectorState extends State<PagateMonthSelector> {
     // Con un solo mes no hay nada que elegir y la fila sería ruido.
     if (meses.length <= 1) return const SizedBox.shrink();
 
-    return DecoratedBox(
+    // `SizedBox(width: infinity)` alrededor: dentro de una `Column`, el
+    // `SingleChildScrollView` horizontal recibe constraints sueltas y se
+    // encoge al contenido, así que los chips quedaban centrados y la línea
+    // inferior solo cubría el trozo ocupado.
+    return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         color: AppPalette.canvas,
         border: Border(

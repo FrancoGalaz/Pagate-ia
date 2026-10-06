@@ -119,17 +119,18 @@ class MonthlyBarChart extends StatelessWidget {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 48,
+                  reservedSize: _anchoEjeVertical,
+                  interval: maxY / 4,
                   getTitlesWidget: (final value, final meta) => value == 0
                       ? const SizedBox.shrink()
                       // Único sitio del sistema donde se abrevia una cifra:
                       // en un eje no cabe entera.
-                      : Text(
+                      : _rotuloVertical(
+                          context,
                           formatCompactCurrency(
                             value,
                             currency: kFallbackCurrency,
                           ),
-                          style: _estiloEje(context),
                         ),
                 ),
               ),
@@ -226,6 +227,17 @@ class NetBalanceLineChart extends StatelessWidget {
         FlSpot(i.toDouble(), months[i].balance),
     ];
 
+    // Escala con margen y un intervalo fijo de cuatro pasos. Sin esto,
+    // fl_chart rotula también el mínimo y el máximo exactos, que caen a un
+    // par de píxeles de los rótulos de la rejilla y se pisan.
+    final valores = [for (final p in puntos) p.y];
+    final crudoMin = valores.reduce((final a, final b) => a < b ? a : b);
+    final crudoMax = valores.reduce((final a, final b) => a > b ? a : b);
+    final margen = ((crudoMax - crudoMin).abs() * 0.15).clamp(1.0, 1e12);
+    final minY = crudoMin < 0 ? crudoMin - margen : 0.0;
+    final maxY = crudoMax + margen;
+    final paso = (maxY - minY) / 4;
+
     return _BloqueGrafico(
       title: 'Cómo va tu balance',
       semanticsLabel: 'Evolución del balance. Último mes, '
@@ -235,6 +247,13 @@ class NetBalanceLineChart extends StatelessWidget {
         height: 180,
         child: LineChart(
           LineChartData(
+            minY: minY,
+            maxY: maxY,
+
+            // Medio paso de aire a cada lado: con la serie pegada a los
+            // bordes, el rótulo del último mes se corta por la mitad.
+            minX: -0.3,
+            maxX: puntos.length - 1 + 0.3,
             titlesData: FlTitlesData(
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
@@ -260,18 +279,29 @@ class NetBalanceLineChart extends StatelessWidget {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 48,
-                  getTitlesWidget: (final value, final meta) => Text(
-                    formatCompactCurrency(value, currency: kFallbackCurrency),
-                    style: _estiloEje(context),
-                  ),
+                  reservedSize: _anchoEjeVertical,
+                  interval: paso,
+                  // fl_chart rotula además los dos extremos del eje, que
+                  // caen a un par de píxeles del tick más cercano y se
+                  // pisan con él. Se ocultan.
+                  getTitlesWidget: (final value, final meta) =>
+                      value == meta.max || value == meta.min
+                          ? const SizedBox.shrink()
+                          : _rotuloVertical(
+                              context,
+                              formatCompactCurrency(
+                                value,
+                                currency: kFallbackCurrency,
+                              ),
+                            ),
                 ),
               ),
               topTitles: const AxisTitles(),
               rightTitles: const AxisTitles(),
             ),
-            gridData: const FlGridData(
+            gridData: FlGridData(
               drawVerticalLine: false,
+              horizontalInterval: paso,
               getDrawingHorizontalLine: _lineaRejilla,
             ),
             borderData: FlBorderData(show: false),
@@ -560,11 +590,33 @@ String _etiquetaEje(final FinancesSummaryEntity month) =>
 
 /// Estilo de los rótulos de eje. Sale del `TextTheme`, así que hereda
 /// `fontVariations` y la familia; escrito a mano no las heredaría.
+///
+/// `labelSmall` (11 dp) y no `labelMedium`: con 13 dp, "$500 mil" no cabía
+/// en el ancho reservado del eje y se partía en dos líneas, de modo que los
+/// rótulos se pisaban entre sí.
 TextStyle _estiloEje(final BuildContext context) =>
-    Theme.of(context).textTheme.labelMedium?.copyWith(
+    Theme.of(context).textTheme.labelSmall?.copyWith(
           color: AppPalette.textSecondary,
         ) ??
     const TextStyle(color: AppPalette.textSecondary);
+
+/// Rótulo de eje vertical: una sola línea, a la derecha y sin partirse.
+Widget _rotuloVertical(final BuildContext context, final String texto) =>
+    Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.x2),
+      child: Text(
+        texto,
+        style: _estiloEje(context),
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        textAlign: TextAlign.right,
+      ),
+    );
+
+/// Ancho reservado para el eje vertical. Cabe "$1.310 mil" a 11 dp con el
+/// hueco de 8 dp hasta la primera barra.
+const double _anchoEjeVertical = 72;
 
 FlLine _lineaRejilla(final double value) => const FlLine(
       color: AppPalette.hairline,

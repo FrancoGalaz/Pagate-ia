@@ -94,7 +94,16 @@ class PagateMovementRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // `Expanded` en los DOS, y con factores: 3 para el título y 2
+            // para el valor. Con `Flexible` el valor se quedaba del tamaño de
+            // su texto dentro de una caja de la mitad de la fila, así que la
+            // columna de montos aparecía a media pantalla en vez de pegada al
+            // margen derecho. Con `Expanded` la caja llega hasta el final de
+            // la fila y `textAlign: right` deja la cifra donde tiene que
+            // estar; y como las dos son tight, la fila no puede desbordar por
+            // mucho que crezca la fuente del sistema.
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -119,10 +128,8 @@ class PagateMovementRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
-            // Ver el mismo comentario en `PagateDataRow`: el monto tiene que
-            // poder encoger o la fila desborda con la fuente del sistema
-            // ampliada.
-            Flexible(
+            Expanded(
+              flex: 2,
               child: Text(
                 amount,
                 textAlign: TextAlign.right,

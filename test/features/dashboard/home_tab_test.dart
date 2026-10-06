@@ -541,6 +541,21 @@ void main() {
     expect(finanzas.mesesElegidos, ['2026-09']);
   });
 
+  testWidgets('con un solo mes la banda del selector desaparece entera', (
+    final tester,
+  ) async {
+    await _montar(tester, finanzas: _FinanzasFalsas(), perfil: _perfil);
+
+    // Una cuenta recién creada veía 45 dp de hueco vacío entre la barra de
+    // identidad y el balance: el selector no se dibujaba pero su banda
+    // seguía reservando alto.
+    expect(find.byType(PagateMonthSelector), findsNothing);
+    expect(
+      tester.getTopLeft(find.textContaining('BALANCE DE')).dy,
+      lessThan(200),
+    );
+  });
+
   testWidgets('no desborda a 1,3x ni a 2,0x', (final tester) async {
     await _montar(tester, finanzas: _conDatos(), perfil: _perfil, textScale: 1.3);
     expect(tester.takeException(), isNull);

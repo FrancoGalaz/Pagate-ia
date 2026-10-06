@@ -234,6 +234,11 @@ void main() {
     final finanzas = _conDatos();
     await _montar(tester, finanzas);
 
+    // La fila queda bajo la barra de acción fija, así que primero se
+    // desplaza la lista: si no, el gesto cae sobre el botón.
+    await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
     await tester.drag(find.text('Greda 25 kg'), const Offset(-400, 0));
     await tester.pumpAndSettle();
 

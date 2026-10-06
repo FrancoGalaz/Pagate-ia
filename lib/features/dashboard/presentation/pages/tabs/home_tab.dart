@@ -94,15 +94,27 @@ class HomeTab extends StatelessWidget {
   final VoidCallback onAyuda;
 
   @override
-  Widget build(final BuildContext context) => CustomScrollView(
+  Widget build(final BuildContext context) {
+    // Cuántos meses hay que elegir, contando siempre el actual. Con uno
+    // solo el selector no se dibuja, y entonces su banda tampoco debe
+    // reservar alto: una cuenta recién creada veía 45 dp de hueco vacío
+    // entre la barra de identidad y el balance.
+    final meses = context.select<FinancesProvider, int>(
+      (final p) => {
+        for (final m in p.months) m.monthKey,
+        FinancesProvider.currentMonthKey,
+      }.length,
+    );
+
+    return CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _BarraIdentidad(onAyuda: onAyuda)),
 
           // El selector queda pegado arriba al desplazarse: es el filtro
           // global de la app y tiene que estar siempre a la vista.
-          const SliverPersistentHeader(
+          SliverPersistentHeader(
             pinned: true,
-            delegate: _SelectorPegajoso(),
+            delegate: _SelectorPegajoso(visible: meses > 1),
           ),
 
           SliverToBoxAdapter(
@@ -122,7 +134,8 @@ class HomeTab extends StatelessWidget {
             ),
           ),
         ],
-      );
+    );
+  }
 }
 
 // ─── Barra de identidad ────────────────────────────────────────────────
@@ -226,16 +239,20 @@ const Widget _esqueletoIdentidad = PagateSkeletonGroup(
 // ─── Selector de mes pegajoso ──────────────────────────────────────────
 
 class _SelectorPegajoso extends SliverPersistentHeaderDelegate {
-  const _SelectorPegajoso();
+  const _SelectorPegajoso({required this.visible});
+
+  /// `false` cuando solo hay un mes: la banda desaparece entera en vez de
+  /// dejar un hueco.
+  final bool visible;
 
   /// 32 del chip + 6 arriba + 6 abajo = 44, más el borde inferior.
   static const double _alto = 45;
 
   @override
-  double get minExtent => _alto;
+  double get minExtent => visible ? _alto : 0;
 
   @override
-  double get maxExtent => _alto;
+  double get maxExtent => visible ? _alto : 0;
 
   @override
   Widget build(
@@ -244,21 +261,24 @@ class _SelectorPegajoso extends SliverPersistentHeaderDelegate {
     final bool overlapsContent,
   ) {
     final finances = context.watch<FinancesProvider>();
+    // Ancho completo y sin `Align`: con el selector centrado, los chips
+    // arrancaban en mitad de la pantalla y la línea inferior solo cubría el
+    // trozo ocupado. Todo va a la izquierda, con el margen del sistema.
     return SizedBox(
       height: _alto,
-      child: Align(
-        child: PagateMonthSelector(
-          monthKeys: [for (final m in finances.months) m.monthKey],
-          selectedMonthKey: finances.selectedMonthKey,
-          currentMonthKey: FinancesProvider.currentMonthKey,
-          onSelected: finances.selectMonthKey,
-        ),
+      width: double.infinity,
+      child: PagateMonthSelector(
+        monthKeys: [for (final m in finances.months) m.monthKey],
+        selectedMonthKey: finances.selectedMonthKey,
+        currentMonthKey: FinancesProvider.currentMonthKey,
+        onSelected: finances.selectMonthKey,
       ),
     );
   }
 
   @override
-  bool shouldRebuild(final _SelectorPegajoso oldDelegate) => false;
+  bool shouldRebuild(final _SelectorPegajoso oldDelegate) =>
+      oldDelegate.visible != visible;
 }
 
 // ─── Bloque de saldo y composición ─────────────────────────────────────

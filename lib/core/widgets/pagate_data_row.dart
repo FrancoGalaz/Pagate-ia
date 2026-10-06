@@ -39,8 +39,13 @@ class PagateDataRow extends StatelessWidget {
   final String? subtitle;
 
   /// Si se pasa, la fila es pulsable: gana un chevron de 20 dp y fondo
-  /// `sunken` al presionar.
+  /// `sunken` al presionar. El chevron dice "esto navega", así que una fila
+  /// cuya única consecuencia es destructiva NO usa [onTap]: usa [trailing].
   final VoidCallback? onTap;
+
+  /// Control explícito al final de la fila, después del valor. Para acciones
+  /// que no son navegación, como eliminar.
+  final Widget? trailing;
 
   /// Dibuja el divisor inferior. La última fila de una sección lo omite.
   final bool showDivider;
@@ -67,6 +72,7 @@ class PagateDataRow extends StatelessWidget {
     this.showDivider = true,
     this.emphasis = false,
     this.valueColor,
+    this.trailing,
   });
 
   /// U+2212 MINUS SIGN, el que usa `currency_formatter.dart`.
@@ -92,7 +98,16 @@ class PagateDataRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // `Expanded` en los DOS, y con factores: 3 para la etiqueta y 2
+            // para el valor. Con `Flexible` el valor se quedaba del tamaño de
+            // su texto dentro de una caja de la mitad de la fila, así que la
+            // columna de montos aparecía a media pantalla en vez de pegada al
+            // margen derecho. Con `Expanded` la caja llega hasta el final de
+            // la fila y `textAlign: right` deja la cifra donde tiene que
+            // estar; y como las dos son tight, la fila no puede desbordar por
+            // mucho que crezca la fuente del sistema.
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -119,11 +134,8 @@ class PagateDataRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
-            // `Flexible` y no un `Text` suelto: una fila con dos hijos de
-            // ancho intrínseco y sin flex es la causa exacta de los
-            // desbordes a 1,3x y 2,0x que bloquean la publicación. Con
-            // `tnum` la columna sigue alineada aunque el valor encoja.
-            Flexible(
+            Expanded(
+              flex: 2,
               child: Text(
                 value,
                 textAlign: TextAlign.right,
@@ -133,6 +145,7 @@ class PagateDataRow extends StatelessWidget {
                     .copyWith(color: colorValor),
               ),
             ),
+            ?trailing,
             if (onTap != null) ...[
               const SizedBox(width: AppSpacing.x2),
               const Icon(

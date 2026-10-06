@@ -376,7 +376,15 @@ class _GastosFijos extends StatelessWidget {
                           -gasto.amount,
                           currency: kFallbackCurrency,
                         ),
-                        onTap: () => unawaited(_eliminar(context, gasto)),
+                        // Un chevron dice "esto navega". Borrar no navega,
+                        // así que la acción va en un control propio con su
+                        // etiqueta, alcanzable también con lector de
+                        // pantalla.
+                        trailing: IconButton(
+                          tooltip: 'Eliminar ${gasto.name}',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => unawaited(_eliminar(context, gasto)),
+                        ),
                       ),
                     PagateDataRow(
                       label: 'Total mensual',
