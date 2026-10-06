@@ -77,6 +77,16 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
   lista vacía como si fuera un estado válido ante un error.
 - Los agregados mensuales los calcula el trigger `onTransactionWritten`; el
   cliente no escribe `months/*`.
+- `meta/usage` lleva **cuatro** contadores de IA y un solo `dayKey`:
+  `chatCountDay` / `chatCountLifetime` (asistente) y `scanCountDay` /
+  `scanCountLifetime` (lector de boletas). Las cuotas son independientes, pero
+  el `dayKey` es compartido, así que escribirlo por una AVALA el contador diario
+  de la otra: al cambiar el día se reinician **los dos**. Está en `quota.ts` con
+  su test en los dos sentidos; no quitarlo.
+- El lector de boletas no añade campos al inventario: `supplier` y `code` ya
+  estaban permitidos en `validInventoryItem` y eran código muerto. `stock` y
+  `minStock` siguen siendo **enteros** (`isCount` exige `v is int`); una
+  cantidad fraccionaria del OCR la redondea el cliente delante del usuario.
 
 ## Backend (`functions/`, TypeScript, Node 22, `southamerica-west1`)
 - `chat` (callable): auth + App Check + cuota + prompt del lado servidor +
@@ -98,6 +108,32 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
     política. El candado está en `functions/test/quota.test.ts`.
   - El prompt lleva los campos chilenos de C-3 (documento de cada ingreso, y
     bruto/comisión/neto) y prohíbe explícitamente la asesoría tributaria.
+- `scanReceipt` (callable): ordena el **texto** de una boleta de compra como
+  lista de artículos para el inventario. Lo nuevo que hay que tener claro:
+  - **Recibe TEXTO, nunca una imagen.** El OCR corre en el teléfono con ML Kit
+    y la imagen se borra ahí. Por eso el proyecto no tiene Firebase Storage, ni
+    fotos que declarar en Seguridad de Datos, ni imágenes que borrar al borrar
+    una cuenta. No añadir un campo de imagen a este callable.
+  - **Es un repaso, no el camino único.** El cliente ya ordenó la lista él solo,
+    sin conexión. Un fallo de aquí no rompe nada, y `resource-exhausted` el
+    cliente lo trata como **información**, no como error.
+  - **Nada se guarda sin que el usuario lo revise.** La app propone, confirma
+    el usuario.
+  - Cuota **propia**: `scanCountLifetime` (free, 40 de por vida) y
+    `scanCountDay` (pro, 200 al día), con `freeLifetimeScanQuota` y
+    `proDailyScanQuota` en `system/aiConfig`. Los contadores del chat no se
+    tocan. El tope global del dueño sí suma los dos (`calls + scanCalls`).
+  - La salida del modelo se **valida campo por campo** en TypeScript: el
+    `response_format` de tipo `json_schema` es una petición al proveedor, no una
+    garantía. Un artículo inválido se descarta; `items: []` es una respuesta
+    válida y el cliente se queda con su lista local.
+  - La cuota se devuelve ante un fallo del proveedor (red, plazo, salida
+    irrecuperable). **No** se devuelve cuando el modelo contestó bien y la lista
+    salió vacía: el texto lo controla quien llama, y devolverla ahí abriría una
+    vía para llamar al modelo sin límite a costa del dueño.
+  - El prompt reutiliza `DATA_OPEN`, `DATA_CLOSE` y `sanitizeField` de
+    `prompt.ts`, pero saneando **línea por línea** (`sanitizeOcrText`): aplanar
+    los saltos de línea destruiría la estructura de la boleta.
 - `deleteAccount` (callable): auth + App Check, borra `users/{uid}` y todo su
   árbol y luego el usuario de Authentication, en ese orden. Lo exige la política
   de borrado de datos de Google Play. Por eso las reglas deniegan `delete` en
@@ -117,8 +153,9 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 - `waitlist` (HTTP): `POST {name, email, source}` → `200 {ok:true}` |
   `400/429 {error}`. Lo consume `landing/src/services/waitlist-service.ts`. El
   id del documento es el sha256 del correo normalizado: reenviar no duplica.
-- Parámetros: `ENFORCE_APP_CHECK` (default `false`, aplica a los DOS callables),
-  `OPENROUTER_MODEL`.
+- Parámetros: `ENFORCE_APP_CHECK` (default `false`, aplica a los TRES
+  callables), `OPENROUTER_MODEL` y `OPENROUTER_SCAN_MODEL` (mandos separados a
+  propósito: el chat y el lector piden cosas distintas al modelo).
 - `firebase.json`: las cabeceras de enmarcado (`X-Frame-Options`,
   `frame-ancestors`) van en los `source` `/`, `/!(__)` y `/!(__)/**`, NUNCA en
   `**`. Sobre `**` alcanzan a `/__/auth/iframe`, que es el iframe del login con

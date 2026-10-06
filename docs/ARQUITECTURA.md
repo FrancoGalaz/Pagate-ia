@@ -92,17 +92,22 @@ users/{uid}/conversations/{convId}/messages/{msgId}   (owner: read; write SOLO b
   createdAt: Timestamp
 
 users/{uid}/meta/usage                   (owner: read; write SOLO backend)
-  dayKey: string 'yyyy-MM-dd'  (día, en hora de Santiago, de chatCountDay)
-  chatCountDay: number         (mensajes del día; es la cuota del plan pro)
-  chatCountLifetime: number    (mensajes de toda la vida; es la cuota del plan free)
+  dayKey: string 'yyyy-MM-dd'  (día, en hora de Santiago, de LOS DOS contadores diarios)
+  chatCountDay: number         (mensajes del día; es la cuota de chat del plan pro)
+  chatCountLifetime: number    (mensajes de toda la vida; es la cuota de chat del plan free)
+  scanCountDay: number         (lecturas de boleta del día; cuota del plan pro)
+  scanCountLifetime: number    (lecturas de toda la vida; cuota del plan free)
 
 system/aiConfig                          (sin acceso desde cliente; solo backend)
   freeLifetimeQuota: number       (default 25)
   proDailyQuota: number           (default 300)
+  freeLifetimeScanQuota: number   (default 40)
+  proDailyScanQuota: number       (default 200)
   globalDailyCapEnabled: boolean  (default false)
-  globalDailyCap: number          (default 2000)
+  globalDailyCap: number          (default 2000; se compara contra calls + scanCalls)
 system/aiUsage/days/{yyyy-MM-dd}         (sin acceso desde cliente; solo backend)
-  calls: number
+  calls: number                   (mensajes del asistente servidos hoy)
+  scanCalls: number               (lecturas de boleta servidas hoy)
   dayKey: string
   updatedAt: Timestamp
 
@@ -113,8 +118,24 @@ waitlist/{id}                            (sin acceso desde cliente; solo backend
 ```
 
 `system/aiConfig` existe para que el dueño pueda cambiar los límites del
-asistente, o cortarlo del todo, editando un documento en la consola de Firestore
-sin desplegar nada. Cualquier campo ausente o malformado cae al default.
+asistente y del lector de boletas, o cortarlos del todo, editando un documento
+en la consola de Firestore sin desplegar nada. Cualquier campo ausente o
+malformado cae al default.
+
+**Las dos cuotas son independientes y comparten un solo `dayKey`.** Leer
+boletas no gasta mensajes del asistente ni al revés: son cuatro contadores
+separados. Pero `meta/usage` tiene UN solo campo `dayKey`, y los dos contadores
+diarios se interpretan contra él, así que escribirlo por una de las dos cuotas
+AVALA el contador de la otra. Por eso `quota.ts` reinicia LOS DOS contadores
+diarios en la misma escritura cuando el día cambia: sin eso, la primera lectura
+de boleta del día nuevo haría que el `chatCountDay` de ayer se leyera como el de
+hoy y un usuario pro se quedaría sin asistente sin haber escrito un mensaje.
+Está probado en `functions/test/quota.test.ts`, en los dos sentidos.
+
+**El tope global suma los dos gastos** (`calls + scanCalls`). Es el freno de
+mano del dueño y tiene que frenar todo el gasto de IA; los campos van separados
+para que el registro y el mensaje de error puedan decir cuál de las dos cosas se
+disparó.
 
 Validaciones en reglas: `hasOnly` de campos permitidos, tipos, rangos con tope
 SUPERIOR (1e12 para dinero, 1e9 para unidades; sin tope, `Infinity` pasaba como
@@ -214,11 +235,11 @@ presentes y **fuera** del bloque de datos, donde serían inertes.
 
 ## Backend (Cloud Functions 2ª gen, TypeScript, Node 22, región `southamerica-west1`)
 
-Todas: `region: southamerica-west1`. Los dos callables (`chat` y
-`deleteAccount`) exigen App Check cuando el parámetro `ENFORCE_APP_CHECK` es
-`true` (por defecto `false`, hasta activarlo en consola) y aceptan CORS solo
-desde el hosting de producción; el `localhost` de desarrollo se añade únicamente
-bajo el emulador.
+Todas: `region: southamerica-west1`. Los tres callables (`chat`,
+`scanReceipt` y `deleteAccount`) exigen App Check cuando el parámetro
+`ENFORCE_APP_CHECK` es `true` (por defecto `false`, hasta activarlo en consola)
+y aceptan CORS solo desde el hosting de producción; el `localhost` de desarrollo
+se añade únicamente bajo el emulador.
 
 ### `chat` (callable)
 
@@ -291,6 +312,110 @@ Flujo:
    Si OpenRouter falla, **devuelve** la cuota (`refundChatQuota`) y deshace lo
    escrito: un fallo del proveedor no le gasta el mensaje al usuario.
 9. Devuelve `{ conversationId, reply }`.
+
+### `scanReceipt` (callable)
+
+```
+request:  { text: string, source?: 'photo' | 'pdf' }
+response: { items: Array<{ name, quantity, unit, unitPrice, code }>,
+            supplier: string | null, documentNumber: string | null,
+            total: number | null, truncated: boolean }
+errores:  unauthenticated | invalid-argument | resource-exhausted
+          | unavailable | deadline-exceeded | internal
+```
+
+`timeoutSeconds: 60`, `memory: 256MiB`, `maxInstances: 5`,
+`secrets: [OPENROUTER_API_KEY]`, modelo `OPENROUTER_SCAN_MODEL` (parámetro
+propio, default `deepseek/deepseek-v4-flash`).
+
+Convierte el texto de una boleta o factura de **compra** en una lista de
+artículos para que el usuario la revise y la meta al inventario.
+
+**RECIBE TEXTO. NUNCA UNA IMAGEN.** El reconocimiento de texto corre en el
+teléfono con ML Kit (en el dispositivo, sin conexión y gratis) y la imagen se
+borra ahí mismo, haya ido bien o mal. Lo único que sale del teléfono es el texto
+ya extraído. No es un detalle de implementación: es la decisión de producto que
+hace que el proyecto **no** tenga Firebase Storage, **no** tenga que declarar
+fotos en Seguridad de Datos de Google Play, **no** tenga imágenes que borrar
+cuando alguien borra su cuenta y **no** tenga coste de almacenamiento. Si esta
+función aceptara algún día una imagen, todo eso volvería de golpe.
+
+**Es un repaso, no el camino único.** El cliente ordena siempre la lista él
+solo primero, con una heurística local que funciona sin conexión y sin cuota.
+Este callable es la segunda pasada, que sobre texto limpio acierta mucho más que
+una regla. De ahí tres consecuencias que son contrato:
+
+1. Un fallo de aquí **no rompe nada**: el cliente se queda con su lista local.
+2. `resource-exhausted` **no es un error para el cliente**, es información: la
+   lista ya está en pantalla, se muestra el mensaje del servidor en una franja
+   informativa y se sigue. Agotar la cuota de lectura baja la calidad del
+   ordenado, no bloquea la función.
+3. **Nada de lo que devuelve se guarda sin que el usuario lo revise.** La app
+   propone, el usuario confirma. Mismo principio que lo tributario.
+
+Flujo:
+1. Verifica `request.auth` y, si `ENFORCE_APP_CHECK`, `request.app`.
+2. Valida la entrada **antes de la cuota**: `text` no vacío y de hasta 8.000
+   caracteres (`MAX_SCAN_TEXT_CHARS`). Un texto inválido no le gasta al usuario
+   una de sus lecturas. `source` solo matiza el prompt y el registro, así que un
+   valor desconocido se ignora en vez de rechazar la llamada.
+3. **Reserva** cuota propia (`reserveScanQuota`), con contadores separados de los
+   del chat: `scanCountLifetime` (free, 40 de por vida) y `scanCountDay` (pro,
+   200 al día), configurables en `system/aiConfig`. El tope global del dueño
+   cuenta `calls + scanCalls`.
+4. Arma el prompt del lado servidor (`scanPrompt.ts`) y llama a OpenRouter con
+   `response_format` de tipo `json_schema` en modo `strict`, `temperature: 0`
+   (la misma boleta tiene que dar la misma lista) y `maxTokens: 1500`.
+5. **Valida la salida campo por campo en TypeScript, sin creerse el esquema.**
+   El esquema es una petición al proveedor, no una garantía: un proveedor que lo
+   ignore devuelve prosa. Un artículo con nombre vacío, `quantity` fuera de
+   `[1, 10000]` o `unitPrice` fuera de `[1, 1e8]` se **descarta** y se registra;
+   una unidad vacía o rara no descarta el artículo, cae en `unidades`. Por
+   encima de 40 artículos se recorta y se devuelve `truncated: true`.
+6. Devuelve `items: []` —que es una respuesta válida— si no quedó ninguno.
+
+**Cuándo se devuelve la cuota, y cuándo no.** Se devuelve
+(`refundScanQuota`) ante un fallo del proveedor: `OpenRouterError`, plazo
+agotado, o una salida irrecuperable (ni JSON, ni objeto, ni lista). **No** se
+devuelve cuando el modelo contestó bien y la lista salió vacía, aunque el
+usuario no reciba nada útil: el texto de entrada lo controla entero quien llama,
+así que devolver la cuota ante una respuesta vacía sería una vía para hacer
+llamadas al modelo sin límite a costa del dueño.
+
+Errores, con el mensaje del servidor como única fuente de lo que lee el usuario:
+
+| Código | Cuándo | Mensaje |
+|---|---|---|
+| `unauthenticated` | sin `request.auth`, o `ENFORCE_APP_CHECK` sin `request.app` | «Inicia sesión para leer boletas.» |
+| `invalid-argument` | `text` no es texto, está vacío o pasa de 8.000 caracteres | «El texto de la boleta está vacío o es demasiado largo.» |
+| `resource-exhausted` | cuota propia agotada, o tope global del día | `freeScanQuotaExhaustedMessage` / el del tope global |
+| `unavailable` | `OpenRouterError` | «El lector no responde. Intenta de nuevo.» |
+| `deadline-exceeded` | plazo de OpenRouter agotado | ídem |
+| `internal` | salida del modelo irrecuperable | «No pude ordenar la boleta.» |
+
+**Inyección de prompt desde una boleta impresa.** Una boleta puede llevar
+impreso texto hostil (un sello, una etiqueta, un volante dentro del encuadre).
+El prompt del lector usa los MISMOS exports que `prompt.ts` —`DATA_OPEN`,
+`DATA_CLOSE` y `sanitizeField`— y no una defensa paralela, porque dos defensas
+se desincronizan. La diferencia es que `sanitizeOcrText` aplica `sanitizeField`
+**línea por línea**: la estructura de una boleta ES el salto de línea, y
+aplanarla a un párrafo dejaría al modelo adivinando dónde acaba cada artículo.
+
+**Lo que se escribe en `users/{uid}/inventory`: nada nuevo.** Un documento
+normal por artículo confirmado, con `type` `'material'` por defecto, `minStock`
+1, y `supplier` / `code` rellenos cuando se leyeron. `firestore.rules` **no
+cambia**: `validInventoryItem` ya aceptaba los dos campos. Hasta ahora eran
+código muerto porque el formulario manual no los pedía; el lector es el primer
+sitio que los rellena de verdad, y la forma exacta queda fijada en
+`functions/test/rules.test.ts`.
+
+**Decisión de producto pendiente: `stock` es entero.** `isCount` de las reglas
+exige `v is int`, y `stock`/`minStock` son `int` en `InventoryItemEntity`. Una
+cantidad fraccionaria del OCR (`2,5 kg`) llega entera desde este callable —aquí
+**no** se redondea— y el cliente la redondea hacia arriba diciéndoselo al
+usuario en la ficha de revisión. Pasar `stock` a decimal es un cambio de
+contrato que toca reglas, entidad, formularios y agregados: queda anotado, sin
+hacer.
 
 ### `deleteAccount` (callable)
 
