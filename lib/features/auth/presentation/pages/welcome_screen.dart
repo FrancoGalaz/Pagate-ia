@@ -7,6 +7,7 @@ import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import 'login_screen.dart';
 import '../../../onboarding/presentation/pages/identity_step_screen.dart';
+import '../../../../core/theme/app_text.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -80,8 +81,10 @@ class WelcomeScreen extends StatelessWidget {
                       const SizedBox(width: AppSpacing.xs),
                       Text(
                         'Págate-IA',
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                        style: AppText.weight(
+                          textTheme.titleLarge!,
+                          800,
+                        ).copyWith(
                           color: AppColors.textPrimary,
                           letterSpacing: -0.5,
                         ),
@@ -255,10 +258,10 @@ class WelcomeScreen extends StatelessWidget {
                               ),
                               TextSpan(
                                 text: 'Inicia Sesión',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.brand,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: AppText.weight(
+                                  textTheme.bodyMedium!,
+                                  700,
+                                ).copyWith(color: AppColors.brand),
                               ),
                             ],
                           ),

@@ -8,6 +8,7 @@ import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../../../core/widgets/pagate_error_state.dart';
 import '../../widgets/financial_charts.dart';
+import '../../../../../core/theme/app_text.dart';
 
 enum HomeQuickAction {
   sale,
@@ -90,10 +91,10 @@ class _HomeHeader extends StatelessWidget {
               children: [
                 Text(
                   'Hola, ${profile?.name.split(' ').first ?? 'Artesano'} 👋',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.titleMedium!,
+                    700,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 Text(
                   profile?.businessName ?? 'Mi Negocio',
@@ -169,10 +170,10 @@ class _BalanceCard extends StatelessWidget {
               children: [
                 Text(
                   'Balance del Mes',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.labelMedium!,
+                    600,
+                  ).copyWith(color: Colors.white70),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -185,10 +186,10 @@ class _BalanceCard extends StatelessWidget {
                   ),
                   child: Text(
                     hasData ? month : 'Sin datos',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: AppText.weight(
+                      Theme.of(context).textTheme.labelSmall!,
+                      600,
+                    ).copyWith(color: Colors.white),
                   ),
                 ),
               ],
@@ -196,10 +197,10 @@ class _BalanceCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               formatCurrency(hasData ? balance : 0, currency: kFallbackCurrency),
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.displaySmall!,
+                800,
+              ).copyWith(color: Colors.white),
             ),
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -330,10 +331,10 @@ class _QuickActions extends StatelessWidget {
           children: [
             Text(
               'Acciones Rápidas',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.titleMedium!,
+                700,
+              ).copyWith(color: AppColors.textPrimaryDark),
             ),
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -394,10 +395,10 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(height: AppSpacing.xxs),
             Text(
               action.label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondaryDark,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.labelSmall!,
+                600,
+              ).copyWith(color: AppColors.textSecondaryDark),
               textAlign: TextAlign.center,
             ),
           ],
@@ -418,10 +419,10 @@ class _ChartsSection extends StatelessWidget {
         children: [
           Text(
             'Métricas Financieras',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.titleMedium!,
+              700,
+            ).copyWith(color: AppColors.textPrimaryDark),
           ),
           const SizedBox(height: AppSpacing.md),
           const MonthlyBarChart(),
@@ -452,10 +453,10 @@ class _RecentActivity extends StatelessWidget {
         children: [
           Text(
             'Actividad Reciente',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.titleMedium!,
+              700,
+            ).copyWith(color: AppColors.textPrimaryDark),
           ),
           const SizedBox(height: AppSpacing.md),
           if (error != null)
@@ -573,10 +574,10 @@ class _TransactionRow extends StatelessWidget {
                           : transaction.description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textPrimaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.bodyMedium!,
+                        600,
+                      ).copyWith(color: AppColors.textPrimaryDark),
                     ),
                     Text(
                       formatDayMonthYear(transaction.date),
@@ -592,10 +593,10 @@ class _TransactionRow extends StatelessWidget {
                   isIncome ? transaction.amount : -transaction.amount,
                   currency: kFallbackCurrency,
                 ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.bodyMedium!,
+                  700,
+                ).copyWith(color: color),
               ),
             ],
           ),

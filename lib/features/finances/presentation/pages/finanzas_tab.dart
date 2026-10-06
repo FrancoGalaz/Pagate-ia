@@ -12,6 +12,7 @@ import '../../domain/entities/finances_transaction_entity.dart';
 import '../../domain/entities/fixed_expense_entity.dart';
 import '../providers/finances_provider.dart';
 import '../widgets/transaction_form_sheet.dart';
+import '../../../../core/theme/app_text.dart';
 
 class FinanzasTab extends StatelessWidget {
   const FinanzasTab({super.key});
@@ -115,10 +116,10 @@ class _FinanzasHeaderState extends State<_FinanzasHeader> {
             children: [
               Text(
                 'Finanzas',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.headlineMedium!,
+                  800,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
               IconButton(
                 onPressed: canExport ? _onExport : null,
@@ -172,12 +173,14 @@ class _FinanzasHeaderState extends State<_FinanzasHeader> {
                     ),
                     child: Text(
                       month.month,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: isSelected
-                                ? Colors.white
-                                : AppColors.textSecondaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.labelMedium!,
+                        600,
+                      ).copyWith(
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textSecondaryDark,
+                      ),
                     ),
                   ),
                 );
@@ -297,18 +300,18 @@ class _StatRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryDark,
-                    fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.bodyMedium!,
+                isBold ? 700 : 500,
+              ).copyWith(color: AppColors.textSecondaryDark),
             ),
           ),
           Text(
             formatCurrency(value, currency: kFallbackCurrency),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isBold ? color : AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.titleMedium!,
+              700,
+            ).copyWith(color: isBold ? color : AppColors.textPrimaryDark),
           ),
         ],
       );
@@ -336,17 +339,17 @@ class _GoalProgress extends StatelessWidget {
               children: [
                 Text(
                   'Meta Mensual',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.titleSmall!,
+                    700,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 Text(
                   '${(progress * 100).toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.brand,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.titleSmall!,
+                    700,
+                  ).copyWith(color: AppColors.brand),
                 ),
               ],
             ),
@@ -479,10 +482,10 @@ class _FixedExpensesSection extends StatelessWidget {
           children: [
             Text(
               'Gastos Fijos',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.titleMedium!,
+                700,
+              ).copyWith(color: AppColors.textPrimaryDark),
             ),
             TextButton.icon(
               onPressed: () => _addExpense(context),
@@ -536,23 +539,17 @@ class _FixedExpensesSection extends StatelessWidget {
                         children: [
                           Text(
                             'Total mensual',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: AppColors.textSecondaryDark,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: AppText.weight(
+                              Theme.of(context).textTheme.bodyMedium!,
+                              600,
+                            ).copyWith(color: AppColors.textSecondaryDark),
                           ),
                           Text(
                             formatSigned(-total, currency: kFallbackCurrency),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: AppColors.error,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: AppText.weight(
+                              Theme.of(context).textTheme.bodyMedium!,
+                              700,
+                            ).copyWith(color: AppColors.error),
                           ),
                         ],
                       ),
@@ -597,18 +594,18 @@ class _FixedExpenseRow extends StatelessWidget {
             Expanded(
               child: Text(
                 expense.name,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.bodyMedium!,
+                  600,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
             ),
             Text(
               formatSigned(-expense.amount, currency: kFallbackCurrency),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.error,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.bodyMedium!,
+                700,
+              ).copyWith(color: AppColors.error),
             ),
             IconButton(
               onPressed: onDelete,
@@ -661,10 +658,10 @@ class _TransactionsSection extends StatelessWidget {
       children: [
         Text(
           'Movimientos del mes',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.textPrimaryDark,
-                fontWeight: FontWeight.w700,
-              ),
+          style: AppText.weight(
+            Theme.of(context).textTheme.titleMedium!,
+            700,
+          ).copyWith(color: AppColors.textPrimaryDark),
         ),
         const SizedBox(height: AppSpacing.md),
         content,
@@ -696,10 +693,10 @@ class _EmptyTransactions extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Sin movimientos este mes',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.bodyLarge!,
+                600,
+              ).copyWith(color: AppColors.textPrimaryDark),
             ),
             const SizedBox(height: AppSpacing.xxs),
             Text(
@@ -813,10 +810,10 @@ class _TransactionTile extends StatelessWidget {
                   transaction.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.bodyMedium!,
+                    600,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 Text(
                   subtitle,
@@ -832,10 +829,10 @@ class _TransactionTile extends StatelessWidget {
               isIncome ? transaction.amount : -transaction.amount,
               currency: kFallbackCurrency,
             ),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.bodyMedium!,
+              700,
+            ).copyWith(color: color),
           ),
         ],
       ),

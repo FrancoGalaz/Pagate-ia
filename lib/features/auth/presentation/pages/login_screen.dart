@@ -11,6 +11,7 @@ import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_social_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../../onboarding/presentation/pages/identity_step_screen.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Inicio de sesión con correo/contraseña (y Google en web).
 ///
@@ -159,10 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Title
                 Text(
                   'Págate-IA',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.displaySmall!,
+                    800,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -270,11 +271,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         'Crear cuenta',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.brand,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: AppText.weight(
+                          Theme.of(context).textTheme.bodyMedium!,
+                          700,
+                        ).copyWith(color: AppColors.brand),
                       ),
                     ),
                   ],

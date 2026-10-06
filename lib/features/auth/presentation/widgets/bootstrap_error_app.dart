@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// App mínima que se monta cuando `bootstrapFirebase()` falla antes de que
 /// exista [PagateIAApp]. Sin esto el usuario vería una pantalla negra.
@@ -60,9 +61,8 @@ class _BootstrapErrorView extends StatelessWidget {
                 Text(
                   'No pudimos iniciar la app',
                   textAlign: TextAlign.center,
-                  style: textTheme.headlineSmall?.copyWith(
+                  style: AppText.weight(textTheme.headlineSmall!, 800).copyWith(
                     color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),

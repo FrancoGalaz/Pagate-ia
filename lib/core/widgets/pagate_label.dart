@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
+import '../theme/app_text.dart';
 
 /// Uppercase form field label.
 ///
@@ -18,14 +19,13 @@ class PagateLabel extends StatelessWidget {
   Widget build(final BuildContext context) => Text(
         isUppercase ? text.toUpperCase() : text,
         style: isUppercase
-            ? Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                )
-            : Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+            ? AppText.weight(
+              Theme.of(context).textTheme.labelSmall!,
+              700,
+            ).copyWith(color: AppColors.textTertiary, letterSpacing: 0.8)
+            : AppText.weight(
+              Theme.of(context).textTheme.titleSmall!,
+              600,
+            ).copyWith(color: AppColors.textSecondary),
       );
 }

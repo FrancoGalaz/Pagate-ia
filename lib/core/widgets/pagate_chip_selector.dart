@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
+import '../theme/app_text.dart';
 
 /// Chip selector for multi/single selection flows.
 ///
@@ -72,12 +73,14 @@ class _PagateChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: isSelected
-                      ? AppColors.brand
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.labelMedium!,
+              600,
+            ).copyWith(
+              color: isSelected
+                  ? AppColors.brand
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       );

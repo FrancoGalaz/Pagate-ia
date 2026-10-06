@@ -102,6 +102,47 @@ void main() {
       }
     });
 
+    test('weight() mueve el eje wght, no solo el fontWeight', () {
+      // EL DEFECTO QUE CIERRA: `copyWith(fontWeight:)` no toca
+      // `fontVariations`, y en una fuente variable gana `fontVariations`. Un
+      // `titleLarge.copyWith(fontWeight: w800)` seguía dibujándose en 600.
+      // Pasaba en 81 sitios de 26 archivos.
+      final conCopyWith =
+          AppText.titleLarge.copyWith(fontWeight: FontWeight.w800);
+      expect(
+        wght(conCopyWith),
+        600,
+        reason: 'copyWith no debería haber movido el eje: por eso existe '
+            'AppText.weight',
+      );
+
+      final conHelper = AppText.weight(AppText.titleLarge, 800);
+      expect(wght(conHelper), 800);
+      expect(conHelper.fontWeight, FontWeight.w800);
+    });
+
+    test('weight() conserva todo lo demás del estilo', () {
+      final base = AppText.amountRow.copyWith(color: const Color(0xFF101828));
+      final movido = AppText.weight(base, 700);
+
+      expect(movido.fontSize, base.fontSize);
+      expect(movido.height, base.height);
+      expect(movido.letterSpacing, base.letterSpacing);
+      expect(movido.color, base.color);
+      expect(movido.fontFamily, kFontFamily);
+      expect(movido.leadingDistribution, TextLeadingDistribution.even);
+      // Las cifras tabulares del monto no se pueden perder al cambiar el peso.
+      expect(movido.fontFeatures?.first, const FontFeature.tabularFigures());
+    });
+
+    test('weight() acepta los siete pesos del eje de Manrope', () {
+      for (final w in [200, 300, 400, 500, 600, 700, 800]) {
+        final estilo = AppText.weight(AppText.bodyMedium, w);
+        expect(wght(estilo), w.toDouble(), reason: 'wght $w');
+        expect(estilo.fontWeight, FontWeight.values[(w ~/ 100) - 1]);
+      }
+    });
+
     test('la altura de línea se traduce de dp a multiplicador', () {
       expect(AppText.displayLarge.fontSize, 40);
       expect(AppText.displayLarge.height, closeTo(42 / 40, 0.0001));

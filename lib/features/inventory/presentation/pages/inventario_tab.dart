@@ -9,6 +9,7 @@ import '../providers/inventory_provider.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import 'detalle_item_screen.dart';
+import '../../../../core/theme/app_text.dart';
 
 class InventarioTab extends StatelessWidget {
   const InventarioTab({super.key});
@@ -48,10 +49,10 @@ class InventarioTab extends StatelessWidget {
           children: [
             Text(
               'Nuevo ${type == InventoryItemType.product ? 'producto' : 'material'}',
-              style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: AppText.weight(
+                Theme.of(sheetContext).textTheme.titleLarge!,
+                700,
+              ).copyWith(color: AppColors.textPrimaryDark),
             ),
             const SizedBox(height: AppSpacing.md),
             _SheetField(
@@ -227,10 +228,10 @@ class _InventarioHeader extends StatelessWidget {
           children: [
             Text(
               'Inventario',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: AppText.weight(
+                Theme.of(context).textTheme.headlineMedium!,
+                800,
+              ).copyWith(color: AppColors.textPrimaryDark),
             ),
             const SizedBox(height: AppSpacing.md),
             // Search
@@ -315,10 +316,12 @@ class _TypeTab extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: isActive ? Colors.white : AppColors.textSecondaryDark,
-                fontWeight: FontWeight.w600,
-              ),
+          style: AppText.weight(
+            Theme.of(context).textTheme.labelMedium!,
+            600,
+          ).copyWith(
+            color: isActive ? Colors.white : AppColors.textSecondaryDark,
+          ),
         ),
       ),
     );
@@ -428,10 +431,10 @@ class _ItemCard extends StatelessWidget {
                   children: [
                     Text(
                       item.name,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textPrimaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.bodyMedium!,
+                        600,
+                      ).copyWith(color: AppColors.textPrimaryDark),
                     ),
                     Text(
                       '${item.stock} ${item.unit}  •  '
@@ -454,10 +457,10 @@ class _ItemCard extends StatelessWidget {
                 ),
                 child: Text(
                   _statusLabel,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _statusColor,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.labelSmall!,
+                    700,
+                  ).copyWith(color: _statusColor),
                 ),
               ),
             ],

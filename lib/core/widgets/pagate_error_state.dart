@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
+import '../theme/app_text.dart';
 
 /// Estado de error genérico con botón de reintento.
 ///
@@ -35,11 +36,10 @@ class PagateErrorState extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: (compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge)
-              ?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppText.weight(
+            (compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge)!,
+            600,
+          ).copyWith(color: theme.colorScheme.onSurface),
         ),
         if (onRetry != null) ...[
           SizedBox(height: compact ? AppSpacing.xs : AppSpacing.md),

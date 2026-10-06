@@ -12,6 +12,7 @@ import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../providers/finances_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Categorías fijas disponibles al registrar un movimiento.
 const List<String> transactionCategories = [
@@ -204,10 +205,10 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Registrar movimiento',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppText.weight(
+                      theme.textTheme.titleLarge!,
+                      700,
+                    ).copyWith(color: AppColors.textPrimaryDark),
                   ),
                 ],
               ),
@@ -330,10 +331,10 @@ class _DateField extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.bodyLarge!,
+                  500,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
             ),
             const Icon(

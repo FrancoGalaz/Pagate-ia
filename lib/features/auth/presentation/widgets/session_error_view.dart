@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Estado de error a pantalla completa con reintento y, opcionalmente,
 /// cierre de sesión (útil cuando el perfil no se puede leer por permisos).
@@ -40,9 +41,8 @@ class SessionErrorView extends StatelessWidget {
               Text(
                 'No pudimos cargar tus datos',
                 textAlign: TextAlign.center,
-                style: textTheme.headlineSmall?.copyWith(
+                style: AppText.weight(textTheme.headlineSmall!, 800).copyWith(
                   color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),

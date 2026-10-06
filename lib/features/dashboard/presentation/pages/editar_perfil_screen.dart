@@ -7,6 +7,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 class EditarPerfilScreen extends StatefulWidget {
   const EditarPerfilScreen({super.key});
@@ -117,9 +118,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
         leading: const PagateBackButton(),
         title: Text(
           'Editar Perfil',
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: AppText.weight(theme.textTheme.titleLarge!, 800).copyWith(
             color: AppColors.textPrimaryDark,
-            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -135,10 +135,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             // ── Name ─────────────────────────────
             Text(
               'NOMBRE COMPLETO',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: AppText.weight(theme.textTheme.labelSmall!, 700).copyWith(
                 color: AppColors.textSecondaryDark,
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -153,10 +152,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             // ── Business name ─────────────────────
             Text(
               'NOMBRE DEL NEGOCIO',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: AppText.weight(theme.textTheme.labelSmall!, 700).copyWith(
                 color: AppColors.textSecondaryDark,
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -171,10 +169,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             // ── Business type ─────────────────────
             Text(
               'TIPO DE NEGOCIO',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: AppText.weight(theme.textTheme.labelSmall!, 700).copyWith(
                 color: AppColors.textSecondaryDark,
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -205,11 +202,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     ),
                     child: Text(
                       type,
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: AppText.weight(
+                        theme.textTheme.labelMedium!,
+                        600,
+                      ).copyWith(
                         color: isSelected
                             ? Colors.white
                             : AppColors.textSecondaryDark,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -222,10 +221,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             // ── Currency ──────────────────────────
             Text(
               'MONEDA',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: AppText.weight(theme.textTheme.labelSmall!, 700).copyWith(
                 color: AppColors.textSecondaryDark,
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -255,11 +253,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     ),
                     child: Text(
                       code,
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: AppText.weight(
+                        theme.textTheme.labelMedium!,
+                        600,
+                      ).copyWith(
                         color: isSelected
                             ? Colors.white
                             : AppColors.textSecondaryDark,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -272,10 +272,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
             // ── Monthly goal ──────────────────────
             Text(
               'META MENSUAL',
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: AppText.weight(theme.textTheme.labelSmall!, 700).copyWith(
                 color: AppColors.textSecondaryDark,
                 letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -313,9 +312,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                       )
                     : Text(
                         'Guardar Cambios',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppText.weight(theme.textTheme.titleSmall!, 700),
                       ),
               ),
             ),

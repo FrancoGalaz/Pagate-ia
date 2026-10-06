@@ -11,6 +11,7 @@ import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import 'editar_perfil_screen.dart';
 import 'eliminar_cuenta_screen.dart';
+import '../../../../core/theme/app_text.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -38,11 +39,10 @@ class ConfiguracionScreen extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Configuración',
-                    style:
-                        Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: AppColors.textPrimaryDark,
-                              fontWeight: FontWeight.w800,
-                            ),
+                    style: AppText.weight(
+                      Theme.of(context).textTheme.headlineSmall!,
+                      800,
+                    ).copyWith(color: AppColors.textPrimaryDark),
                   ),
                 ],
               ),
@@ -239,11 +239,10 @@ class _Section extends StatelessWidget {
         children: [
           Text(
             title.toUpperCase(),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondaryDark,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.labelSmall!,
+              700,
+            ).copyWith(color: AppColors.textSecondaryDark, letterSpacing: 1.2),
           ),
           const SizedBox(height: AppSpacing.sm),
           Container(
@@ -321,12 +320,14 @@ class _ItemRow extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isDestructive
-                                ? AppPalette.danger
-                                : AppColors.textPrimaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.bodyMedium!,
+                        600,
+                      ).copyWith(
+                        color: isDestructive
+                            ? AppPalette.danger
+                            : AppColors.textPrimaryDark,
+                      ),
                     ),
                     Text(
                       subtitle,

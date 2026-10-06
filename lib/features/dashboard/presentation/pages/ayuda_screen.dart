@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
+import '../../../../core/theme/app_text.dart';
 
 class AyudaScreen extends StatefulWidget {
   const AyudaScreen({super.key});
@@ -55,11 +56,10 @@ class _AyudaScreenState extends State<AyudaScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       'Ayuda e Ideas',
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: AppColors.textPrimaryDark,
-                                fontWeight: FontWeight.w800,
-                              ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.headlineSmall!,
+                        800,
+                      ).copyWith(color: AppColors.textPrimaryDark),
                     ),
                   ],
                 ),
@@ -87,24 +87,18 @@ class _AyudaScreenState extends State<AyudaScreen> {
                               children: [
                                 Text(
                                   'Sugerencia del día',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  style: AppText.weight(
+                                    Theme.of(context).textTheme.labelMedium!,
+                                    600,
+                                  ).copyWith(color: Colors.white70),
                                 ),
                                 const SizedBox(height: AppSpacing.xxs),
                                 Text(
                                   'Reduce tus gastos fijos en 10% para ganar \$830 extra este mes.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  style: AppText.weight(
+                                    Theme.of(context).textTheme.bodyMedium!,
+                                    600,
+                                  ).copyWith(color: Colors.white),
                                 ),
                               ],
                             ),
@@ -117,11 +111,13 @@ class _AyudaScreenState extends State<AyudaScreen> {
 
                     Text(
                       'PREGUNTAS FRECUENTES',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.labelSmall!,
+                        700,
+                      ).copyWith(
+                        color: AppColors.textSecondaryDark,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
 
@@ -157,14 +153,12 @@ class _AyudaScreenState extends State<AyudaScreen> {
                                       Expanded(
                                         child: Text(
                                           faq['question'] ?? '',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                color:
-                                                    AppColors.textPrimaryDark,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                          style: AppText.weight(
+                                            Theme.of(context).textTheme.bodyMedium!,
+                                            600,
+                                          ).copyWith(
+                                            color: AppColors.textPrimaryDark,
+                                          ),
                                         ),
                                       ),
                                       Icon(
@@ -215,11 +209,13 @@ class _AyudaScreenState extends State<AyudaScreen> {
 
                     Text(
                       'CONTACTO',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.labelSmall!,
+                        700,
+                      ).copyWith(
+                        color: AppColors.textSecondaryDark,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Container(
@@ -278,10 +274,10 @@ class _ContactRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.bodyMedium!,
+                    600,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
               ),
               const Icon(Icons.chevron_right_rounded,

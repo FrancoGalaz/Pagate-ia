@@ -165,10 +165,10 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 'Asistente IA',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.headlineMedium!,
+                  800,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
               Text(
                 conversationActive

@@ -8,6 +8,7 @@ import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../providers/inventory_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 class DetalleItemScreen extends StatelessWidget {
   const DetalleItemScreen({super.key, required this.item});
@@ -56,11 +57,10 @@ class DetalleItemScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Detalle del Item',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: AppColors.textPrimaryDark,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: AppText.weight(
+                          Theme.of(context).textTheme.titleLarge!,
+                          700,
+                        ).copyWith(color: AppColors.textPrimaryDark),
                       ),
                     ),
                     IconButton(
@@ -108,13 +108,10 @@ class DetalleItemScreen extends StatelessWidget {
                             const SizedBox(height: AppSpacing.md),
                             Text(
                               item.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                              style: AppText.weight(
+                                Theme.of(context).textTheme.headlineSmall!,
+                                800,
+                              ).copyWith(color: Colors.white),
                               textAlign: TextAlign.center,
                             ),
                             if (item.code != null) ...[
@@ -154,13 +151,10 @@ class DetalleItemScreen extends StatelessWidget {
                             const SizedBox(width: AppSpacing.sm),
                             Text(
                               _statusLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(
-                                    color: _statusColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              style: AppText.weight(
+                                Theme.of(context).textTheme.titleSmall!,
+                                700,
+                              ).copyWith(color: _statusColor),
                             ),
                             const Spacer(),
                             Text(
@@ -412,10 +406,10 @@ class _DetailRow extends StatelessWidget {
                 ),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.bodyMedium!,
+                    600,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
               ],
             ),

@@ -7,6 +7,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../bloc/hourly_rate_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/premium_text_field.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Premium configuration page for setting up hourly rate.
 /// Features: Gradient background, glassmorphism, smooth animations.
@@ -130,9 +131,10 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
               ),
               child: Text(
                 formatCurrency(hourlyValue, currency: kFallbackCurrency),
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.headlineLarge!,
+                  700,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

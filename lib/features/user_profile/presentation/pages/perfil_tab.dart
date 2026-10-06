@@ -7,6 +7,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
 import '../../../dashboard/presentation/pages/ayuda_screen.dart';
+import '../../../../core/theme/app_text.dart';
 
 class PerfilTab extends StatelessWidget {
   const PerfilTab({super.key});
@@ -48,10 +49,10 @@ class PerfilTab extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   profile?.name ?? 'Tu Nombre',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.headlineSmall!,
+                    800,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
@@ -73,11 +74,10 @@ class PerfilTab extends StatelessWidget {
                     ),
                     child: Text(
                       'PRO',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
+                      style: AppText.weight(
+                        Theme.of(context).textTheme.labelSmall!,
+                        800,
+                      ).copyWith(color: Colors.white, letterSpacing: 1.2),
                     ),
                   ),
               ],
@@ -218,10 +218,10 @@ class _StatItem extends StatelessWidget {
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.titleMedium!,
+              700,
+            ).copyWith(color: AppColors.textPrimaryDark),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
@@ -275,7 +275,9 @@ class _MenuItem extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  color: isDestructive ? AppColors.error : AppColors.textSecondaryDark,
+                  color: isDestructive
+                      ? AppColors.error
+                      : AppColors.textSecondaryDark,
                   size: 18,
                 ),
               ),
@@ -283,15 +285,21 @@ class _MenuItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDestructive ? AppColors.error : AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.bodyMedium!,
+                    600,
+                  ).copyWith(
+                    color: isDestructive
+                        ? AppColors.error
+                        : AppColors.textPrimaryDark,
+                  ),
                 ),
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: isDestructive ? AppColors.error : AppColors.textSecondaryDark,
+                color: isDestructive
+                    ? AppColors.error
+                    : AppColors.textSecondaryDark,
                 size: 20,
               ),
             ],

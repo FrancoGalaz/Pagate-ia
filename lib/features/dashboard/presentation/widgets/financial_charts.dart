@@ -7,6 +7,7 @@ import '../../../../core/utils/month_labels.dart';
 import '../../../finances/domain/entities/finances_summary_entity.dart';
 import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // FINANCIAL CHARTS — Dashboard visualizations for the home tab
@@ -467,10 +468,10 @@ class _ChartCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.titleSmall!,
+                  700,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
             ],
           ),

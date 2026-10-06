@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Premium text input field with label and validation (Dark theme).
 class PremiumTextField extends StatelessWidget {
@@ -35,10 +36,10 @@ class PremiumTextField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w600,
-                ),
+            style: AppText.weight(
+              Theme.of(context).textTheme.titleMedium!,
+              600,
+            ).copyWith(color: AppColors.textPrimaryDark),
           ),
           const SizedBox(height: AppSpacing.xs),
           TextFormField(

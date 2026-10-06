@@ -12,6 +12,7 @@ import '../../../../core/widgets/pagate_section_card.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Onboarding: se muestra dentro del `UserScope` cuando el usuario autenticado
 /// todavía no tiene perfil en `users/{uid}`. Al guardar, el stream del perfil
@@ -116,10 +117,10 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
                 // Header
                 Text(
                   'Configura tu negocio',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: AppText.weight(
+                    Theme.of(context).textTheme.headlineMedium!,
+                    800,
+                  ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -235,10 +236,10 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(final BuildContext context) => Text(
         label,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppColors.textPrimaryDark,
-              fontWeight: FontWeight.w700,
-            ),
+        style: AppText.weight(
+          Theme.of(context).textTheme.titleSmall!,
+          700,
+        ).copyWith(color: AppColors.textPrimaryDark),
       );
 }
 
@@ -279,12 +280,14 @@ class _PillSelector extends StatelessWidget {
               ),
               child: Text(
                 opt,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.textSecondaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.labelMedium!,
+                  600,
+                ).copyWith(
+                  color: isSelected
+                      ? Colors.white
+                      : AppColors.textSecondaryDark,
+                ),
               ),
             ),
           );

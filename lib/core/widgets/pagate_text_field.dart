@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_constants.dart';
+import '../theme/app_text.dart';
 
 /// Standard text input field for Págate-IA.
 ///
@@ -65,9 +66,8 @@ class _PagateTextFieldState extends State<PagateTextField> {
       onTap: widget.onTap,
       inputFormatters: widget.inputFormatters,
       maxLength: widget.maxLength,
-      style: theme.textTheme.bodyLarge?.copyWith(
+      style: AppText.weight(theme.textTheme.bodyLarge!, 500).copyWith(
         color: theme.colorScheme.onSurface,
-        fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         hintText: widget.hintText,

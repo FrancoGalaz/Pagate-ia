@@ -6,6 +6,7 @@ import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Registro con correo y contraseña.
 ///
@@ -158,10 +159,10 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     // Regional settings
                     Text(
                       'Configuración Regional',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppText.weight(
+                        textTheme.titleMedium!,
+                        700,
+                      ).copyWith(color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: AppSpacing.lg),
 

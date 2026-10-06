@@ -70,6 +70,31 @@ TextStyle _t(
 class AppText {
   AppText._();
 
+  /// Cambia el peso de [base] a [w] moviendo LOS DOS SITIOS donde vive.
+  ///
+  /// POR QUÉ HACE FALTA. `TextStyle.copyWith(fontWeight: ...)` no toca
+  /// `fontVariations`, y en una fuente variable el eje `wght` de
+  /// `fontVariations` es el que decide el trazo real: Manrope entra al motor
+  /// como una única cara (`usWeightClass` 200, default de `fvar` 200), así
+  /// que `fontWeight` no selecciona ninguna otra. Un
+  /// `AppText.titleLarge.copyWith(fontWeight: FontWeight.w800)` sigue
+  /// dibujándose en 600, que es el `wght` que trae el estilo.
+  ///
+  /// Era el caso de 81 sitios en 26 archivos: todos creían cambiar el peso y
+  /// ninguno lo cambiaba. Este helper es la única forma correcta de moverlo,
+  /// y por eso vive junto a la escala y no suelto en una pantalla.
+  ///
+  /// [w] va en la escala del eje (200-800), igual que en [_t].
+  ///
+  /// `fontWeight` se mantiene al lado de `fontVariations` por la misma razón
+  /// que en el resto del archivo: si un glífo cae en la fuente de respaldo
+  /// del sistema, que no tiene eje `wght`, recibe negrita sintética en vez de
+  /// quedarse en pelo.
+  static TextStyle weight(final TextStyle base, final int w) => base.copyWith(
+        fontWeight: FontWeight.values[(w ~/ 100) - 1],
+        fontVariations: [FontVariation('wght', w.toDouble())],
+      );
+
   // ─── Los quince slots de Material 3 ───────────────────────────────
   // Se respetan los quince nombres para que los ~130
   // `Theme.of(context).textTheme.*` que ya existen sigan funcionando sin

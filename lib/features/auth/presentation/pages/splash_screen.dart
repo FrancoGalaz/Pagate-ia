@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_text.dart';
 
 /// Pantalla de espera mientras se resuelve la sesión o se carga el perfil.
 class SplashScreen extends StatelessWidget {
@@ -30,10 +31,10 @@ class SplashScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               Text(
                 'Págate-IA',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: AppText.weight(
+                  Theme.of(context).textTheme.headlineSmall!,
+                  800,
+                ).copyWith(color: AppColors.textPrimaryDark),
               ),
               const SizedBox(height: AppSpacing.xxl),
               const SizedBox(

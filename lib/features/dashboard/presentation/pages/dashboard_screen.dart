@@ -12,6 +12,7 @@ import '../../../finances/presentation/widgets/transaction_form_sheet.dart';
 import '../../../inventory/presentation/pages/inventario_tab.dart';
 import '../../../user_profile/presentation/pages/perfil_tab.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../../core/theme/app_text.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -151,10 +152,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Pagate',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondaryDark,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: AppText.weight(
+                      Theme.of(context).textTheme.labelSmall!,
+                      700,
+                    ).copyWith(color: AppColors.textSecondaryDark),
                   ),
                 ],
               ),
