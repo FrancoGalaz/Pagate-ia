@@ -7,7 +7,6 @@ import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/pagate_chip_selector.dart';
-import '../../../../core/widgets/pagate_label.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
@@ -290,7 +289,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              const PagateLabel('Tipo', isUppercase: true),
+              const _EtiquetaDeGrupo('Tipo'),
               const SizedBox(height: AppSpacing.xs),
               PagateChipSelector(
                 options: _typeLabels.values.toList(),
@@ -299,9 +298,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              const PagateLabel('Título', isUppercase: true),
-              const SizedBox(height: AppSpacing.xs),
               PagateTextField(
+                labelText: 'Título',
                 controller: _titleController,
                 hintText: isIncome ? 'Ej: venta en la feria' : 'Ej: greda 25 kg',
                 prefixIcon: Icons.edit_outlined,
@@ -312,9 +310,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              const PagateLabel('Monto', isUppercase: true),
-              const SizedBox(height: AppSpacing.xs),
               PagateTextField(
+                labelText: 'Monto',
                 controller: _amountController,
                 hintText: '0',
                 prefixIcon: Icons.attach_money_rounded,
@@ -337,7 +334,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               // En un gasto estos dos campos no significan nada, así que no
               // se dibujan en lugar de dibujarse deshabilitados.
               if (isIncome) ...[
-                const PagateLabel('Documento', isUppercase: true),
+                const _EtiquetaDeGrupo('Documento'),
                 const SizedBox(height: AppSpacing.xs),
                 PagateChipSelector(
                   options: TransactionDocType.values
@@ -353,12 +350,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 ),
                 const SizedBox(height: AppSpacing.md),
 
-                const PagateLabel(
-                  'Comisión del medio de pago (opcional)',
-                  isUppercase: true,
-                ),
-                const SizedBox(height: AppSpacing.xs),
                 PagateTextField(
+                  labelText: 'Comisión del medio de pago (opcional)',
                   controller: _feeController,
                   hintText: '0',
                   keyboardType: const TextInputType.numberWithOptions(
@@ -381,7 +374,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 const SizedBox(height: AppSpacing.md),
               ],
 
-              const PagateLabel('Categoría', isUppercase: true),
+              const _EtiquetaDeGrupo('Categoría'),
               const SizedBox(height: AppSpacing.xs),
               PagateChipSelector(
                 options: categoriesFor(_type),
@@ -390,14 +383,13 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
               const SizedBox(height: AppSpacing.md),
 
-              const PagateLabel('Fecha', isUppercase: true),
+              const _EtiquetaDeGrupo('Fecha'),
               const SizedBox(height: AppSpacing.xs),
               _DateField(date: _date, onTap: _pickDate),
               const SizedBox(height: AppSpacing.md),
 
-              const PagateLabel('Descripción (opcional)', isUppercase: true),
-              const SizedBox(height: AppSpacing.xs),
               PagateTextField(
+                labelText: 'Descripción (opcional)',
                 controller: _descriptionController,
                 hintText: 'Detalles, cliente, notas...',
                 prefixIcon: Icons.notes_rounded,
@@ -470,4 +462,25 @@ class _DateField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Etiqueta de un grupo de controles que no es un campo de texto (los chips
+/// y el selector de fecha).
+///
+/// Sustituye a `PagateLabel`, que pintaba versalitas con tracking 0,8 en
+/// `textTertiary` #9CA3AF —2,54 sobre blanco, un fallo de AA— y que el paso
+/// R-5 retira. Es el mismo estilo que `PagateTextField` usa para su propia
+/// etiqueta, así que el formulario se lee con un solo criterio.
+class _EtiquetaDeGrupo extends StatelessWidget {
+  const _EtiquetaDeGrupo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(final BuildContext context) => Text(
+        texto,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
+      );
 }

@@ -119,9 +119,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     const SizedBox(height: AppSpacing.xxl),
 
                     // Name
-                    const PagateLabel('NOMBRE COMPLETO', isUppercase: true),
-                    const SizedBox(height: AppSpacing.xs),
                     PagateTextField(
+                      labelText: 'Nombre completo',
                       controller: _nameController,
                       hintText: 'Ej. María González',
                       prefixIcon: Icons.person_outline,
@@ -130,9 +129,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     const SizedBox(height: AppSpacing.lg),
 
                     // Email
-                    const PagateLabel('CORREO ELECTRÓNICO', isUppercase: true),
-                    const SizedBox(height: AppSpacing.xs),
                     PagateTextField(
+                      labelText: 'Correo electrónico',
                       controller: _emailController,
                       hintText: 'hola@ejemplo.com',
                       prefixIcon: Icons.mail_outline,
@@ -142,9 +140,8 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                     const SizedBox(height: AppSpacing.lg),
 
                     // Password
-                    const PagateLabel('CONTRASEÑA', isUppercase: true),
-                    const SizedBox(height: AppSpacing.xs),
                     PagateTextField(
+                      labelText: 'Contraseña',
                       controller: _passwordController,
                       hintText: '••••••••',
                       prefixIcon: Icons.lock_outline,
@@ -176,7 +173,12 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const PagateLabel('PAÍS', isUppercase: true),
+                              Text(
+                                'País',
+                                style: textTheme.titleSmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.xs),
                               _buildCountrySelector(),
                             ],
@@ -189,7 +191,12 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const PagateLabel('MONEDA', isUppercase: true),
+                              Text(
+                                'Moneda',
+                                style: textTheme.titleSmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.xs),
                               _buildCurrencySelector(),
                             ],

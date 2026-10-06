@@ -136,7 +136,11 @@ class _EliminarCuentaScreenState extends State<EliminarCuentaScreen> {
               ),
               child: Row(
                 children: [
-                  const PagateBackButton(),
+                  IconButton(
+                      tooltip: 'Volver',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(

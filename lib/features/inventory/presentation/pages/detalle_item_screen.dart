@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
@@ -52,7 +51,11 @@ class DetalleItemScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const PagateBackButton(),
+                    IconButton(
+                      tooltip: 'Volver',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(

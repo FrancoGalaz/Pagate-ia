@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../../core/theme/app_text.dart';
 
 class AyudaScreen extends StatefulWidget {
@@ -66,7 +65,11 @@ class _AyudaScreenState extends State<AyudaScreen> {
                 ),
                 child: Row(
                   children: [
-                    const PagateBackButton(),
+                    IconButton(
+                      tooltip: 'Volver',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       'Ayuda',

@@ -27,9 +27,22 @@ export 'pagate_empty_state.dart';
 export 'pagate_error_state.dart';
 export 'pagate_skeleton.dart';
 
-// ─── Bajas del paso R-5 ──────────────────────────────────────────
-// `pagate_back_button.dart`, `pagate_info_card.dart` y `pagate_label.dart`
-// salen del barrel en R-5c, junto con la migración de sus call sites.
-export 'pagate_back_button.dart';
-export 'pagate_info_card.dart';
-export 'pagate_label.dart';
+// ─── Navegación y superficies ────────────────────────────────────
+export 'pagate_action_bar.dart';
+export 'pagate_bottom_nav.dart';
+export 'pagate_month_selector.dart';
+export 'pagate_sheet.dart';
+
+// ─── BAJAS DEL PASO R-5 ──────────────────────────────────────────
+// Tres archivos borrados, con su motivo:
+//
+// · `pagate_info_card.dart` — CERO consumidores fuera de su propio
+//   archivo, verificado con grep. Ya estaba marcado como código muerto en
+//   la auditoría previa.
+// · `pagate_label.dart` — versalitas con tracking 0,8 en `textTertiary`
+//   #9CA3AF: 2,54 sobre blanco, un fallo de AA repetido en diecisiete
+//   sitios. La etiqueta de campo se integró en `PagateTextField`.
+// · `pagate_back_button.dart` — un círculo de 40 dp, por debajo del área
+//   táctil mínima de 48. Pasa a `IconButton(tooltip: 'Volver')`, que trae
+//   la caja de 48 del tema y una etiqueta para el lector de pantalla, que
+//   el círculo no tenía.

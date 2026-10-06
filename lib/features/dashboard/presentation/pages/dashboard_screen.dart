@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/widgets.dart';
 import 'ayuda_screen.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/ia_tab.dart';
@@ -12,7 +13,6 @@ import '../../../finances/presentation/widgets/transaction_form_sheet.dart';
 import '../../../inventory/presentation/pages/inventario_tab.dart';
 import '../../../user_profile/presentation/pages/perfil_tab.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
-import '../../../../core/theme/app_text.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -26,28 +26,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ─── Navigation Items ──────────────────────────────────────────────
 
-  static const List<_NavItem> _navItems = [
-    _NavItem(
+  static const List<PagateNavItem> _navItems = [
+    PagateNavItem(
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
       label: 'Inicio',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.bar_chart_outlined,
       activeIcon: Icons.bar_chart_rounded,
       label: 'Finanzas',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2_rounded,
       label: 'Inventario',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.smart_toy_outlined,
       activeIcon: Icons.smart_toy_rounded,
       label: 'IA',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.person_outline_rounded,
       activeIcon: Icons.person_rounded,
       label: 'Perfil',
@@ -110,7 +110,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (isWide) {
             return _buildDesktopLayout();
           }
-          return _buildMobileLayout(compact: constraints.maxWidth < 380);
+
+          // Se elimina la variante `compact` por debajo de 380 dp, que
+          // escondía las etiquetas de la barra: un icono sin etiqueta no se
+          // entiende, y es de lo que revisa el informe previo de Play.
+          return _buildMobileLayout();
         },
       ),
     );
@@ -118,127 +122,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ─── Desktop Layout (NavigationRail) ───────────────────────────────
 
-  Widget _buildDesktopLayout() {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: Row(
-        children: [
-          // Rail
-          NavigationRail(
-            backgroundColor: AppColors.surfaceDark,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _setPage,
-            labelType: NavigationRailLabelType.all,
-            elevation: 0,
-            minWidth: 80,
-            groupAlignment: 0.8,
-            leading: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.md),
-              child: Column(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.brandGradient,
-                      borderRadius: AppRadius.xlBorder,
-                    ),
-                    child: const Icon(
-                      Icons.bolt_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+  Widget _buildDesktopLayout() => Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              // Los colores, los iconos y los dos estilos de etiqueta salen
+              // de `navigationRailTheme`, que el paso R-4 añadió al tema.
+              // Antes se escribían aquí en línea con ocho colores oscuros,
+              // porque ese tema no existía en ninguno de los dos temas.
+              NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _setPage,
+                labelType: NavigationRailLabelType.all,
+                minWidth: 80,
+                groupAlignment: 0.8,
+                leading: const Padding(
+                  padding: EdgeInsets.only(
+                    top: AppSpacing.x5,
+                    bottom: AppSpacing.x4,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Pagate',
-                    style: AppText.weight(
-                      Theme.of(context).textTheme.labelSmall!,
-                      700,
-                    ).copyWith(color: AppColors.textSecondaryDark),
-                  ),
+                  child: _RailWordmark(),
+                ),
+                destinations: [
+                  for (final item in _navItems)
+                    NavigationRailDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.activeIcon),
+                      label: Text(item.label),
+                    ),
                 ],
               ),
-            ),
-            destinations: _navItems
-                .map((item) => NavigationRailDestination(
-                      icon: Icon(item.icon, color: AppColors.textSecondaryDark),
-                      selectedIcon:
-                          Icon(item.activeIcon, color: AppColors.brand),
-                      label: Text(
-                        item.label,
-                        style: TextStyle(
-                          color: _currentIndex == _navItems.indexOf(item)
-                              ? AppColors.brand
-                              : AppColors.textSecondaryDark,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-
-          // Separator
-          const VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: AppColors.borderDark,
-          ),
-
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.screenHorizontal,
-                right: AppSpacing.screenHorizontal,
+              const VerticalDivider(
+                width: AppSizes.borderHairline,
+                thickness: AppSizes.borderHairline,
+                color: AppPalette.border,
               ),
-              child: _pages[_currentIndex],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Mobile Layout (BottomNavigationBar) ───────────────────────────
-
-  Widget _buildMobileLayout({required bool compact}) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceDark,
-          border: Border(
-            top: BorderSide(color: AppColors.borderDark, width: 1),
+              Expanded(child: _pages[_currentIndex]),
+            ],
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: compact ? 56 : 64,
-            child: Row(
-              children: List.generate(
-                _navItems.length,
-                (i) => Expanded(
-                  child: _NavButton(
-                    item: _navItems[i],
-                    isSelected: _currentIndex == i,
-                    compact: compact,
-                    onTap: () => _setPage(i),
-                  ),
-                ),
-              ),
-            ),
-          ),
+      );
+
+  // ─── Layout móvil ──────────────────────────────────────────────────
+
+  Widget _buildMobileLayout() => Scaffold(
+        // `SafeArea(bottom: false)`: hasta ahora las cinco pestañas empezaban
+        // a 24 dp del borde FÍSICO, así que en cualquier móvil con muesca el
+        // avatar y el título quedaban bajo la barra de estado. Abajo no,
+        // porque de esa zona ya se ocupa la barra de navegación.
+        body: SafeArea(
+          bottom: false,
+          child: IndexedStack(index: _currentIndex, children: _pages),
         ),
-      ),
-    );
-  }
+        bottomNavigationBar: PagateBottomNav(
+          items: _navItems,
+          currentIndex: _currentIndex,
+          onSelected: _setPage,
+        ),
+      );
 }
 
 // ─── Meta mensual: perfil → finanzas ────────────────────────────────────
@@ -264,91 +206,36 @@ class _MonthlyGoalSync extends StatelessWidget {
   }
 }
 
-// ─── Navigation Item Models ─────────────────────────────────────────────
+// ─── Marca del rail ─────────────────────────────────────────────────────
 
-class _NavItem {
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-  });
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-}
-
-class _NavButton extends StatelessWidget {
-  const _NavButton({
-    required this.item,
-    required this.isSelected,
-    required this.compact,
-    required this.onTap,
-  });
-
-  final _NavItem item;
-  final bool isSelected;
-  final bool compact;
-  final VoidCallback onTap;
+/// Wordmark provisional del rail de escritorio.
+///
+/// Sustituye al cuadrado con `brandGradient` y el `Icons.bolt_rounded` que
+/// había aquí: era una TERCERA marca distinta para la misma app —la
+/// bienvenida usaba `Icons.paid_outlined` y el avatar por defecto las
+/// iniciales "IA"—. Hasta que exista un logotipo real, un wordmark en
+/// Manrope 700 es honesto, consistente y no cuesta nada.
+class _RailWordmark extends StatelessWidget {
+  const _RailWordmark();
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          child: Stack(
-            children: [
-              // Active indicator
-              if (isSelected)
-                Positioned(
-                  top: 0,
-                  left: 16,
-                  right: 16,
-                  child: Container(
-                    height: 3,
-                    decoration: const BoxDecoration(
-                      gradient: AppColors.brandGradient,
-                      borderRadius: BorderRadius.vertical(
-                        bottom: Radius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: AppDurations.fast,
-                      child: Icon(
-                        isSelected ? item.activeIcon : item.icon,
-                        key: ValueKey('$isSelected-$compact'),
-                        color: isSelected
-                            ? AppColors.brand
-                            : AppColors.textSecondaryDark,
-                        size: compact ? 20 : AppIconSize.md,
-                      ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 10,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.brand
-                              : AppColors.textSecondaryDark,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+  Widget build(final BuildContext context) => Column(
+        children: [
+          Container(
+            width: AppSizes.avatarSmall,
+            height: AppSizes.avatarSmall,
+            decoration: const BoxDecoration(
+              color: AppPalette.brand,
+              borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.x1),
+          Text(
+            'Págate',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textSecondary,
+                ),
+          ),
+        ],
       );
 }

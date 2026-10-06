@@ -124,12 +124,12 @@ void main() {
   ) async {
     await montar(tester);
 
-    expect(find.text('DOCUMENTO'), findsOneWidget);
+    expect(find.text('Documento'), findsOneWidget);
     expect(find.text('Boleta de venta'), findsOneWidget);
     expect(find.text('Boleta de honorarios'), findsOneWidget);
     expect(find.text('Sin documento'), findsOneWidget);
     expect(
-      find.text('COMISIÓN DEL MEDIO DE PAGO (OPCIONAL)'),
+      find.text('Comisión del medio de pago (opcional)'),
       findsOneWidget,
     );
     expect(
@@ -144,9 +144,9 @@ void main() {
   ) async {
     await montar(tester, tipo: TransactionType.expense);
 
-    expect(find.text('DOCUMENTO'), findsNothing);
+    expect(find.text('Documento'), findsNothing);
     expect(find.text('Boleta de venta'), findsNothing);
-    expect(find.text('COMISIÓN DEL MEDIO DE PAGO (OPCIONAL)'), findsNothing);
+    expect(find.text('Comisión del medio de pago (opcional)'), findsNothing);
   });
 
   testWidgets('al cambiar de ingreso a gasto se olvidan los dos campos', (
@@ -159,7 +159,7 @@ void main() {
 
     await tester.tap(find.text('Gasto'));
     await tester.pump();
-    expect(find.text('COMISIÓN DEL MEDIO DE PAGO (OPCIONAL)'), findsNothing);
+    expect(find.text('Comisión del medio de pago (opcional)'), findsNothing);
 
     await tester.tap(find.text('Ingreso'));
     await tester.pump();

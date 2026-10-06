@@ -5,7 +5,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
@@ -35,7 +34,11 @@ class ConfiguracionScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const PagateBackButton(),
+                  IconButton(
+                      tooltip: 'Volver',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     'Configuración',

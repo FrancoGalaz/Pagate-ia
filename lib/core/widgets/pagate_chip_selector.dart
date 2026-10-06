@@ -91,6 +91,16 @@ class PagateChip extends StatelessWidget {
   /// `GestureDetector` anterior, que no anunciaba ninguno de los dos.
   final bool exclusive;
 
+  /// `true` dibuja la variante de PERIODO: relleno sólido de marca con
+  /// texto blanco (6,43:1) cuando está activo y fondo transparente SIN
+  /// BORDE cuando no.
+  ///
+  /// Es un píxel distinto a propósito. El selector de mes es una fila de
+  /// cinco o seis chips donde solo uno importa; con el borde del chip de
+  /// filtro en cada no seleccionado, la fila se convertía en una reja y el
+  /// activo no destacaba.
+  final bool isPeriod;
+
   final VoidCallback onSelected;
 
   const PagateChip({
@@ -100,7 +110,17 @@ class PagateChip extends StatelessWidget {
     required this.onSelected,
     this.isEnabled = true,
     this.exclusive = true,
-  });
+  }) : isPeriod = false;
+
+  /// Ítem del selector de periodo. Ver [isPeriod].
+  const PagateChip.period({
+    super.key,
+    required this.label,
+    required this.isSelected,
+    required this.onSelected,
+  })  : isPeriod = true,
+        isEnabled = true,
+        exclusive = true;
 
   @override
   Widget build(final BuildContext context) {
@@ -109,7 +129,12 @@ class PagateChip extends StatelessWidget {
     final Color foreground;
     final Color background;
     final Color borderColor;
-    if (!isEnabled) {
+    if (isPeriod) {
+      foreground =
+          isSelected ? AppPalette.textOnBrand : AppPalette.textSecondary;
+      background = isSelected ? AppPalette.brand : Colors.transparent;
+      borderColor = Colors.transparent;
+    } else if (!isEnabled) {
       foreground = AppPalette.textDisabled;
       background = AppPalette.sunken;
       borderColor = AppPalette.border;

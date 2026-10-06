@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/month_labels.dart';
-import '../../../../core/widgets/pagate_label.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
 import '../../domain/usecases/calculate_net_hourly_value.dart';
 import '../bloc/hourly_rate_provider.dart';
@@ -69,7 +68,7 @@ class NetHourlyValueSection extends StatelessWidget {
     if (!neto.hasIncome) {
       return _Bloque(
         children: [
-          PagateLabel('Lo que te quedó por hora en $mes', isUppercase: true),
+          _LineaGuia('Lo que te quedó por hora en $mes'),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Registra tus ingresos del mes y aquí aparece lo que te quedó '
@@ -86,7 +85,7 @@ class NetHourlyValueSection extends StatelessWidget {
 
     return _Bloque(
       children: [
-        PagateLabel('Lo que te quedó por hora en $mes', isUppercase: true),
+        _LineaGuia('Lo que te quedó por hora en $mes'),
         const SizedBox(height: AppSpacing.xs),
         Text(
           formatCurrency(neto.netHourlyValue, currency: kFallbackCurrency),
@@ -156,5 +155,24 @@ class _Bloque extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: children,
         ),
+      );
+}
+
+/// Línea guía sobre la cifra, en `labelSmall` 11/600 mayúsculas
+/// `textSecondary` (6,91:1).
+///
+/// Sustituye a `PagateLabel(isUppercase: true)`, que pintaba el mismo texto
+/// en `textTertiary` #9CA3AF: 2,54 sobre blanco, un fallo de AA.
+class _LineaGuia extends StatelessWidget {
+  const _LineaGuia(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(final BuildContext context) => Text(
+        texto.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
       );
 }

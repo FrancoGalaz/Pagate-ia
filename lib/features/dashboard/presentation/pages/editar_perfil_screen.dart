@@ -115,7 +115,11 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         elevation: 0,
-        leading: const PagateBackButton(),
+        leading: IconButton(
+                      tooltip: 'Volver',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
         title: Text(
           'Editar Perfil',
           style: AppText.weight(theme.textTheme.titleLarge!, 800).copyWith(
