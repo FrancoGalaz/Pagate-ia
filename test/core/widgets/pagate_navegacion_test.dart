@@ -288,6 +288,26 @@ void main() {
       );
     });
 
+    // SIN TEST DEL TECLADO, Y ESTÁ RAZONADO.
+    //
+    // El pie de la hoja quedaba DEBAJO del teclado: visto en emulator-5554
+    // al tocar el campo de "Actualizar stock", donde el botón "Guardar"
+    // desaparecía y la hoja no se podía completar sin cerrar el teclado.
+    // Está arreglado en `pagate_sheet.dart` (el hueco del teclado pasó de
+    // estar dentro del cuerpo desplazable a estar bajo la hoja entera) y
+    // comprobado otra vez en el emulador.
+    //
+    // Escribí el widget test y lo descarté: con `tester.view.viewInsets`
+    // puesto a 400, la hoja mide y coloca el pie EXACTAMENTE IGUAL con el
+    // defecto y sin él (medido: pie en 351-769 en los dos casos). El
+    // `showModalBottomSheet` del test no reproduce la colocación que hace el
+    // framework sobre un teclado real, así que el test pasaba en ambas
+    // versiones. Un test que pasa con el defecto puesto es peor que no tener
+    // test: dice que algo está cubierto cuando no lo está.
+    //
+    // Lo que sí cubriría esto es una prueba de integración en un
+    // dispositivo. Queda anotado como pendiente, no como hecho.
+
     testWidgets('showPagateSheet abre una hoja con el tema del sistema', (
       final tester,
     ) async {

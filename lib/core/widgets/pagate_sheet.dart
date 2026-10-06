@@ -120,14 +120,7 @@ class PagateSheet extends StatelessWidget {
         // ─── Cuerpo ─────────────────────────────────────────────────
         Flexible(
           child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: AppSpacing.x4,
-              right: AppSpacing.x4,
-              top: AppSpacing.x4,
-
-              // El teclado: sin esto el último campo queda debajo de él.
-              bottom: AppSpacing.x4 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.x4),
             child: child,
           ),
         ),
@@ -156,7 +149,23 @@ class PagateSheet extends StatelessWidget {
       ],
     );
 
-    if (onIntentarCerrar == null) return contenido;
+    // EL TECLADO SE APARTA DEBAJO DE TODA LA HOJA, no dentro del cuerpo.
+    //
+    // Antes el hueco del teclado se sumaba al relleno inferior del
+    // `SingleChildScrollView`, así que con un pie fijo el contenido crecía
+    // y EMPUJABA EL BOTÓN FUERA DE LA PANTALLA: medido en emulator-5554, al
+    // tocar el campo de "Actualizar stock" el botón "Guardar" desaparecía
+    // detrás del teclado y la hoja no se podía completar sin cerrarlo.
+    //
+    // Con el margen fuera, la hoja entera se apoya sobre el teclado: el pie
+    // queda siempre visible y el cuerpo, que es `Flexible`, encoge y se
+    // desplaza.
+    final conTeclado = Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: contenido,
+    );
+
+    if (onIntentarCerrar == null) return conTeclado;
 
     return PopScope(
       canPop: false,
@@ -166,7 +175,7 @@ class PagateSheet extends StatelessWidget {
           if (context.mounted) Navigator.of(context).pop();
         }
       },
-      child: contenido,
+      child: conTeclado,
     );
   }
 
