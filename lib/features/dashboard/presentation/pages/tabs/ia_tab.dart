@@ -2,10 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/constants/app_constants.dart';
-import '../../../../../core/theme/app_text.dart';
 import '../../../../../core/utils/app_feedback.dart';
 import '../../../../../core/widgets/widgets.dart';
 import '../../providers/ai_provider.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// PESTAÑA DEL ASISTENTE
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 7.
+//
+// QUÉ SE SUSTITUYÓ Y POR QUÉ:
+//
+// · LOS CUATRO DEGRADADOS DE MARCA (cabecera, avatar del asistente, botón
+//   de enviar y el avatar del indicador de escritura). Eran relleno
+//   plano de marca desde el paso 3; ahora lo dicen. Y los dos círculos
+//   pasan a cuadrados de radio 8, que es la forma del sistema para un
+//   contenedor de icono.
+//
+// · LOS CUATRO RADIOS DE 32 dp DEL CAMPO DEL COMPOSITOR (uno
+//   por cada estado del borde) y el radio 100 del chip "Nueva". Toda la
+//   decoración del campo sale ahora de `inputDecorationTheme`.
+//
+// · EL BOTÓN DE ENVIAR era un `GestureDetector` sobre un círculo con
+//   `AnimatedOpacity` al 50% cuando estaba apagado: no anunciaba rol de
+//   botón, no tenía etiqueta y "deshabilitado" se comunicaba solo con
+//   opacidad. Ahora es un `IconButton` con `tooltip: 'Enviar'` y colores de
+//   estado del sistema.
+//
+// · EL CHIP "Nueva" era otro `GestureDetector` con ~33 dp de caja táctil.
+//   Pasa a la variante de texto del botón del sistema, que trae los 48.
+//
+// · EL BOTÓN DE CERRAR DEL BANNER DE ERROR medía ~16×16 (`padding: zero` +
+//   `constraints: BoxConstraints()`), el control más pequeño de la app.
+//   Vuelve a los 48 dp que exige el informe previo al lanzamiento de Play.
+//
+// · EL BANNER DE ERROR pintado con `error.withValues(alpha: 0.12)` y borde
+//   al 40%: dos opacidades inventadas. Pasa a `dangerSurface` con borde
+//   `danger`, verificados a 6,49:1.
+//
+// · LOS TRES `fontSize:` NUMÉRICOS (12, 12 y el `height: 1.4` de la
+//   burbuja). Nadie construye un `TextStyle` a mano: salen del `TextTheme`.
+// ═══════════════════════════════════════════════════════════════════════
 
 /// Aviso de IA generativa que la pestaña muestra fijo bajo la cabecera.
 ///
@@ -48,7 +85,7 @@ class _IaTabState extends State<IaTab> {
   }
 
   void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((final _) {
       if (!_scrollController.hasClients) return;
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -59,7 +96,7 @@ class _IaTabState extends State<IaTab> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final ai = context.watch<AiProvider>();
     final messages = ai.messages;
     final isSending = ai.isSending;
@@ -80,36 +117,32 @@ class _IaTabState extends State<IaTab> {
         const _AiDisclosure(),
         Expanded(
           child: ai.isLoadingHistory
-              ? const Center(
-                  child: SizedBox(
-                    width: AppIconSize.md,
-                    height: AppIconSize.md,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.brand,
-                    ),
-                  ),
-                )
+              ? ListView(children: [PagateSkeleton.rows(3)])
               : messages.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Inicia una conversación con tu asistente.',
-                    style: TextStyle(color: AppColors.textSecondaryDark),
-                  ),
-                )
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenHorizontal,
-                  ),
-                  itemCount: messages.length + (isSending ? 1 : 0),
-                  itemBuilder: (context, i) {
-                    if (i == messages.length) {
-                      return const _TypingIndicator();
-                    }
-                    return _MessageBubble(message: messages[i]);
-                  },
-                ),
+                  ? ListView(
+                      children: const [
+                        PagateEmptyState(
+                          title: 'Pregúntale lo que quieras',
+                          description:
+                              'Escribe abajo y el asistente responde con lo '
+                              'que registraste este mes.',
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.x4,
+                        AppSpacing.x4,
+                        AppSpacing.x4,
+                        AppSpacing.x0,
+                      ),
+                      itemCount: messages.length + (isSending ? 1 : 0),
+                      itemBuilder: (final context, final i) =>
+                          i == messages.length
+                              ? const _TypingIndicator()
+                              : _MessageBubble(message: messages[i]),
+                    ),
         ),
         if (ai.error != null)
           _ErrorBanner(
@@ -127,6 +160,8 @@ class _IaTabState extends State<IaTab> {
   }
 }
 
+// ─── Cabecera ──────────────────────────────────────────────────────────
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.conversationActive,
@@ -137,124 +172,184 @@ class _Header extends StatelessWidget {
   final VoidCallback? onNewConversation;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.screenHorizontal,
-      AppSpacing.xl,
-      AppSpacing.screenHorizontal,
-      AppSpacing.md,
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: AppSizes.avatarMedium,
-          height: AppSizes.avatarMedium,
-          decoration: BoxDecoration(
-            gradient: AppColors.brandGradient,
-            borderRadius: AppRadius.lgBorder,
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x4,
+        AppSpacing.x2,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _altoMinimo),
+        child: Row(
+          children: [
+            const _IconoDeMarca(lado: AppSizes.iconContainerSmall),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Asistente', style: theme.textTheme.headlineMedium),
+                  Text(
+                    conversationActive
+                        ? 'Conversación guardada'
+                        : 'Conversación nueva',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (conversationActive)
+              PagatePrimaryButton.text(
+                label: 'Nueva',
+                leadingIcon: Icons.add_comment_outlined,
+                onPressed: onNewConversation,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double _altoMinimo = 48;
+}
+
+/// Cuadrado de marca con el icono del asistente. Decorativo.
+class _IconoDeMarca extends StatelessWidget {
+  const _IconoDeMarca({required this.lado});
+
+  final double lado;
+
+  @override
+  Widget build(final BuildContext context) => ExcludeSemantics(
+        child: Container(
+          width: lado,
+          height: lado,
+          decoration: const BoxDecoration(
+            color: AppPalette.brand,
+            borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
           ),
           child: const Icon(
             Icons.smart_toy_outlined,
-            color: Colors.white,
-            size: AppIconSize.sm,
+            color: AppPalette.textOnBrand,
+            size: AppIconSize.xs,
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Asistente IA',
-                style: AppText.weight(
-                  Theme.of(context).textTheme.headlineMedium!,
-                  800,
-                ).copyWith(color: AppColors.textPrimaryDark),
-              ),
-              Text(
-                conversationActive
-                    ? 'Conversación guardada'
-                    : 'Conversación nueva',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondaryDark,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (conversationActive)
-          Tooltip(
-            message: 'Nueva conversación',
-            child: GestureDetector(
-              onTap: onNewConversation,
-              child: AnimatedOpacity(
-                duration: AppDurations.fast,
-                opacity: onNewConversation == null ? 0.5 : 1,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceDark,
-                    borderRadius: AppRadius.pillBorder,
-                    border: Border.all(color: AppColors.borderDark),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.add_comment_outlined,
-                        color: AppColors.textSecondaryDark,
-                        size: AppIconSize.xs,
-                      ),
-                      SizedBox(width: AppSpacing.xxs),
-                      Text(
-                        'Nueva',
-                        style: TextStyle(
-                          color: AppColors.textSecondaryDark,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
+      );
 }
+
+// ─── Mensajes ──────────────────────────────────────────────────────────
 
 class _TypingIndicator extends StatelessWidget {
   const _TypingIndicator();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.only(bottom: AppSpacing.sm),
-    child: Row(
-      children: [
-        _AssistantAvatar(),
-        SizedBox(width: AppSpacing.xs),
-        SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.brand,
-          ),
+  Widget build(final BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.x3),
+        child: Row(
+          children: [
+            const _IconoDeMarca(lado: _ladoAvatar),
+            const SizedBox(width: AppSpacing.x2),
+            const SizedBox(
+              width: AppIconSize.xs,
+              height: AppIconSize.xs,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Text(
+              'Escribiendo…',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted,
+                  ),
+            ),
+          ],
         ),
-        SizedBox(width: AppSpacing.xs),
-        Text(
-          'Escribiendo...',
-          style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
-        ),
-      ],
-    ),
-  );
+      );
 }
+
+const double _ladoAvatar = 28;
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final isAssistant = message.isAssistant;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.x3),
+      child: AnimatedOpacity(
+        duration: AppDurations.fast,
+        opacity: message.pending ? 0.6 : 1,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment:
+              isAssistant ? MainAxisAlignment.start : MainAxisAlignment.end,
+          children: [
+            if (isAssistant) ...[
+              const _IconoDeMarca(lado: _ladoAvatar),
+              const SizedBox(width: AppSpacing.x2),
+            ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.x3,
+                      vertical: AppSpacing.x3,
+                    ),
+                    decoration: BoxDecoration(
+                      // Superficie y borde, no tinte translúcido: la
+                      // respuesta del asistente va en blanco sobre el lienzo
+                      // y la pregunta del usuario en la superficie de marca.
+                      color: isAssistant
+                          ? AppPalette.surface
+                          : AppPalette.brandSurface,
+                      borderRadius: AppRadius.r12Border,
+                      border: Border.all(
+                        color:
+                            isAssistant ? AppPalette.border : AppPalette.brand,
+                        width: AppSizes.borderHairline,
+                      ),
+                    ),
+                    child: SelectableText(
+                      message.text,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                  ),
+                  // El saludo local queda fuera a propósito: no lo genera el
+                  // modelo, es texto de la app, y reportarlo no informa de
+                  // nada. Tampoco se ofrece sobre un mensaje aún pendiente,
+                  // que todavía no existe como documento.
+                  if (isAssistant &&
+                      message.id != 'welcome' &&
+                      !message.pending)
+                    _ReportAction(message: message),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Banner de error ───────────────────────────────────────────────────
 
 class _ErrorBanner extends StatelessWidget {
   const _ErrorBanner({
@@ -268,66 +363,60 @@ class _ErrorBanner extends StatelessWidget {
   final VoidCallback onDismiss;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.screenHorizontal,
-      AppSpacing.xs,
-      AppSpacing.screenHorizontal,
-      0,
-    ),
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.12),
-        borderRadius: AppRadius.mdBorder,
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: AppColors.error,
-            size: AppIconSize.sm,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.textPrimaryDark),
+  Widget build(final BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x2,
+          AppSpacing.x4,
+          AppSpacing.x0,
+        ),
+        child: Container(
+          padding: const EdgeInsets.only(left: AppSpacing.x3),
+          decoration: BoxDecoration(
+            color: AppPalette.dangerSurface,
+            borderRadius: AppRadius.r12Border,
+            border: Border.all(
+              color: AppPalette.danger,
+              width: AppSizes.borderHairline,
             ),
           ),
-          if (onRetry != null)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          child: Row(
+            children: [
+              const ExcludeSemantics(
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  color: AppPalette.danger,
+                  size: AppIconSize.sm,
+                ),
               ),
-              child: const Text('Reintentar'),
-            ),
-          IconButton(
-            onPressed: onDismiss,
-            tooltip: 'Cerrar',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(
-              Icons.close_rounded,
-              color: AppColors.textSecondaryDark,
-              size: AppIconSize.xs,
-            ),
+              const SizedBox(width: AppSpacing.x2),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppPalette.danger,
+                      ),
+                ),
+              ),
+              if (onRetry != null)
+                PagatePrimaryButton.text(
+                  label: 'Reintentar',
+                  isDestructive: true,
+                  onPressed: onRetry,
+                ),
+              IconButton(
+                onPressed: onDismiss,
+                tooltip: 'Cerrar el aviso',
+                color: AppPalette.danger,
+                icon: const Icon(Icons.close_rounded, size: AppIconSize.sm),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
+
+// ─── Compositor ────────────────────────────────────────────────────────
 
 class _Composer extends StatelessWidget {
   const _Composer({
@@ -341,159 +430,59 @@ class _Composer extends StatelessWidget {
   final VoidCallback onSend;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.screenHorizontal,
-      AppSpacing.xs,
-      AppSpacing.screenHorizontal,
-      AppSpacing.xl,
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            enabled: enabled,
-            textInputAction: TextInputAction.send,
-            style: const TextStyle(color: AppColors.textPrimaryDark),
-            decoration: InputDecoration(
-              hintText: 'Escribe una pregunta...',
-              hintStyle: const TextStyle(color: AppColors.textSecondaryDark),
-              filled: true,
-              fillColor: AppColors.surfaceDark,
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.xxlBorder,
-                borderSide: const BorderSide(color: AppColors.borderDark),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.xxlBorder,
-                borderSide: const BorderSide(color: AppColors.borderDark),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: AppRadius.xxlBorder,
-                borderSide: const BorderSide(color: AppColors.borderDark),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: AppRadius.xxlBorder,
-                borderSide: const BorderSide(color: AppColors.brand),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-            ),
-            onSubmitted: (_) => onSend(),
-          ),
+  Widget build(final BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x3,
+          AppSpacing.x4,
+          AppSpacing.x4,
         ),
-        const SizedBox(width: AppSpacing.xs),
-        GestureDetector(
-          onTap: enabled ? onSend : null,
-          child: AnimatedOpacity(
-            duration: AppDurations.fast,
-            opacity: enabled ? 1 : 0.5,
-            child: Container(
-              width: AppSizes.avatarMedium,
-              height: AppSizes.avatarMedium,
-              decoration: const BoxDecoration(
-                gradient: AppColors.brandGradient,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: AppIconSize.sm,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _AssistantAvatar extends StatelessWidget {
-  const _AssistantAvatar();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 30,
-    height: 30,
-    decoration: const BoxDecoration(
-      gradient: AppColors.brandGradient,
-      shape: BoxShape.circle,
-    ),
-    child: const Icon(
-      Icons.smart_toy_outlined,
-      color: Colors.white,
-      size: AppIconSize.xs,
-    ),
-  );
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
-
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final isAssistant = message.isAssistant;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: AnimatedOpacity(
-        duration: AppDurations.fast,
-        opacity: message.pending ? 0.6 : 1,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: isAssistant
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (isAssistant) ...[
-              const _AssistantAvatar(),
-              const SizedBox(width: AppSpacing.xs),
-            ],
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: isAssistant
-                          ? AppColors.surfaceDark
-                          : AppColors.brand.withValues(alpha: 0.15),
-                      borderRadius: AppRadius.lgBorder,
-                      border: Border.all(
-                        color: isAssistant
-                            ? AppColors.borderDark
-                            : AppColors.brand.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: SelectableText(
-                      message.text,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        height: 1.4,
-                      ),
-                    ),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                enabled: enabled,
+                textInputAction: TextInputAction.send,
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (final _) => onSend(),
+                // Toda la decoración sale del tema.
+                decoration: const InputDecoration(
+                  hintText: 'Escribe una pregunta',
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            SizedBox(
+              width: AppSizes.minTouchTarget,
+              height: AppSizes.minTouchTarget,
+              child: IconButton(
+                tooltip: 'Enviar',
+                onPressed: enabled ? onSend : null,
+                style: IconButton.styleFrom(
+                  // El estado apagado se dice con color, no con opacidad:
+                  // `sunken` con icono `textMuted` da 4,77:1.
+                  backgroundColor:
+                      enabled ? AppPalette.brand : AppPalette.sunken,
+                  foregroundColor:
+                      enabled ? AppPalette.textOnBrand : AppPalette.textMuted,
+                  disabledBackgroundColor: AppPalette.sunken,
+                  disabledForegroundColor: AppPalette.textMuted,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.all(Radius.circular(AppRadius.r12)),
                   ),
-                  // El saludo local queda fuera a propósito: no lo genera el
-                  // modelo, es texto de la app, y reportarlo no informa de
-                  // nada. Tampoco se ofrece sobre un mensaje aún pendiente,
-                  // que todavía no existe como documento.
-                  if (isAssistant && message.id != 'welcome' && !message.pending)
-                    _ReportAction(message: message),
-                ],
+                ),
+                icon: const Icon(Icons.send_rounded, size: AppIconSize.sm),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
 }
+
+// ─── Política de Play: aviso y reporte ─────────────────────────────────
 
 /// Aviso permanente de que quien responde es una IA.
 ///
@@ -511,35 +500,42 @@ class _AiDisclosure extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Container(
-    width: double.infinity,
-    decoration: const BoxDecoration(
-      color: AppColors.surfaceSecondary,
-      border: Border(bottom: BorderSide(color: AppColors.border)),
-    ),
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.screenHorizontal,
-      vertical: AppSpacing.xs,
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          Icons.info_outline_rounded,
-          size: AppIconSize.xs,
-          color: AppColors.textSecondary,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Text(
-            kAiDisclosureText,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: AppPalette.sunken,
+          border: Border(
+            bottom: BorderSide(
+              color: AppPalette.border,
+              width: AppSizes.borderHairline,
+            ),
           ),
         ),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4,
+          vertical: AppSpacing.x2,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ExcludeSemantics(
+              child: Icon(
+                Icons.info_outline_rounded,
+                size: AppIconSize.xs,
+                color: AppPalette.textSecondary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Expanded(
+              child: Text(
+                kAiDisclosureText,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textSecondary,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 /// Botón de reportar bajo una respuesta del asistente.
@@ -555,16 +551,9 @@ class _ReportAction extends StatelessWidget {
 
   Future<void> _report(final BuildContext context) async {
     final provider = context.read<AiProvider>();
-    final eleccion = await showModalBottomSheet<({AiReportReason reason, String comment})>(
+    final eleccion =
+        await showPagateSheet<({AiReportReason reason, String comment})>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: AppColors.surface,
-      elevation: 0,
-      barrierColor: AppPalette.scrim,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.r16TopBorder,
-      ),
       builder: (final _) => const _ReportSheet(),
     );
     if (eleccion == null) return;
@@ -597,22 +586,10 @@ class _ReportAction extends StatelessWidget {
     );
     return Align(
       alignment: Alignment.centerLeft,
-      child: TextButton.icon(
+      child: PagatePrimaryButton.text(
+        label: reportado ? 'Reportado' : 'Reportar respuesta',
+        leadingIcon: reportado ? Icons.check_rounded : Icons.flag_outlined,
         onPressed: reportado ? null : () => _report(context),
-        icon: Icon(
-          reportado ? Icons.check_rounded : Icons.flag_outlined,
-          size: AppIconSize.xs,
-        ),
-        label: Text(reportado ? 'Reportado' : 'Reportar respuesta'),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
-          disabledForegroundColor: AppColors.textSecondary,
-          textStyle: AppText.labelMedium,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          // Caja táctil de 48 aunque el texto mida menos: es lo que exige el
-          // informe previo al lanzamiento de Play.
-          minimumSize: const Size(0, AppSizes.minTouchTarget),
-        ),
       ),
     );
   }
@@ -640,88 +617,67 @@ class _ReportSheetState extends State<_ReportSheet> {
   }
 
   @override
-  Widget build(final BuildContext context) => Padding(
-    // El teclado no puede tapar el campo de comentario.
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.md,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // El asa de arrastre no se dibuja aqui: el tema ya la pone
-            // (`bottomSheetTheme.showDragHandle`), y dibujarla otra vez
-            // sacaba dos.
-            Text(
-              'Reportar esta respuesta',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Cuéntanos qué pasa con lo que respondió el asistente.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // `RadioGroup` y no `groupValue`/`onChanged` por tile: esos dos
-            // estan deprecados desde Flutter 3.32 y el analizador los marca.
-            RadioGroup<AiReportReason>(
-              groupValue: _reason,
-              onChanged: (final elegido) => setState(() => _reason = elegido),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final motivo in AiReportReason.values)
-                    RadioListTile<AiReportReason>(
-                      value: motivo,
-                      title: Text(
-                        motivo.label,
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: AppColors.textPrimary),
-                      ),
-                      activeColor: AppColors.brand,
-                      contentPadding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.standard,
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            TextField(
-              controller: _comment,
-              maxLines: 3,
-              maxLength: AiProvider.maxReportCommentChars,
-              textCapitalization: TextCapitalization.sentences,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Comentario (opcional)',
-                hintText: '¿Qué debería saber quien revise esto?',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            PagatePrimaryButton(
-              label: 'Enviar reporte',
-              onPressed: _reason == null
-                  ? null
-                  : () => Navigator.of(context).pop((
-                      reason: _reason!,
-                      comment: _comment.text,
-                    )),
-            ),
-          ],
-        ),
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PagateSheet(
+      title: 'Reportar esta respuesta',
+      primaryAction: PagatePrimaryButton(
+        label: 'Enviar reporte',
+        onPressed: _reason == null
+            ? null
+            : () => Navigator.of(context).pop((
+                  reason: _reason!,
+                  comment: _comment.text,
+                )),
       ),
-    ),
-  );
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Cuéntanos qué pasa con lo que respondió el asistente.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.x4),
+
+          // `RadioGroup` y no `groupValue`/`onChanged` por tile: esos dos
+          // estan deprecados desde Flutter 3.32 y el analizador los marca.
+          RadioGroup<AiReportReason>(
+            groupValue: _reason,
+            onChanged: (final elegido) => setState(() => _reason = elegido),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final motivo in AiReportReason.values)
+                  RadioListTile<AiReportReason>(
+                    value: motivo,
+                    title: Text(
+                      motivo.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                    activeColor: AppPalette.brand,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.standard,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.x2),
+          PagateTextField(
+            labelText: 'Comentario (opcional)',
+            controller: _comment,
+            hintText: '¿Qué debería saber quien revise esto?',
+            maxLines: 3,
+            maxLength: AiProvider.maxReportCommentChars,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ],
+      ),
+    );
+  }
 }
