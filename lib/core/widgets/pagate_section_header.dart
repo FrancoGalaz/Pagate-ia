@@ -98,9 +98,11 @@ class PagateSectionHeader extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(width: AppSpacing.x2),
-              PagatePrimaryButton.text(
-                label: actionLabel!,
-                onPressed: onAction,
+              Flexible(
+                child: PagatePrimaryButton.text(
+                  label: actionLabel!,
+                  onPressed: onAction,
+                ),
               ),
             ],
           ],

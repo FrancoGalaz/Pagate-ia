@@ -119,10 +119,15 @@ class PagateMovementRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
-            Text(
-              amount,
-              textAlign: TextAlign.right,
-              style: AppText.amountRow.copyWith(color: amountColor),
+            // Ver el mismo comentario en `PagateDataRow`: el monto tiene que
+            // poder encoger o la fila desborda con la fuente del sistema
+            // ampliada.
+            Flexible(
+              child: Text(
+                amount,
+                textAlign: TextAlign.right,
+                style: AppText.amountRow.copyWith(color: amountColor),
+              ),
             ),
           ],
         ),

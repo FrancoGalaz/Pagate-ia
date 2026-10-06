@@ -1,618 +1,617 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/utils/currency_formatter.dart';
 import '../../../../../core/utils/month_labels.dart';
+import '../../../../../core/widgets/widgets.dart';
 import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
+import '../../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
+import '../../../../inventory/domain/entities/inventory_item_type.dart';
+import '../../../../inventory/presentation/providers/inventory_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
-import '../../../../../core/widgets/pagate_error_state.dart';
-import '../../widgets/financial_charts.dart';
-import '../../../../../core/theme/app_text.dart';
 
-enum HomeQuickAction {
-  sale,
-  expense,
-  inventory,
-  ai,
-}
+// ═══════════════════════════════════════════════════════════════════════
+// PANTALLA DE INICIO
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, "Pantalla de inicio".
+//
+// EL ORDEN ES EL DE LA PREGUNTA QUE EL USUARIO TRAE AL ABRIR LA APP:
+// cuánto me queda → de dónde sale → cómo voy → registrar → cuánto vale mi
+// hora → qué pasó → qué me falta.
+//
+// QUÉ SE BORRÓ Y POR QUÉ:
+//
+// · EL SALUDO CON EMOJI ("Hola, Camila 👋"). El nombre del negocio informa;
+//   el saludo con emoji no. Y con él se van los tres datos inventados que
+//   se presentaban como del usuario mientras el perfil cargaba: 'IA' como
+//   iniciales, 'Artesano' y 'Mi Negocio'. Mientras no hay perfil se pinta
+//   el esqueleto, no un nombre falso.
+//
+// · EL PUNTO ROJO DE NOTIFICACIONES. Ocho dp en `AppColors.error` SIN
+//   NINGUNA CONDICIÓN: siempre encendido, sin sistema de notificaciones
+//   detrás, y cuyo destino era la pantalla de Ayuda. El icono pasa de
+//   campana a `help_outline`, que es lo que de verdad abre.
+//
+// · LA TARJETA DE BALANCE, que combinaba las cuatro cosas prohibidas a la
+//   vez: degradado de marca, radio 32 y un glow verde al 40% con 24 dp de
+//   blur. Encerrar la cifra en un degradado obliga a texto blanco sobre
+//   verde, que es la razón por la que los dos mini-stats estaban en
+//   `Colors.white70` y eran ilegibles. Ahora la cifra va sobre el lienzo,
+//   en tinta, a 40/700: es lo primero que ve el ojo a un brazo de
+//   distancia.
+//
+// · LAS CUATRO "ACCIONES RÁPIDAS" con sus cuatro `Color(0x…)` literales
+//   —#00C2B8, #EF4444, #3B82F6, #F97316, de los cuales el turquesa y el
+//   naranja ni siquiera existen en la paleta— y el icono de robot. Dos de
+//   las cuatro (Inventario, IA) no eran acciones sino destinos que ya
+//   están en la barra inferior: duplicar la navegación en la portada es
+//   ruido. Quedan dos botones secundarios, Ingreso y Gasto.
+//
+// · LOS TRES GRÁFICOS. Sumaban ~834 dp de los ~1.697 de la pantalla: el
+//   49% del scroll. En 360×800 eso empujaba la actividad reciente a 1,7
+//   viewports. Y dos de los tres mostraban "Aún no hay datos mensuales"
+//   hasta tener dos meses registrados, así que durante las primeras
+//   semanas ese 49% era espacio vacío con un mensaje. Se van a Finanzas,
+//   que es donde el usuario llega con intención de analizar.
+//
+// · LOS TÍTULOS GENÉRICOS EN TITLE CASE ("Balance del Mes", "Acciones
+//   Rápidas", "Métricas Financieras", "Actividad Reciente"). En español la
+//   mayúscula va solo en la primera palabra.
+//
+// EL ARREGLO FUNCIONAL MÁS IMPORTANTE: `_BalanceCard.build` NO CONSULTABA
+// `finances.error` NI `isLoading` en ninguna línea, así que ante un
+// `permission-denied` o un fallo de red mostraba "$0", la etiqueta "Sin
+// datos" y "Registra tus primeros ingresos y gastos": presentaba un fallo
+// como si el usuario no tuviera datos, contra el principio 5 de
+// docs/ARQUITECTURA.md. Ahora los tres bloques de dinero comparten el
+// mismo criterio: error → bloque de error con reintento; cargando →
+// esqueleto; con datos → cifras.
+//
+// Y EL SELECTOR DE MES ARRIBA ARREGLA OTRO BUG, no es estética: Inicio y
+// Finanzas leen el MISMO provider, cuyo resumen depende de
+// `selectedMonthKey`. Tocar "julio" en Finanzas cambiaba el balance de
+// Inicio sin decirlo. Con el selector visible, el mes deja de ser un
+// estado invisible compartido.
+// ═══════════════════════════════════════════════════════════════════════
 
+/// Acciones que Inicio delega en el dashboard, que es quien sabe navegar.
 class HomeTab extends StatelessWidget {
   const HomeTab({
     super.key,
-    required this.onQuickActionTap,
-    required this.onNotificationsTap,
+    required this.onRegistrarIngreso,
+    required this.onRegistrarGasto,
+    required this.onVerFinanzas,
+    required this.onVerValorHora,
+    required this.onAyuda,
   });
 
-  final ValueChanged<HomeQuickAction> onQuickActionTap;
-  final VoidCallback onNotificationsTap;
+  final VoidCallback onRegistrarIngreso;
+  final VoidCallback onRegistrarGasto;
+  final VoidCallback onVerFinanzas;
+  final VoidCallback onVerValorHora;
+  final VoidCallback onAyuda;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HomeHeader(onNotificationsTap: onNotificationsTap),
-            const SizedBox(height: AppSpacing.md),
-            const _BalanceCard(),
-            const SizedBox(height: AppSpacing.xl),
-            _QuickActions(onActionTap: onQuickActionTap),
-            const SizedBox(height: AppSpacing.xl),
-            const _ChartsSection(),
-            const SizedBox(height: AppSpacing.xl),
-            const _RecentActivity(),
-            const SizedBox(height: AppSpacing.xxl),
-          ],
-        ),
-      );
-}
+  Widget build(final BuildContext context) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _BarraIdentidad(onAyuda: onAyuda)),
 
-// ─── Header ───────────────────────────────────────────────────────────────
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.onNotificationsTap});
-
-  final VoidCallback onNotificationsTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final profile = context.watch<UserProfileProvider>().profile;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenHorizontal,
-        AppSpacing.xl,
-        AppSpacing.screenHorizontal,
-        0,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                profile?.avatarInitials ?? '',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  fontFamily: 'Manrope',
-                ),
-              ),
-            ),
+          // El selector queda pegado arriba al desplazarse: es el filtro
+          // global de la app y tiene que estar siempre a la vista.
+          const SliverPersistentHeader(
+            pinned: true,
+            delegate: _SelectorPegajoso(),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
+
+          SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  // Sin perfil cargado no se saluda a un nombre inventado.
-                  profile == null
-                      ? 'Hola'
-                      : 'Hola, ${profile.name.split(' ').first}',
-                  style: AppText.weight(
-                    Theme.of(context).textTheme.titleMedium!,
-                    700,
-                  ).copyWith(color: AppColors.textPrimaryDark),
+                const _BloqueSaldo(),
+                _Registrar(
+                  onIngreso: onRegistrarIngreso,
+                  onGasto: onRegistrarGasto,
                 ),
-                Text(
-                  profile?.businessName ?? '',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondaryDark,
-                      ),
-                ),
+                _ValorHora(onTap: onVerValorHora),
+                _Movimientos(onVerTodos: onVerFinanzas),
+                const _StockBajo(),
+                const SizedBox(height: AppSpacing.x8),
               ],
             ),
-          ),
-          Stack(
-            children: [
-              IconButton(
-                onPressed: onNotificationsTap,
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: AppColors.textSecondaryDark,
-                  size: AppIconSize.md,
-                ),
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Balance Card ─────────────────────────────────────────────────────────
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final finances = context.watch<FinancesProvider>();
-    final summary = finances.summary;
-
-    final income = summary.totalIncome;
-    final expenses = summary.totalExpenses;
-    final balance = summary.balance;
-    final goal = finances.monthlyGoal;
-    final progress = finances.goalProgress;
-    final month = summary.month;
-    final hasData = finances.hasData;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        decoration: BoxDecoration(
-          gradient: AppColors.brandGradient,
-          borderRadius: AppRadius.xxlBorder,
-          boxShadow: AppShadows.brandStrong,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Balance del mes',
-                  style: AppText.weight(
-                    Theme.of(context).textTheme.labelMedium!,
-                    600,
-                  ).copyWith(color: Colors.white70),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: AppRadius.pillBorder,
-                  ),
-                  child: Text(
-                    hasData ? month : 'Sin datos',
-                    style: AppText.weight(
-                      Theme.of(context).textTheme.labelSmall!,
-                      600,
-                    ).copyWith(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              formatCurrency(hasData ? balance : 0, currency: kFallbackCurrency),
-              style: AppText.weight(
-                Theme.of(context).textTheme.displaySmall!,
-                800,
-              ).copyWith(color: Colors.white),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                _MiniStat(label: 'Ingresos', amount: income, icon: Icons.arrow_upward_rounded, isPositive: true),
-                const SizedBox(width: AppSpacing.xl),
-                _MiniStat(label: 'Gastos', amount: expenses, icon: Icons.arrow_downward_rounded, isPositive: false),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (hasData && goal > 0) ...[
-              ClipRRect(
-                borderRadius: AppRadius.pillBorder,
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: Colors.white.withValues(alpha: 0.25),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                'Meta: ${formatCurrency(goal, currency: kFallbackCurrency)}'
-                '  •  ${(progress * 100).toStringAsFixed(0)}% completado',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
-                    ),
-              ),
-            ] else
-              Text(
-                hasData
-                    ? 'Define tu meta mensual en tu perfil para ver el progreso'
-                    : 'Registra tus primeros ingresos y gastos en Finanzas',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
-                    ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.label,
-    required this.amount,
-    required this.icon,
-    required this.isPositive,
-  });
-
-  final String label;
-  final double amount;
-  final IconData icon;
-  final bool isPositive;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, color: Colors.white70, size: 14),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 10,
-                  fontFamily: 'Manrope',
-                ),
-              ),
-              Text(
-                formatCurrency(amount, currency: kFallbackCurrency),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  fontFamily: 'Manrope',
-                ),
-              ),
-            ],
           ),
         ],
       );
 }
 
-// ─── Quick Actions ────────────────────────────────────────────────────────
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onActionTap});
+// ─── Barra de identidad ────────────────────────────────────────────────
 
-  final ValueChanged<HomeQuickAction> onActionTap;
+/// Avatar cuadrado, nombre del taller, nombre de la persona y el acceso a
+/// la ayuda. Alto 56.
+class _BarraIdentidad extends StatelessWidget {
+  const _BarraIdentidad({required this.onAyuda});
 
-  static const List<_Action> _actions = [
-    _Action(
-      icon: Icons.add_circle_rounded,
-      label: 'Venta',
-      color: Color(0xFF00C2B8),
-      action: HomeQuickAction.sale,
-    ),
-    _Action(
-      icon: Icons.remove_circle_rounded,
-      label: 'Gasto',
-      color: Color(0xFFEF4444),
-      action: HomeQuickAction.expense,
-    ),
-    _Action(
-      icon: Icons.inventory_2_outlined,
-      label: 'Inventario',
-      color: Color(0xFF3B82F6),
-      action: HomeQuickAction.inventory,
-    ),
-    _Action(
-      icon: Icons.smart_toy_outlined,
-      label: 'Preguntar IA',
-      color: Color(0xFFF97316),
-      action: HomeQuickAction.ai,
-    ),
-  ];
+  final VoidCallback onAyuda;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Acciones rápidas',
-              style: AppText.weight(
-                Theme.of(context).textTheme.titleMedium!,
-                700,
-              ).copyWith(color: AppColors.textPrimaryDark),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: _actions
-                  .map(
-                    (final a) => Expanded(
-                      child: _ActionButton(
-                        action: a,
-                        onTap: () => onActionTap(a.action),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
-        ),
-      );
-}
-
-class _Action {
-  const _Action({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.action,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final HomeQuickAction action;
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.action, required this.onTap});
-
-  final _Action action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: action.color.withValues(alpha: 0.15),
-                borderRadius: AppRadius.lgBorder,
-                border: Border.all(
-                  color: action.color.withValues(alpha: 0.3),
-                  width: AppSizes.borderThin,
-                ),
-              ),
-              child: Icon(action.icon, color: action.color, size: AppIconSize.md),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              action.label,
-              style: AppText.weight(
-                Theme.of(context).textTheme.labelSmall!,
-                600,
-              ).copyWith(color: AppColors.textSecondaryDark),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-}
-
-// ─── Charts Section ──────────────────────────────────────────────────
-class _ChartsSection extends StatelessWidget {
-  const _ChartsSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Métricas financieras',
-            style: AppText.weight(
-              Theme.of(context).textTheme.titleMedium!,
-              700,
-            ).copyWith(color: AppColors.textPrimaryDark),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          const MonthlyBarChart(),
-          const SizedBox(height: AppSpacing.md),
-          const NetBalanceLineChart(),
-          const SizedBox(height: AppSpacing.md),
-          const CategoryPieChart(),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Recent Activity (now from Firestore) ────────────────────────────────
-class _RecentActivity extends StatelessWidget {
-  const _RecentActivity();
-
-  @override
-  Widget build(BuildContext context) {
-    final finances = context.watch<FinancesProvider>();
-    final transactions = finances.transactions.take(5).toList();
-    final error = finances.error;
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final profile = context.watch<UserProfileProvider>().profile;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Actividad reciente',
-            style: AppText.weight(
-              Theme.of(context).textTheme.titleMedium!,
-              700,
-            ).copyWith(color: AppColors.textPrimaryDark),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (error != null)
-            PagateErrorState(
-              message: error,
-              onRetry: finances.retry,
-              compact: true,
-            )
-          else if (finances.isLoading || finances.isLoadingTransactions)
-            const Padding(
-              padding: EdgeInsets.all(AppSpacing.xl),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (transactions.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDark,
-                borderRadius: AppRadius.xxlBorder,
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.receipt_long_outlined,
-                    color: AppColors.textSecondaryDark,
-                    size: 32,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Todavía no registras movimientos',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondaryDark,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    'Anota tu primera venta o tu primer gasto en Finanzas.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondaryDark,
-                        ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDark,
-                borderRadius: AppRadius.xxlBorder,
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: transactions
-                    .asMap()
-                    .entries
-                    .map((entry) => _TransactionRow(
-                          transaction: entry.value,
-                          isLast: entry.key == transactions.length - 1,
-                        ))
-                    .toList(),
-              ),
-            ),
-        ],
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x1,
+        AppSpacing.x2,
       ),
-    );
-  }
-}
-
-class _TransactionRow extends StatelessWidget {
-  const _TransactionRow({
-    required this.transaction,
-    required this.isLast,
-  });
-
-  final FinancesTransactionEntity transaction;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final isIncome = transaction.isIncome;
-    final color = isIncome ? AppColors.success : AppColors.error;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            children: [
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Row(
+          children: [
+            // Mientras no hay perfil se pinta el esqueleto. Antes se pintaba
+            // 'IA' como iniciales, 'Artesano' como nombre y 'Mi Negocio'
+            // como taller: tres datos inventados presentados como del
+            // usuario.
+            if (profile == null)
+              const Expanded(child: _esqueletoIdentidad)
+            else ...[
               Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+                width: AppSizes.avatarSmall,
+                height: AppSizes.avatarSmall,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppPalette.brandSurface,
+                  borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
                 ),
-                child: Icon(
-                  isIncome ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  color: color,
-                  size: 16,
+                child: Text(
+                  profile.avatarInitials,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppPalette.brand,
+                  ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: AppSpacing.x3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      transaction.title.isNotEmpty
-                          ? transaction.title
-                          : transaction.description,
+                      profile.businessName,
+                      style: theme.textTheme.titleMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.weight(
-                        Theme.of(context).textTheme.bodyMedium!,
-                        600,
-                      ).copyWith(color: AppColors.textPrimaryDark),
                     ),
                     Text(
-                      formatDayMonthYear(transaction.date),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
+                      profile.name,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppPalette.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+            ],
+
+            // Era una campana con un punto rojo siempre encendido, sin
+            // sistema de notificaciones detrás, que abría la Ayuda.
+            IconButton(
+              tooltip: 'Ayuda',
+              icon: const Icon(Icons.help_outline_rounded),
+              onPressed: onAyuda,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const Widget _esqueletoIdentidad = PagateSkeletonGroup(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      PagateSkeleton(height: PagateSkeleton.lineaTitulo, widthFactor: 0.5),
+      SizedBox(height: AppSpacing.x1),
+      PagateSkeleton(height: PagateSkeleton.lineaMetadato, widthFactor: 0.3),
+    ],
+  ),
+);
+
+// ─── Selector de mes pegajoso ──────────────────────────────────────────
+
+class _SelectorPegajoso extends SliverPersistentHeaderDelegate {
+  const _SelectorPegajoso();
+
+  /// 32 del chip + 6 arriba + 6 abajo = 44, más el borde inferior.
+  static const double _alto = 45;
+
+  @override
+  double get minExtent => _alto;
+
+  @override
+  double get maxExtent => _alto;
+
+  @override
+  Widget build(
+    final BuildContext context,
+    final double shrinkOffset,
+    final bool overlapsContent,
+  ) {
+    final finances = context.watch<FinancesProvider>();
+    return SizedBox(
+      height: _alto,
+      child: Align(
+        child: PagateMonthSelector(
+          monthKeys: [for (final m in finances.months) m.monthKey],
+          selectedMonthKey: finances.selectedMonthKey,
+          currentMonthKey: FinancesProvider.currentMonthKey,
+          onSelected: finances.selectMonthKey,
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(final _SelectorPegajoso oldDelegate) => false;
+}
+
+// ─── Bloque de saldo y composición ─────────────────────────────────────
+
+/// La cifra que ES la pantalla, la meta y las tres filas que responden "de
+/// dónde sale ese número".
+class _BloqueSaldo extends StatelessWidget {
+  const _BloqueSaldo();
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final finances = context.watch<FinancesProvider>();
+
+    // El criterio que faltaba: un fallo NUNCA se dibuja como un cero.
+    if (finances.error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.x6),
+        child: PagateErrorState(
+          message: finances.error!,
+          onRetry: finances.retry,
+        ),
+      );
+    }
+    if (finances.isLoading) {
+      return PagateSkeleton.balance();
+    }
+
+    final summary = finances.summary;
+    final balance = summary.balance;
+    final meta = finances.monthlyGoal;
+    final progreso = finances.goalProgress;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x6,
+            AppSpacing.x4,
+            AppSpacing.x6,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                formatSigned(
-                  isIncome ? transaction.amount : -transaction.amount,
+                'Balance de ${_nombreDelMes(summary.monthKey)}'.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x2),
+              _CifraHeroe(balance: balance),
+              if (meta > 0) ...[
+                const SizedBox(height: AppSpacing.x5),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Meta del mes '
+                        '${formatCurrency(meta, currency: kFallbackCurrency)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(progreso * 100).round()} %',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppPalette.brand,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                ClipRRect(
+                  borderRadius: AppRadius.r4Border,
+                  child: LinearProgressIndicator(value: progreso),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Tres filas que responden "de dónde sale ese número" sin abrir
+        // Finanzas. Van todas en tinta: el color del dinero se reserva para
+        // las filas de movimiento, que es donde discrimina.
+        PagateSectionCard(
+          child: Column(
+            children: [
+              PagateDataRow(
+                label: 'Ingresos',
+                value: formatCurrency(
+                  summary.totalIncome,
                   currency: kFallbackCurrency,
                 ),
-                style: AppText.weight(
-                  Theme.of(context).textTheme.bodyMedium!,
-                  700,
-                ).copyWith(color: color),
+              ),
+              PagateDataRow(
+                label: 'Gastos',
+                value: formatSigned(
+                  -summary.totalExpenses,
+                  currency: kFallbackCurrency,
+                ),
+              ),
+              PagateDataRow(
+                label: 'Gastos fijos',
+                value: formatSigned(
+                  -finances.totalFixedExpenses,
+                  currency: kFallbackCurrency,
+                ),
+                showDivider: false,
               ),
             ],
           ),
         ),
-        if (!isLast)
-          const Divider(
-            height: 1,
-            color: AppColors.borderDark,
-            indent: AppSpacing.md,
-            endIndent: AppSpacing.md,
-          ),
       ],
     );
   }
 
+  static String _nombreDelMes(final String monthKey) {
+    final partes = monthKey.split('-');
+    if (partes.length != 2) return monthKey;
+    final mes = int.tryParse(partes[1]);
+    return mes == null ? monthKey : monthName(mes);
+  }
+}
+
+/// La única cifra dominante de la pantalla.
+///
+/// Baja de 40 a 32 dp cuando el texto supera los once caracteres
+/// (`$123.456.789` son doce). La alternativa sería abreviar, que es
+/// justamente lo que el sistema elimina: "$1234.6K" es lo que esta pantalla
+/// dibujaba antes.
+class _CifraHeroe extends StatelessWidget {
+  const _CifraHeroe({required this.balance});
+
+  final double balance;
+
+  static const int _maxCaracteres = 11;
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final texto = formatCurrency(balance, currency: kFallbackCurrency);
+    final estilo = texto.length > _maxCaracteres
+        ? theme.textTheme.displayMedium
+        : theme.textTheme.displayLarge;
+
+    return Text(
+      texto,
+      style: estilo?.copyWith(
+        color: balance < 0 ? AppPalette.moneyOut : AppPalette.textPrimary,
+      ),
+    );
+  }
+}
+
+// ─── Registrar ─────────────────────────────────────────────────────────
+
+/// Dos botones secundarios que abren la misma hoja con el tipo
+/// preseleccionado. Sustituyen a las cuatro "Acciones Rápidas".
+class _Registrar extends StatelessWidget {
+  const _Registrar({required this.onIngreso, required this.onGasto});
+
+  final VoidCallback onIngreso;
+  final VoidCallback onGasto;
+
+  @override
+  Widget build(final BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x6,
+          AppSpacing.x4,
+          0,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: PagatePrimaryButton.secondary(
+                label: '+ Ingreso',
+                onPressed: onIngreso,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x3),
+            Expanded(
+              child: PagatePrimaryButton.secondary(
+                // U+2212, el mismo signo que la columna de montos.
+                label: '− Gasto',
+                onPressed: onGasto,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+// ─── Valor de tu hora ──────────────────────────────────────────────────
+
+/// La promesa diferencial del producto, que hasta ahora estaba enterrada
+/// detrás de Perfil. Cuesta 48 dp.
+class _ValorHora extends StatelessWidget {
+  const _ValorHora({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(final BuildContext context) {
+    final rate = context.watch<HourlyRateProvider>().currentRate;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.x6),
+      child: PagateSectionCard(
+        child: PagateDataRow(
+          label: 'Valor de tu hora',
+          value: rate == null
+              ? 'Calcular'
+              : formatCurrency(rate.hourlyValue, currency: kFallbackCurrency),
+          valueColor: rate == null ? AppPalette.brand : null,
+          onTap: onTap,
+          showDivider: false,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Movimientos ───────────────────────────────────────────────────────
+
+class _Movimientos extends StatelessWidget {
+  const _Movimientos({required this.onVerTodos});
+
+  final VoidCallback onVerTodos;
+
+  @override
+  Widget build(final BuildContext context) {
+    final finances = context.watch<FinancesProvider>();
+    final movimientos = finances.transactions.take(5).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.x6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PagateSectionHeader(
+            title: 'Movimientos',
+            actionLabel: movimientos.isEmpty ? null : 'Ver todos',
+            onAction: movimientos.isEmpty ? null : onVerTodos,
+          ),
+          PagateSectionCard(
+            child: _cuerpo(context, finances, movimientos),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cuerpo(
+    final BuildContext context,
+    final FinancesProvider finances,
+    final List<FinancesTransactionEntity> movimientos,
+  ) {
+    if (finances.error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
+        child: PagateErrorState(
+          message: finances.error!,
+          onRetry: finances.retry,
+        ),
+      );
+    }
+    if (finances.isLoadingTransactions) {
+      return PagateSkeleton.rows(3);
+    }
+    if (movimientos.isEmpty) {
+      return PagateEmptyState(
+        title: 'Sin movimientos este mes',
+        description: 'Registra tu primera venta o tu primer gasto del mes.',
+        actionLabel: 'Ver Finanzas',
+        onAction: onVerTodos,
+      );
+    }
+
+    return Column(
+      children: [
+        for (final tx in movimientos)
+          PagateMovementRow(
+            title: tx.title,
+            meta: '${formatDayMonth(tx.date)} · ${tx.category}',
+            amount: formatSigned(
+              tx.isIncome ? tx.amount : -tx.amount,
+              currency: kFallbackCurrency,
+            ),
+            isIncome: tx.isIncome,
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Stock bajo ────────────────────────────────────────────────────────
+
+/// Solo existe si hay algo que decir. Es el único sitio de Inicio donde
+/// aparece ámbar o rojo, y por eso se ve.
+class _StockBajo extends StatelessWidget {
+  const _StockBajo();
+
+  /// Tres filas como máximo: a partir de ahí es una lista, y la lista está
+  /// en Inventario.
+  static const int _maxFilas = 3;
+
+  @override
+  Widget build(final BuildContext context) {
+    final inventory = context.watch<InventoryProvider>();
+
+    // Un error de inventario no se anuncia en Inicio: esta sección es un
+    // aviso, no un dato que el usuario vino a buscar, y un bloque rojo de
+    // error aquí competiría con el balance.
+    if (inventory.error != null || inventory.isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    final bajos = [
+      for (final item in inventory.allItems)
+        if (item.stockStatus != StockStatus.ok) item,
+    ];
+    if (bajos.isEmpty) return const SizedBox.shrink();
+
+    final visibles = bajos.take(_maxFilas).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.x6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PagateSectionHeader(title: 'Stock bajo (${bajos.length})'),
+          PagateSectionCard(
+            child: Column(
+              children: [
+                for (final item in visibles)
+                  PagateDataRow(
+                    label: item.name,
+                    value: '${item.stock} de ${item.minStock} ${item.unit}',
+                    valueColor: item.stockStatus == StockStatus.critical
+                        ? AppPalette.danger
+                        : AppPalette.warning,
+                    showDivider: item != visibles.last,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

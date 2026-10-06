@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +12,7 @@ import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/pages/finanzas_tab.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
 import '../../../finances/presentation/widgets/transaction_form_sheet.dart';
+import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import '../../../inventory/presentation/pages/inventario_tab.dart';
 import '../../../user_profile/presentation/pages/perfil_tab.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
@@ -63,8 +66,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _pages = [
       HomeTab(
-        onQuickActionTap: _onQuickAction,
-        onNotificationsTap: _openHelp,
+        onRegistrarIngreso: () => showTransactionSheet(
+          context,
+          initialType: TransactionType.income,
+        ),
+        onRegistrarGasto: () => showTransactionSheet(
+          context,
+          initialType: TransactionType.expense,
+        ),
+        onVerFinanzas: () => _setPage(1),
+        onVerValorHora: _abrirValorHora,
+        onAyuda: _abrirAyuda,
       ),
       const FinanzasTab(),
       const InventarioTab(),
@@ -73,28 +85,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
   }
 
-  void _onQuickAction(HomeQuickAction action) {
-    switch (action) {
-      case HomeQuickAction.sale:
-        showTransactionSheet(context, initialType: TransactionType.income);
-      case HomeQuickAction.expense:
-        showTransactionSheet(context, initialType: TransactionType.expense);
-      case HomeQuickAction.inventory:
-        _setPage(2);
-      case HomeQuickAction.ai:
-        _setPage(3);
-    }
-  }
-
   void _setPage(int index) {
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
   }
 
-  void _openHelp() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AyudaScreen()),
+  void _abrirAyuda() {
+    unawaited(
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(builder: (final _) => const AyudaScreen()),
+      ),
+    );
+  }
+
+  /// Inicio enseña el valor hora y lleva a configurarlo. Hasta ahora esa
+  /// pantalla estaba enterrada detrás de Perfil → Configuración.
+  void _abrirValorHora() {
+    unawaited(
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(builder: (final _) => const HourlyRateSetupPage()),
+      ),
     );
   }
 

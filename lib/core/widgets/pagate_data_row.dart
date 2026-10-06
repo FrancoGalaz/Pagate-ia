@@ -119,13 +119,19 @@ class PagateDataRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.x3),
-            Text(
-              value,
-              textAlign: TextAlign.right,
-              style: (emphasis
-                      ? theme.textTheme.displaySmall ?? AppText.displaySmall
-                      : AppText.amountRow)
-                  .copyWith(color: colorValor),
+            // `Flexible` y no un `Text` suelto: una fila con dos hijos de
+            // ancho intrínseco y sin flex es la causa exacta de los
+            // desbordes a 1,3x y 2,0x que bloquean la publicación. Con
+            // `tnum` la columna sigue alineada aunque el valor encoja.
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                style: (emphasis
+                        ? theme.textTheme.displaySmall ?? AppText.displaySmall
+                        : AppText.amountRow)
+                    .copyWith(color: colorValor),
+              ),
             ),
             if (onTap != null) ...[
               const SizedBox(width: AppSpacing.x2),
