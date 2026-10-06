@@ -29,13 +29,18 @@ documento:
 
 1. Habilitar Firestore y desplegar las funciones (consola de Firebase, es del
    dueño).
-2. Regenerar y publicar la landing con las páginas legales y sin las métricas
-   inventadas. El build publicado vive en `landing-page/` y se regenera con el
-   workflow, no a mano; hoy ese workflow solo dispara en `main`.
-3. Rellenar los marcadores entre corchetes de
-   `landing/src/content/legal-meta.ts` (ver `docs/SEGURIDAD-DATOS-PLAY.md` §4.1).
-   Un correo de contacto real es también el canal por el que te van a escribir
-   los primeros usuarios.
+2. ~~Regenerar y publicar la landing con las páginas legales y sin las métricas
+   inventadas.~~ **HECHO.** `landing-page/` se reconstruyó desde `landing/` y hoy
+   contiene las tres páginas legales, la URL real de la función `waitlist` y
+   ninguna de las cifras ni los testimonios inventados. Lo que falta no es
+   técnico: que GitHub Pages sirva esa carpeta requiere que el commit llegue a
+   `main`, y **el dueño es el único que puede hacer ese push**.
+3. Rellenar los **cinco** marcadores de `landing/src/content/legal-meta.ts`. La
+   lista exacta, con línea y constante, está en `docs/FICHA-PLAY.md §8`.
+   Las páginas ya **no muestran corchetes** al visitante, pero eso no rellena el
+   dato: sin él, la política identifica al responsable por descripción y no por
+   nombre. Un correo de contacto real es además el canal por el que te van a
+   escribir los primeros usuarios.
 4. Probar el formulario de punta a punta y confirmar que el registro aparece en
    `waitlist/`.
 
@@ -45,10 +50,13 @@ Si la cuenta de desarrollador de Google Play es una **cuenta personal creada
 después del 13 de noviembre de 2023**, Play exige, antes de poder publicar en
 abierto, haber corrido una **prueba cerrada con al menos 12 probadores
 inscritos de forma continua durante 14 días**
-([requisitos de prueba para cuentas personales nuevas](https://support.google.com/googleplay/android-developer/answer/14151465)).
-El plazo de 14 días **empieza a contar cuando Google aprueba la versión y hay
-12 probadores dentro**, no cuando subes el AAB. Las cuentas de organización y
-las personales anteriores a esa fecha están exentas.
+([requisitos de prueba para cuentas personales nuevas](https://support.google.com/googleplay/android-developer/answer/14151465),
+transcrito con sus términos exactos en `docs/FICHA-PLAY.md §7`). Los 14 días
+tienen que ser **continuos y los más recientes**: si en algún momento bajas de 12
+probadores inscritos, la cuenta empieza otra vez. Y **inscribirse no basta**: los
+probadores tienen que instalar y usar la app, o la solicitud de acceso a
+producción se puede rechazar por falta de participación. Las cuentas de
+organización y las personales anteriores a esa fecha están exentas.
 
 Esto cambia el orden del plan por completo: **conseguir 12 personas reales
 dispuestas a instalar y usar la app no es marketing, es un requisito de
@@ -58,6 +66,95 @@ tener la app lista, y no después.
 Lo primero que debe hacer el dueño: entrar a Play Console y comprobar qué tipo
 de cuenta tiene. Si es personal y nueva, hay que sumar 14 días como mínimo a
 cualquier fecha de lanzamiento, más el tiempo de reclutar a los 12.
+
+---
+
+## 0 bis. El gancho y el hueco: las dos cosas que cambian el plan
+
+Este plan se escribió sin dos piezas de información que ahora están verificadas.
+Las dos van primero porque cambian **qué se dice** y **contra quién se dice**.
+
+### El gancho: por qué ahora, en Chile
+
+Tres hechos de la normativa chilena vigente, verificados en fuentes oficiales.
+Las citas textuales y los enlaces están en **`docs/FICHA-PLAY.md §3`**; aquí va
+solo lo que se usa para hablar:
+
+1. Los bancos informan al SII el **número de abonos** de una cuenta cuando pasa
+   de **50 abonos de 50 personas o entidades distintas en un día, una semana o un
+   mes** (o 100 de 100 distintas en un semestre). Se informa el monto agregado, y
+   **no se identifica a quién transfirió**.
+2. Desde el **1 de octubre de 2025**, las plataformas de intermediación y los
+   medios de pago electrónico tienen que **exigir inicio de actividades** antes de
+   intermediar un cobro. Este es el más concreto de los tres: toca un trámite.
+3. **No hay impuesto nuevo.** Lo dice el propio Gobierno. Lo que cambió es la
+   información que cruza el SII, no lo que se paga.
+
+**Por qué esto importa para el plan.** El plan tenía un «qué» muy claro
+—«sabrás cuánto vale tu hora»— y ningún «por qué ahora». Un «por qué ahora» real
+es lo que convierte una conversación de feria en un correo: la persona pasa de
+«qué interesante» a «esto me pasa a mí este mes».
+
+**Cómo se usa, y cómo NO se usa.** Tres reglas que no se negocian:
+
+- **Nada de alarmismo.** No se habla de multas, no se dice «te van a
+  fiscalizar», no se pone una cuenta atrás y no se insinúa que haya un impuesto
+  nuevo. Quien lo haga pierde la confianza del público en una frase, y además
+  dice algo falso.
+- **Nada de asesoría.** La app **no** declara, **no** emite boletas, **no**
+  calcula impuestos y **no** dice cuánto declarar. Decir cualquiera de esas cuatro
+  cosas es asesoría tributaria, es responsabilidad legal del dueño y endurece la
+  clasificación de la app en Google Play. La frase correcta es **«te deja
+  ordenado lo que vendiste, para que la conversación con tu contador dure diez
+  minutos»**.
+- **Nada de fechas sin comprobar.** En particular, **no** se dice «entró en vigor
+  el 2 de enero de 2026»: esa fecha circula en blogs y no la respalda ninguna
+  fuente oficial (el detalle está en `docs/FICHA-PLAY.md §3`). El gancho no la
+  necesita.
+
+**La frase lista para usar, en los tres largos del §2:**
+
+> Corto: «En Chile ya te piden tener las cuentas claras. Esta app te las deja
+> ordenadas; no declara nada por ti.»
+>
+> Medio: «Los bancos ahora informan al SII cuántas transferencias recibe una
+> cuenta, y las plataformas de pago piden inicio de actividades. Si vendes por
+> Instagram, conviene tener anotado lo que vendiste. La app hace eso: anota,
+> ordena por mes y te dice cuánto vale tu hora. No declara ni emite boletas.»
+>
+> Largo, para la feria: ver el guion del vídeo del §3, canal 2.
+
+### El hueco: hay siete calculadoras, y ninguna lleva las cuentas
+
+En la tienda chilena de Google Play hay **al menos siete calculadoras de precio
+para artesanía**. Una tiene 100.000 instalaciones. Dos están publicadas en
+español con ficha propia. Y una de ellas, **CraftCost**, ya descuenta la comisión
+de Mercado Libre, Etsy, Shopify, eBay y Amazon Handmade, y soporta el peso
+chileno. El inventario completo, con instalaciones y fechas de actualización,
+está en **`docs/COMPETENCIA.md §1.9`**.
+
+**Qué significa esto para el mensaje:**
+
+- **No se dice «no hay nada igual».** Es falso y se comprueba en treinta
+  segundos buscando en Play. Quien lo diga queda como vendedor.
+- **No se dice que descontar la comisión del medio de pago sea novedad.** Ya está
+  hecho y mejor documentado por un competidor.
+- **Lo que sí es verdad, y es el eje:** ninguna de las siete **lleva las cuentas
+  del mes**, ninguna tiene **inventario con stock mínimo**, ninguna tiene un
+  **asistente con el que conversar sobre tus propios números** y ninguna calcula
+  el valor hora **a partir de cuánto quieres ganar al mes**. Y ninguna de las
+  cuatro apps de gestión del mercado (Treinta, Yimi, Mi Negocio Simple, Control
+  de Mi Negocio) calcula precios.
+
+> **La frase del posicionamiento, entonces, es:** «Una calculadora te da el
+> precio y después cierras la app. Esta se queda con el mes.»
+
+**Y un movimiento táctico que sale gratis.** Las reseñas de los competidores son
+el mejor guion de contenido disponible: *Calculadora Artesanía Tecydo* tiene
+reseñas de una estrella porque no respeta la moneda elegida, y *Treinta* las tiene
+porque cobró por el acceso a datos que sus usuarios ya habían metido. Los dos
+problemas están resueltos o decididos en Págate-IA (ver `docs/COMPETENCIA.md` §3,
+huecos 2 y 3). Eso no se anuncia: se demuestra en un vídeo de 30 segundos.
 
 ---
 
@@ -78,6 +175,11 @@ Lo que le duele, en su orden, no en el nuestro:
 2. «No sé cuánto cobrar y me da vergüenza pedir más.»
 3. «Se me acaba el material a mitad de un pedido.»
 4. «Odio los números y las planillas.»
+5. «Me dijeron que ahora el banco informa las transferencias y no sé si tengo
+   que hacer algo.» — Este es nuevo, y es el que abre la conversación. Ojo: la
+   respuesta honesta es «no te puedo decir qué tienes que hacer, eso lo ve un
+   contador; lo que sí puedo es que tengas anotado y ordenado lo que vendiste».
+   Esa frase hay que decirla tal cual, no improvisarla.
 
 **Lo que NO le duele:** la contabilidad formal, la facturación electrónica, el
 inventario multibodega. Si le hablas de eso, se va.
@@ -118,11 +220,20 @@ Variantes para usar según el canal, todas con el mismo contenido:
 - Para alguien en una feria: «Le pones cuánto quieres ganar al mes y cuántas
   horas puedes trabajar, y te dice cuánto vale tu hora. Después anotas ventas y
   gastos y ves si te cuadró el mes.»
-- Para la ficha de Play: ver `docs/FICHA-PLAY.md`.
+- **Cuando sale el tema del SII o de las transferencias**, que va a salir: «Los
+  bancos ahora informan cuántas transferencias recibe una cuenta. La app no
+  declara nada ni emite boletas: lo que hace es que tengas ordenado lo que
+  vendiste, para que hablar con tu contador dure diez minutos.»
+- **Frente a quien ya usa una calculadora de precios**, que hay siete en Play:
+  «Una calculadora te da el precio y después cierras la app. Esta se queda con el
+  mes.»
+- Para la ficha de Play: ver `docs/FICHA-PLAY.md` §4.
 
 **Lo que NUNCA se dice**, porque es mentira y además arrastra la app a
-regulaciones que no cumple: que recibe pagos, que se conecta al banco o que emite
-boletas.
+regulaciones que no cumple: que recibe pagos, que se conecta al banco, que emite
+boletas, que calcula lo que hay que declarar o que «te pone al día con el SII».
+Tampoco «no hay nada igual»: hay siete calculadoras de precio para artesanía en
+Play y se comprueba en treinta segundos (`docs/COMPETENCIA.md` §1.9).
 
 ---
 
@@ -189,10 +300,26 @@ Por qué funciona: el espectador tiene exactamente esa duda sobre su propia piez
 y necesita saber el final. No es publicidad; es el problema resuelto en 40
 segundos, con la app como herramienta y no como protagonista.
 
+**El segundo formato, que es nuevo y es el que trae gente de fuera del nicho:**
+*lo que cambió en Chile*, en 40 segundos y sin asustar a nadie.
+
+> «Si vendes por Instagram y te pagan por transferencia, esto te interesa. Los
+> bancos ahora le informan al SII cuántas transferencias recibe una cuenta
+> cuando pasan de 50 de 50 personas distintas en un mes. **No hay impuesto
+> nuevo**: lo que cambió es la información. Yo no te puedo decir qué declarar
+> —eso lo ve un contador—, pero sí te puedo mostrar cómo tener anotado y
+> ordenado lo que vendiste.» Y muestras la pantalla del mes.
+
+Tres cosas que este vídeo **no** puede hacer, y si las hace es peor no
+publicarlo: inventar una multa, poner una fecha límite, o insinuar que la app
+arregla algo con el SII. El guion de arriba está escrito para que no haga ninguna
+de las tres; úsalo tal cual.
+
 **Reglas operativas:**
 
 - 3 publicaciones por semana. Reel vertical de 30 a 50 segundos. El mismo vídeo
-  sirve para Instagram y TikTok.
+  sirve para Instagram y TikTok. Rota los dos formatos: dos de «cálculo en vivo»
+  por cada uno de «lo que cambió en Chile».
 - Rota entre tres rubros: cerámica, textil y repostería. No te quedes en uno.
 - **Usa tus propios números o los de alguien que te dio permiso.** Nada de casos
   inventados. Si no tienes una pieza real, pide a un artesano que te preste sus
@@ -218,8 +345,10 @@ anuncios.
   Instagram a regiones después.
 - Vas en persona, compras algo y hablas con quien atiende. La propuesta es
   simple y no le cuesta nada: «Tengo una app que calcula cuánto tiene que
-  cobrar un artesano por su hora. ¿Te sirve recomendarla a tus clientes? Te
-  dejo esto por si alguien pregunta.»
+  cobrar un artesano por su hora y le lleva las cuentas del mes. ¿Te sirve
+  recomendarla a tus clientes? Te dejo esto por si alguien pregunta.» Si quien
+  atiende saca el tema del SII —en una tienda de insumos sale—, la respuesta es
+  la frase media del §0 bis, sin adornarla.
 - Lo que dejas es **una tarjeta tamaño bolsillo con un código QR** a la landing,
   no un folleto. 100 tarjetas cuestan entre 15.000 y 30.000 pesos.
 - **Usa un `source` distinto por tienda** en la URL del QR. El backend ya guarda
@@ -237,6 +366,13 @@ una expulsión.
 precios, que aparecen todas las semanas en cualquier grupo de artesanía, y las
 **contestas bien**, con el cálculo hecho. Solo si alguien pregunta «¿y con qué lo
 calculas?», mencionas la app.
+
+Hay un segundo tipo de pregunta que ahora aparece igual de seguido que la de
+precios: **«¿es verdad que el banco informa mis transferencias?»**. Contéstala
+con los tres hechos del §0 bis, incluido el de que no hay impuesto nuevo, y **di
+explícitamente que no eres contador**. Es la respuesta más útil que vas a poder
+dar en un grupo, y la que más credibilidad deja. La app se menciona solo si
+alguien pregunta con qué se lleva la cuenta.
 
 Dónde: grupos de Facebook de artesanía y emprendimiento chileno, grupos de
 WhatsApp de ferias locales (se entra preguntándole a un expositor en la feria),
@@ -362,8 +498,10 @@ hoy no hay ni un registro. La tubería existe; no ha pasado agua por ella.
 
 Dos limitaciones del código que conviene conocer antes de confiar en el número:
 
-- **No hay deduplicación.** La misma persona puede inscribirse diez veces y
-  cuentan como diez documentos. Al contar, agrupa por correo.
+- ~~**No hay deduplicación.**~~ **Ya la hay.** El id del documento es el
+  `sha256` del correo normalizado (`functions/src/waitlist.ts`, `waitlistDocId`),
+  así que la misma persona inscrita diez veces ocupa **un** documento. Contar
+  documentos ya es contar personas.
 - Los documentos **no son accesibles desde ningún cliente**
   (`firestore.rules:188-190`). Se leen desde la consola de Firebase o con el SDK
   de administrador. Para contar 50 correos eso sobra.
@@ -398,8 +536,10 @@ privacidad.
 
 No son tareas de código. Nadie puede decidirlas por él y el plan depende de ellas.
 
-1. **El nombre público.** Hoy la landing dice «Pagate» y la app «Págate-IA». Hay
-   que elegir uno y usarlo en todas partes, incluida la ficha de Play.
+1. ~~**El nombre público.**~~ **Resuelto en la landing:** se unificó a
+   **`Págate-IA`**, que es el nombre que ya usaban la app y las tres páginas
+   legales, y el que lleva la ficha de Play del `docs/FICHA-PLAY.md §1`. Si el
+   dueño prefiere `Pagate`, se cambia, pero en los dos sitios a la vez.
 2. **Un correo de contacto real y atendido.** Es el de la política de privacidad,
    el de la ficha de Play y el que recibirá las solicitudes de borrado. Sin él no
    arranca ni el §0.
@@ -416,3 +556,12 @@ No son tareas de código. Nadie puede decidirlas por él y el plan depende de el
 5. **Qué pasa con el plan Pro.** La interfaz ya lo menciona en tres sitios y no
    existe ninguna forma de comprarlo. O se construye con Google Play Billing, o
    se quitan las menciones antes de publicar.
+
+**Y una decisión más, que el gancho nuevo introduce:**
+
+6. **Hasta dónde se habla del SII.** El §0 bis fija el límite con el que está
+   escrito todo este plan: describir la norma, nunca aconsejar. Si el dueño
+   quiere ir más allá —por ejemplo, explicar en un vídeo cómo hacer el inicio de
+   actividades—, eso ya es contenido de orientación tributaria y tiene
+   consecuencias: deja de ser «la app ordena» y empieza a ser «esta persona me
+   asesoró». Es una decisión suya, y hoy el plan dice que no.

@@ -24,6 +24,13 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - No encontré ningún estudio que cuantifique **cuántos** artesanos chilenos no
   saben calcular su precio por hora. Que Sercotec dicte un curso específico
   sobre el tema es una señal, no un dato.
+- **Las valoraciones de las siete calculadoras de §1.9**: ninguna de las siete
+  publica `aggregateRating`, así que la columna dice «no la publica» y no un
+  número inventado. Lo más probable es que tengan pocas valoraciones, pero eso es
+  una conjetura y va dicha como tal.
+- **Los idiomas reales de la app**, por dentro. Lo que se puede comprobar es si
+  el desarrollador publicó una ficha en español (ver el método en §1.9), no en
+  qué idiomas está la interfaz.
 
 ---
 
@@ -104,8 +111,9 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 ### 1.4 Control de Mi Negocio — gestión con anuncios
 
 - **Ficha:** <https://play.google.com/store/apps/details?id=com.lehreer.store>
-- **Verificado en la ficha:** categoría Negocios · **4,1 estrellas sobre 1.427
-  valoraciones** · descarga gratuita.
+- **Verificado en la ficha:** categoría Negocios · **100.000+ instalaciones** ·
+  **4,19 estrellas sobre 1.427 valoraciones** · descarga gratuita ·
+  **actualizada el 22 de septiembre de 2026**.
 - **Modelo de negocio:** gratuito con publicidad, según las reseñas.
 - **Qué hace mejor:** mucha función por cero peso: alerta de stock, fecha de
   vencimiento, clientes, deudores, proveedores, descuentos, cálculo de
@@ -116,13 +124,18 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
   precio del proveedor, y poder cerrar la jornada después de medianoche—. Tampoco
   calcula valor hora.
 
-### 1.5 Calculadora Artesanía — Tecydo — el competidor más parecido en intención
+### 1.5 Calculadora Artesanía — Tecydo — la calculadora en español con más recorrido
+
+> Esta y la de §1.6 son dos de **siete** calculadoras de precio para artesanía
+> que hay en la tienda chilena. Las otras cinco, con sus cifras verificadas,
+> están en **§1.9**, y la más seria de todas —CraftCost— también.
 
 - **Ficha:** <https://play.google.com/store/apps/details?id=com.akynoapps.craftcalculator>
 - **Sitio:** <https://tecydo.com>
 - **Verificado en la ficha:** categoría Herramientas · **10.000+ instalaciones** ·
   **contiene anuncios** · descarga gratuita con compra «pro». Su ficha no
-  publica valoración.
+  publica valoración y su **última actualización es del 12 de noviembre de
+  2023**: casi tres años sin tocarla.
 - **Qué hace mejor:** está hecha exactamente para esto. Su descripción breve es
   «calculadora de costos y precios para crochet, costura y manualidades»:
   calcula tela, hilo, cintas y relleno, incluye mano de obra y gastos
@@ -146,8 +159,10 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 
 - **Ficha:** <https://play.google.com/store/apps/details?id=co.uk.handmadeaberdeenshire.craftpricingcalculator>
 - **Verificado en la ficha:** categoría Productividad · **100.000+
-  instalaciones** · **contiene anuncios** · descarga gratuita. Su ficha no
-  publica valoración.
+  instalaciones** · **contiene anuncios** · descarga gratuita · **actualizada el
+  28 de septiembre de 2026**. Su ficha no publica valoración. Es la calculadora
+  de artesanía con más instalaciones de las siete y la más recientemente
+  actualizada.
 - **Qué hace mejor:** una sola cosa, muy bien: materiales, unidades producidas y
   tiempo empleado, y devuelve el costo por unidad y el precio para no perder
   dinero o para un margen dado. Permite **tarifas horarias distintas según el
@@ -174,20 +189,117 @@ porque es la que conoce. Son competencia por sustitución, no por función.
   no tienen inventario, no tienen costo de producción y no tienen idea de lo que
   vale una hora de trabajo.
 
+### 1.9 El pelotón de calculadoras de precio para artesanía
+
+Las dos de §1.5 y §1.6 no son un caso aislado: **en la tienda chilena de Google
+Play hay al menos siete calculadoras de precio para artesanía**. Las encontré
+buscando `calculadora precios artesania`, `calculadora costos manualidades` y
+`craft pricing calculator` con `hl=es_CL&gl=CL`, y leí la ficha de cada una.
+Todos los datos de la tabla salen de los datos estructurados
+(`application/ld+json`) y del bloque de detalle de su propia ficha, el 6 de
+octubre de 2026.
+
+| App | Paquete | Categoría | Instalaciones | Valoración | Actualizada | Anuncios | Ficha en español |
+|---|---|---|---|---|---|---|---|
+| Craft Pricing Calculator | `co.uk.handmadeaberdeenshire.craftpricingcalculator` | Productividad | **100 k+** | no la publica | **28 sept 2026** | Sí | Traducida; el título sigue en inglés |
+| Calculadora Artesanía — Tecydo | `com.akynoapps.craftcalculator` | Herramientas | 10 k+ | no la publica | 12 nov 2023 | Sí | **Sí, con título propio** |
+| Craft Pricing Calculator (Subbarao) | `com.subbarao.craftpricingcalculator` | Productividad | 1 k+ | no la publica | 1 dic 2025 | Sí | Traducida; título en inglés |
+| **CraftCost: Precios Artesanía** | `com.codeensis.craftcost` | Negocios | 100+ | no la publica | **8 jun 2026** | No declara | **Sí, con título propio** |
+| Product Maker: Calcular Costos | `com.domene.productmaker` | Productividad | 500+ | no la publica | 10 may 2026 | No declara | **Sí, con título propio** |
+| CostoPro | `com.susucrea.costopro` | Productividad | 100+ | no la publica | 3 feb 2026 | No declara | Sí |
+| Handmade Pricing Calculator | `dev.mdwalid.craft_pricing` | Productividad | 10+ | no la publica | 14 sept 2026 | No declara | Traducida; título en inglés |
+
+**Cómo distinguí «ficha en español» de «ficha traducida».** Google traduce
+automáticamente la descripción breve de cualquier app al idioma de la tienda, así
+que leer español no prueba nada. Lo que sí lo prueba es que el **título** cambie
+entre `hl=es_CL` y `hl=en`: eso solo ocurre cuando el desarrollador publicó una
+ficha en español. `CraftCost: Precios Artesanía` / `CraftCost: Handmade Pricing` y
+`Product Maker: Calcular Costos` / `Product Maker: Cost Calculator` cambian;
+`Handmade Pricing Calculator` y `Craft Pricing Calculator` no.
+
+### Una corrección al dato de partida
+
+El encargo decía que una de estas calculadoras estaba «en español y actualizada
+en **agosto de 2026**». **Ninguna lo está.** La más reciente de todas es *Craft
+Pricing Calculator* (28 de septiembre de 2026), cuya ficha está traducida pero no
+publicada en español; y la más reciente **con ficha propia en español** es
+*CraftCost* (8 de junio de 2026). Ninguna ficha de las siete muestra una
+actualización en agosto de 2026. Lo escribo aquí porque el número de la fecha no
+cambia la conclusión, pero una cifra mal citada en un documento de estrategia se
+convierte en una cifra mal citada en una publicación.
+
+### Las dos que hay que mirar de cerca
+
+**CraftCost (`com.codeensis.craftcost`)** es el competidor nuevo más serio para la
+mitad «precio» de Págate-IA, y conviene leer su propia descripción antes de
+escribir una línea de posicionamiento. Lo que declara:
+
+- Biblioteca de materiales reutilizable, con precio por gramo, metro o unidad.
+- Costo por pieza combinando materiales, mano de obra y gastos fijos.
+- **Perfiles de comisión editables para Mercado Libre, Etsy, Shopify, eBay y
+  Amazon Handmade**, y explícitamente «*¿Vendes por Instagram o WhatsApp?
+  También está contemplado: sin comisión de plataforma*».
+- **Peso chileno entre las monedas soportadas**, «*con el formato correcto de
+  cada una*».
+- Exportación de listas de precios y cotizaciones a PDF o imagen.
+- Suscripción Pro mensual, anual o compra única *Lifetime*.
+- Y una frase que vale la pena leer dos veces: «*Sobre los números: CraftCost te
+  da estimaciones para que tomes mejores decisiones de precio. Cuánto cobras
+  siempre lo decides tú*». Es exactamente el límite que el contrato C-3 impone a
+  Págate-IA, escrito por un competidor.
+
+**Consecuencia directa para el contrato C-3:** descontar la comisión del medio de
+pago **no es un diferenciador**. Ya está hecho, en español, con perfiles por
+plataforma y con el peso chileno soportado. Es una casilla que hay que tener, no
+una bandera que agitar.
+
+**Product Maker (`com.domene.productmaker`)** es la única de las siete que usa
+IA, y conviene saber exactamente cómo: fotografías el producto terminado y el
+modelo «deduce» los insumos para armar una estructura de costos. Su propia ficha
+aclara que eso «*requiere tu propia API Key*». **No es un asistente
+conversacional sobre tus números**: es visión por computador aplicada a rellenar
+una lista de materiales. Tampoco lleva cuentas del mes.
+
+### Qué les falta a las siete, sin excepción
+
+Ninguna de las siete registra **ingresos y gastos mes a mes**, ninguna lleva
+**inventario con stock y stock mínimo**, y ninguna tiene un **asistente con el
+que conversar sobre tus propios números**. Y ninguna calcula el **valor hora**
+como lo hace Págate-IA —a partir de cuánto quieres ganar al mes y cuántas horas
+puedes trabajar—: todas trabajan al revés, metiendo la mano de obra como un costo
+por pieza.
+
 ---
 
 ## 2. El cuadro completo
 
-| App | Instalaciones | Valoración | Modelo | Valor hora | Cuentas del mes | Inventario | Asistente | Chile |
-|---|---|---|---|---|---|---|---|---|
-| Treinta | 10 M+ | 4,1 (105.668) | Freemium agresivo | No | Sí | Sí | No | Sí |
-| Yimi POS | 100 K+ | 4,2 (2.663) | Freemium | No | Sí | Sí | No | Sí |
-| Mi Negocio Simple | 100+ | 5,0 (6) | Gratis | No | Sí | Parcial | No | **Chileno** |
-| Control de Mi Negocio | — | 4,1 (1.427) | Gratis con anuncios | No | Sí | Sí | No | Sí |
-| Calculadora Artesanía Tecydo | 10 K+ | n/d | Anuncios + pro | **Sí** | No | No | No | Sí |
-| Craft Pricing Calculator | 100 K+ | n/d | Anuncios | **Sí** | No | No | No | Solo inglés |
-| Monefy / Controlar Gastos / Bluecoins | 100 K+ a 10 M+ | 4,3–4,6 | Gratis / freemium | No | Personal | No | No | Sí |
-| **Págate-IA** | — | — | Gratis hoy | **Sí** | **Sí** | **Sí** | **Sí** | **Chileno** |
+Las valoraciones son las de `aggregateRating` de cada ficha, leídas el 6 de
+octubre de 2026. «Precio por pieza» es calcular el costo y el precio de un
+producto; «Valor hora» es el cálculo inverso de Págate-IA, que parte de la meta
+mensual y las horas disponibles. No son lo mismo y la diferencia es el producto.
+
+| App | Instalaciones | Valoración | Modelo | Precio por pieza | Valor hora | Cuentas del mes | Inventario con stock | Asistente | Chile |
+|---|---|---|---|---|---|---|---|---|---|
+| Treinta | 10 M+ | 4,1 (105.668) | Freemium agresivo | No | No | Sí | Sí | No | Sí |
+| Yimi POS | 100 K+ | 4,2 (2.663) | Freemium | No | No | Sí | Sí | No | Sí |
+| Mi Negocio Simple | 100+ | 5,0 (6) | Gratis | No | No | Sí | Parcial | No | **Chileno** |
+| Control de Mi Negocio | 100 K+ | 4,2 (1.427) | Gratis con anuncios | No | No | Sí | Sí | No | Sí |
+| Calculadora Artesanía Tecydo | 10 K+ | no la publica | Anuncios + pro | **Sí** | No | No | No | No | Sí |
+| Craft Pricing Calculator | 100 K+ | no la publica | Anuncios | **Sí** | No | No | No | No | Solo inglés |
+| CraftCost | 100+ | no la publica | Pro por suscripción | **Sí**, con comisiones | No | No | No | No | Soporta CLP |
+| Product Maker | 500+ | no la publica | Gratis / Pro | **Sí**, con IA de visión | No | No | No | No | Sí |
+| CostoPro · Handmade Pricing · Craft Pricing (Subbarao) | 10 a 1 K+ | no la publican | Gratis | **Sí** | No | No | No | No | Mixto |
+| Monefy / Controlar Gastos / Bluecoins | 100 K+ a 10 M+ | 4,3–4,6 | Gratis / freemium | No | No | Personal | No | No | Sí |
+| **Págate-IA** | — | — | Gratis hoy | No (todavía) | **Sí** | **Sí** | **Sí** | **Sí** | **Chileno** |
+
+Dos casillas de la fila de Págate-IA merecen una nota, porque son las que la
+hacen honesta:
+
+- **«Precio por pieza: No (todavía)».** La app calcula el valor hora, no el costo
+  de una pieza a partir de su receta de materiales. Es justo lo que hacen las
+  siete calculadoras de §1.9, y es el hueco que ellas tienen cubierto.
+- **Instalaciones y valoración vacías.** No está publicada. No hay número que
+  poner y no se va a estimar.
 
 ---
 
@@ -195,17 +307,33 @@ porque es la que conoce. Son competencia por sustitución, no por función.
 
 **Nadie junta las dos mitades del problema.** Las apps de gestión (Treinta, Yimi,
 Mi Negocio Simple, Control de Mi Negocio) te dejan anotar lo que ya vendiste,
-pero ninguna te ayuda a decidir el precio. Las calculadoras (Tecydo, Craft
-Pricing) te ayudan a decidir el precio y después se olvidan de ti: cierras la app
-y no queda nada. El artesano necesita las dos cosas y hoy tiene que usar dos
-apps, o una app y una libreta.
+pero ninguna te ayuda a decidir el precio. Las **siete** calculadoras de §1.9 te
+ayudan a decidir el precio y después se olvidan de ti: cierras la app y no queda
+nada del mes. El artesano necesita las dos cosas y hoy tiene que usar dos apps, o
+una app y una libreta.
 
-**Cuatro huecos concretos, cada uno con su evidencia:**
+Y conviene decir el hueco con precisión, porque dicho a lo bruto es falso. **No**
+es cierto que «nadie calcula precios para artesanía»: hay siete apps haciéndolo,
+una con 100.000 instalaciones. **No** es cierto que «nadie descuenta la comisión
+del medio de pago»: CraftCost tiene perfiles por plataforma. **No** es cierto que
+«nadie usa IA»: Product Maker usa visión por computador. Lo que sí es cierto, y
+lo comprobé app por app:
 
-1. **Valor hora + cuentas en la misma app.** Es la única casilla del cuadro de
-   §2 que solo tiene una marca, y es la de Págate-IA. No es una ventaja de
-   marketing: es que el valor hora deja de ser un número de una vez y se
-   convierte en la referencia contra la que comparas el mes.
+> **Ninguna de las siete calculadoras lleva las cuentas del mes, ninguna tiene
+> inventario con stock mínimo, ninguna tiene un asistente con el que conversar
+> sobre tus propios números, y ninguna calcula el valor hora desde la meta
+> mensual. Y ninguna de las cuatro apps de gestión calcula precios.**
+>
+> Son dos pelotones que no se tocan. Esa frontera es el producto.
+
+**Cinco huecos concretos, cada uno con su evidencia:**
+
+1. **Valor hora + cuentas del mes en la misma app.** Es la única casilla del
+   cuadro de §2 que solo tiene una marca, y es la de Págate-IA. No es una ventaja
+   de marketing: es que el valor hora deja de ser un número de una vez y se
+   convierte en la referencia contra la que comparas el mes. Las calculadoras no
+   pueden hacerlo porque no guardan el mes; las apps de gestión no pueden
+   hacerlo porque no saben cuánto quieres ganar.
 
 2. **La desconfianza que dejó Treinta.** «*Todo está perdido*», «*hasta eso están
    cobrando*», «*la información que les proporcioné desde años atrás*». Hay una
@@ -227,9 +355,22 @@ apps, o una app y una libreta.
    escribirle a una persona pesa más que un roadmap. Una persona sola puede
    competir en eso contra una empresa de 21 países; en funciones, no.
 
+5. **El ángulo chileno, que ninguna usa.** Ninguna de las once fichas revisadas
+   menciona el reporte de abonos al SII ni la exigencia de inicio de actividades
+   a los medios de pago (los dos hechos verificados en
+   `docs/FICHA-PLAY.md §3`). Es el único argumento de «por qué ahora» disponible,
+   está libre y es específico de Chile, que es donde las dos chilenas de la lista
+   —Mi Negocio Simple, con 100 instalaciones— todavía no han ocupado el espacio.
+
 **Dónde NO conviene competir:** facturación electrónica ante el SII, punto de
 venta con caja y catálogo en línea. Treinta y Yimi ya los tienen, son caros de
 construir y arrastran obligaciones regulatorias.
+
+**Y un frente donde competir es caro y llegar segundo es seguro:** el costeo por
+receta de materiales con perfiles de comisión por plataforma. CraftCost ya lo
+tiene resuelto, en español y con CLP. Si Págate-IA entra ahí, entra a empatar.
+El campo `platformFee` del contrato C-3 es una casilla necesaria para que el neto
+de una venta sea verdad, no una ventaja que se pueda anunciar.
 
 ---
 
@@ -245,6 +386,10 @@ Extraídas de las descripciones breves y largas de sus propias fichas.
 | Control de Mi Negocio | «Ventas, gastos e inventario de tu negocio en una sola app» |
 | Calculadora Artesanía Tecydo | «Calculadora de costos y precios para crochet, costura y manualidades» |
 | Craft Pricing Calculator | «Calcule rápidamente el precio al por menor de productos hechos a mano basados en costos y tiempo» |
+| CraftCost | «Calculadora de precios para artesanía: costos, comisiones y ganancia real» |
+| Product Maker | «Calculadora de costos con IA y control de márgenes para emprendedores» |
+| CostoPro | «Calcula costos, mano de obra y gastos para fijar precios a tus productos» |
+| Handmade Pricing Calculator | «Consulta la lista de materiales para obtener precios reales para tus manualidades: sin suscripciones ni anuncios molestos» |
 
 **Vocabulario que repiten:** `gestiona` · `controla` · `tu negocio` ·
 `ventas` · `gastos` · `ganancias` · `inventario` · `simple` · `fácil` ·
@@ -252,8 +397,20 @@ Extraídas de las descripciones breves y largas de sus propias fichas.
 contables` · `costos` · `precios` · `hechos a mano`.
 
 **Vocabulario que casi nadie usa y que a Págate-IA le pertenece:**
-`valor hora` · `cuánto cobrar` · `cuánto vale tu trabajo` · `artesanos` ·
-`taller` · `ferias`. Mi Negocio Simple es el único que dice «feriantes».
+`valor hora` · `cuánto cobrar` · `cuánto vale tu trabajo` · `taller` · `ferias`.
+Mi Negocio Simple es el único que dice «feriantes».
+
+**Corrección respecto de la versión anterior de este documento:** `artesanos` ya
+**no** es vocabulario libre. Cinco de las once fichas lo usan, CraftCost lo usa
+en el título de la ficha en español («Precios Artesanía») y Tecydo lo usa en el
+nombre de la app. Sigue valiendo la pena incluirlo en la ficha de Play para no
+perder esa búsqueda, pero **no diferencia**. Lo que diferencia es `valor hora`:
+ninguna de las once fichas lo menciona.
+
+**Y un término que hay que evitar en la ficha**, aunque la competencia lo use:
+`comisiones`. CraftCost lo pone en su descripción breve y lo tiene implementado;
+usarlo mientras `platformFee` no exista en `lib/` sería anunciar lo que la app no
+hace.
 
 Esto alimenta directamente `docs/FICHA-PLAY.md`: el nombre y la descripción
 breve apuntan al vocabulario propio, y la descripción larga incluye también el
@@ -272,6 +429,11 @@ octubre de 2026:
 - Control de Mi Negocio — <https://play.google.com/store/apps/details?id=com.lehreer.store>
 - Calculadora Artesanía Tecydo — <https://play.google.com/store/apps/details?id=com.akynoapps.craftcalculator>
 - Craft Pricing Calculator — <https://play.google.com/store/apps/details?id=co.uk.handmadeaberdeenshire.craftpricingcalculator>
+- CraftCost: Precios Artesanía — <https://play.google.com/store/apps/details?id=com.codeensis.craftcost>
+- Product Maker: Calcular Costos — <https://play.google.com/store/apps/details?id=com.domene.productmaker>
+- CostoPro — <https://play.google.com/store/apps/details?id=com.susucrea.costopro>
+- Handmade Pricing Calculator — <https://play.google.com/store/apps/details?id=dev.mdwalid.craft_pricing>
+- Craft Pricing Calculator (Subbarao) — <https://play.google.com/store/apps/details?id=com.subbarao.craftpricingcalculator>
 - Monefy — <https://play.google.com/store/apps/details?id=com.monefy.app.lite>
 - Controlar Gastos — <https://play.google.com/store/apps/details?id=com.smartexpenditure>
 - Bluecoins — <https://play.google.com/store/apps/details?id=com.rammigsoftware.bluecoins>
@@ -282,7 +444,21 @@ Sitios de los competidores:
 - <https://yimiglobal.com/>
 - <https://www.minegociosimple.cl>
 - <https://tecydo.com>
+- <https://codeensis.com/craftcost> (sitio de CraftCost)
+- <https://productmaker-app.com/> (sitio de Product Maker)
 - <https://www.capterra.com/p/253827/Yimi-POS/> (planes de Yimi)
+
+Normativa chilena citada en §3 (el detalle y las citas textuales están en
+`docs/FICHA-PLAY.md §3`):
+
+- SII — *Ley de cumplimiento de las obligaciones tributarias* —
+  <https://www.sii.cl/destacados/ley_cumplimiento_obligaciones_tributarias/combate_elusion_evasion_informalidad.html>
+- SII — *Información bancaria: transferencias* —
+  <https://www.sii.cl/destacados/ley_cumplimiento_obligaciones_tributarias/informacion_bancaria_tf.html>
+- SII — Circular N° 2, de 2 de enero de 2025 —
+  <https://www.sii.cl/normativa_legislacion/circulares/2025/circu2.pdf>
+- SII — *Entrada en vigencia de la obligación de exigir inicio de actividades*,
+  16 de septiembre de 2025 — <https://www.sii.cl/noticias/2025/160925noti01pcr.htm>
 
 Contexto del sector artesanal y de ferias en Chile:
 
