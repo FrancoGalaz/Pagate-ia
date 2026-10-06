@@ -20,15 +20,24 @@ async function addTx(
   amount: number,
   type: 'income' | 'expense',
   monthKey: string = MONTH,
+  /**
+   * Comision del medio de pago. `undefined` deja el campo AUSENTE, que es lo
+   * que escribe el cliente cuando no hubo comision (cobro en efectivo o por
+   * transferencia): el modelo borra el campo en vez de guardar un 0.
+   */
+  platformFee?: number,
 ): Promise<void> {
-  await adminDb().doc(`users/${UID}/transactions/${id}`).set({
-    title: `Movimiento ${id}`,
-    amount,
-    type,
-    category: 'Ventas',
-    date: Timestamp.now(),
-    monthKey,
-  });
+  await adminDb()
+    .doc(`users/${UID}/transactions/${id}`)
+    .set({
+      title: `Movimiento ${id}`,
+      amount,
+      type,
+      category: 'Ventas',
+      date: Timestamp.now(),
+      monthKey,
+      ...(platformFee === undefined ? {} : { platformFee }),
+    });
 }
 
 async function month(monthKey: string = MONTH): Promise<Record<string, unknown> | undefined> {
@@ -81,7 +90,12 @@ describe('recalcMonth', () => {
     await addTx('t3', 5_000, 'expense');
 
     const totals = await recalcMonth(UID, MONTH, db);
-    expect(totals).toEqual({ totalIncome: 100_000, totalExpenses: 35_000, transactionCount: 3 });
+    expect(totals).toEqual({
+      totalIncome: 100_000,
+      totalExpenses: 35_000,
+      totalPlatformFees: 0,
+      transactionCount: 3,
+    });
     expect(await month()).toMatchObject({ totalIncome: 100_000, totalExpenses: 35_000, transactionCount: 3 });
   });
 
@@ -93,6 +107,7 @@ describe('recalcMonth', () => {
     expect(await recalcMonth(UID, MONTH, db)).toEqual({
       totalIncome: 100_000,
       totalExpenses: 0,
+      totalPlatformFees: 0,
       transactionCount: 1,
     });
   });
@@ -122,10 +137,120 @@ describe('recalcMonth', () => {
     // la lectura y la escritura dentro de la transacción, las dos se serializan
     // y ninguna puede commitear un estado viejo.
     const [a, b] = await Promise.all([recalcMonth(UID, MONTH, db), recalcMonth(UID, MONTH, db)]);
-    const expected = { totalIncome: 17_000, totalExpenses: 2_000, transactionCount: 3 };
+    const expected = {
+      totalIncome: 17_000,
+      totalExpenses: 2_000,
+      totalPlatformFees: 0,
+      transactionCount: 3,
+    };
     expect(a).toEqual(expected);
     expect(b).toEqual(expected);
     expect(await month()).toMatchObject(expected);
+  });
+
+  /**
+   * C-3: totalPlatformFees, la suma de las comisiones de los medios de pago.
+   *
+   * POR QUE ESTA EN EL AGREGADO: es el operando que le faltaba a months/* para
+   * poder derivar el neto del mes sin recorrer las transacciones. El neto sigue
+   * SIN guardarse.
+   */
+  describe('totalPlatformFees (C-3)', () => {
+    it('suma las comisiones de los ingresos del mes', async () => {
+      const db = adminDb();
+      await addTx('t1', 100_000, 'income', MONTH, 3_500);
+      await addTx('t2', 50_000, 'income', MONTH, 1_750);
+
+      expect(await recalcMonth(UID, MONTH, db)).toEqual({
+        totalIncome: 150_000,
+        totalExpenses: 0,
+        totalPlatformFees: 5_250,
+        transactionCount: 2,
+      });
+      // El neto del mes se DERIVA del agregado: 150.000 - 5.250.
+      const doc = await month();
+      expect(Number(doc!.totalIncome) - Number(doc!.totalPlatformFees)).toBe(144_750);
+    });
+
+    it('vale 0 cuando ningun ingreso tiene comision', async () => {
+      // Es el caso de un taller que cobra en efectivo y por transferencia: el
+      // cliente ni escribe el campo.
+      const db = adminDb();
+      await addTx('t1', 100_000, 'income');
+      expect((await recalcMonth(UID, MONTH, db))!.totalPlatformFees).toBe(0);
+    });
+
+    it('mezcla ingresos con y sin comision sin perder ninguno', async () => {
+      // ESTE ES EL TEST QUE IMPORTA, y el que caza el error de meter el
+      // sum('platformFee') en la misma agregacion que el total y la cuenta: en
+      // agregacion combinada, ese sum restringe el conjunto a los documentos
+      // que TIENEN el campo, asi que aqui habria devuelto totalIncome 100.000 y
+      // transactionCount 1, perdiendo el ingreso de 40.000. Y como platformFee
+      // es opcional, lo normal es que la mayoria de los ingresos no lo tenga.
+      const db = adminDb();
+      await addTx('t1', 100_000, 'income', MONTH, 3_500);
+      await addTx('t2', 40_000, 'income');
+      expect(await recalcMonth(UID, MONTH, db)).toEqual({
+        totalIncome: 140_000,
+        totalExpenses: 0,
+        totalPlatformFees: 3_500,
+        transactionCount: 2,
+      });
+    });
+
+    it('ignora la comision escrita en un gasto', async () => {
+      // firestore.rules la rechaza desde el contrato C-3, pero el Admin SDK no
+      // pasa por las reglas (sembrado de datos, migraciones) y una comision en
+      // un gasto no significa nada: no puede ensuciar el neto de los ingresos.
+      const db = adminDb();
+      await addTx('t1', 100_000, 'income', MONTH, 3_500);
+      await addTx('t2', 20_000, 'expense', MONTH, 9_999);
+      expect(await recalcMonth(UID, MONTH, db)).toEqual({
+        totalIncome: 100_000,
+        totalExpenses: 20_000,
+        totalPlatformFees: 3_500,
+        transactionCount: 2,
+      });
+    });
+
+    it('ignora las comisiones de otros meses', async () => {
+      const db = adminDb();
+      await addTx('t1', 100_000, 'income', MONTH, 3_500);
+      await addTx('t2', 80_000, 'income', '2026-10', 7_777);
+      expect((await recalcMonth(UID, MONTH, db))!.totalPlatformFees).toBe(3_500);
+    });
+
+    it('no deja que la suma de comisiones pase del bruto', async () => {
+      // Por documento las reglas garantizan platformFee <= amount, asi que esto
+      // solo se puede escribir con el Admin SDK. Un neto negativo seria una
+      // cifra falsa.
+      const db = adminDb();
+      await addTx('t1', 10_000, 'income', MONTH, 999_999);
+      expect(await recalcMonth(UID, MONTH, db)).toEqual({
+        totalIncome: 10_000,
+        totalExpenses: 0,
+        totalPlatformFees: 10_000,
+        transactionCount: 1,
+      });
+    });
+
+    it('no deja que una comision negativa infle el neto', async () => {
+      const db = adminDb();
+      await addTx('t1', 10_000, 'income', MONTH, -5_000);
+      expect((await recalcMonth(UID, MONTH, db))!.totalPlatformFees).toBe(0);
+    });
+
+    it('un Infinity escrito por el Admin SDK no envenena el mes', async () => {
+      // Sin el filtro de finitud, months/* se quedaba con Infinity para
+      // siempre: nada vuelve a recalcular el mes hasta la siguiente escritura
+      // en el, y mientras tanto la app y el asistente muestran una cifra que no
+      // es un numero.
+      const db = adminDb();
+      await addTx('t1', 10_000, 'income', MONTH, Number.POSITIVE_INFINITY);
+      const totals = await recalcMonth(UID, MONTH, db);
+      expect(totals!.totalPlatformFees).toBe(0);
+      expect(Number.isFinite(totals!.totalIncome)).toBe(true);
+    });
   });
 
   it('borra el documento del mes cuando se queda sin movimientos', async () => {

@@ -570,6 +570,42 @@ describe('C-3: docType y platformFee en transactions', () => {
     }
   });
 
+  it('rechaza platformFee en un gasto: una comision de medio de pago sobre un gasto no existe', async () => {
+    // El agregado `totalPlatformFees` de months/* suma las comisiones de los
+    // INGRESOS, asi que una comision guardada en un gasto se ignoraba en
+    // silencio. El formulario del cliente nunca escribe una (en un gasto borra
+    // el campo); el gasto que si existe, la liquidacion mensual de un
+    // marketplace, se registra con la categoria 'Comision de plataforma'.
+    await assertFails(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios', platformFee: 500 }),
+    );
+    // Ni siquiera 0: en un gasto el campo no tiene sentido, y el cliente lo
+    // borra en vez de escribir un cero.
+    await assertFails(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios', platformFee: 0 }),
+    );
+    // Sin el campo, el mismo gasto pasa.
+    await assertSucceeds(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios' }),
+    );
+  });
+
+  it('no se puede colar una comision cambiando un ingreso a gasto en un update', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'users', ALICE, 'transactions', 'ingreso'), {
+        ...validTransaction(),
+        amount: 12000,
+        platformFee: 400,
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'transactions', 'ingreso'), {
+        type: 'expense',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
   it('acepta los dos campos juntos', async () => {
     await assertSucceeds(
       addDoc(txs(), {

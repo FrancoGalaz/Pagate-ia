@@ -205,11 +205,23 @@ service cloud.firestore {
       // - `platformFee`: la comision que se queda el medio de pago, en la misma
       //   moneda que `amount`. El tope superior es `amount`: una comision mayor
       //   que el monto cobrado no existe, y sin ese tope el neto derivado
-      //   (`amount - platformFee`) saldria negativo.
+      //   (`amount - platformFee`) saldria negativo. Solo se acepta en los
+      //   INGRESOS: la comision es lo que descuenta el medio de pago de una
+      //   venta cobrada, y en un gasto no significa nada. Antes se aceptaba en
+      //   los dos tipos, y eso dejaba un dato que nada podia interpretar: el
+      //   agregado `totalPlatformFees` de `months/*` suma las comisiones de los
+      //   ingresos, asi que una comision en un gasto se guardaba y se ignoraba
+      //   en silencio. El formulario del cliente nunca escribe una (en un gasto
+      //   borra el campo), asi que esto no invalida ningun documento suyo. El
+      //   gasto que SI existe (la liquidacion mensual de un marketplace que
+      //   llega aparte) se registra como gasto normal con la categoria
+      //   'Comision de plataforma'.
       //
       // No se guarda ningun neto: se deriva siempre. Un neto guardado se puede
       // contradecir con sus propios operandos, y aqui no hay forma de validar
-      // esa coherencia sin recalcularla.
+      // esa coherencia sin recalcularla. `months/*` guarda la SUMA de las
+      // comisiones, que es un operando mas, no un neto (ver `MonthTotals` en
+      // `functions/src/months.ts`).
       function validDocType(v) {
         return v in ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
       }
@@ -217,7 +229,7 @@ service cloud.firestore {
       function validPlatformFee(d) {
         // El orden importa: `isMoney` primero, porque comparar un valor no
         // numerico con `d.amount` es un error de ejecucion, no un `false`.
-        return isMoney(d.platformFee) && d.platformFee <= d.amount;
+        return d.type == 'income' && isMoney(d.platformFee) && d.platformFee <= d.amount;
       }
 
       function validTransaction(d) {

@@ -24,9 +24,46 @@ import { REGION } from './config';
 const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export interface MonthTotals {
+  /** Suma de `amount` de los ingresos del mes. BRUTO: lo que cobró. */
   totalIncome: number;
   totalExpenses: number;
+  /**
+   * Suma de `platformFee` de los INGRESOS del mes: lo que se quedaron los
+   * medios de pago.
+   *
+   * POR QUÉ ESTÁ AQUÍ (decisión del contrato C-3, ver `docs/ARQUITECTURA.md`).
+   * `months/*` es el único sitio del que el cliente y el asistente sacan el
+   * resumen de un mes, y hasta ahora solo tenía el bruto. El neto chileno
+   * (`totalIncome - totalPlatformFees`) no se podía derivar de él: había que
+   * recorrer las transacciones del mes, que es justo lo que el agregado existe
+   * para evitar, y encima el cliente solo puede leer 200 por consulta (el tope
+   * de `firestore.rules`), así que el mes 201 habría salido mal sin avisar.
+   *
+   * Lo que se guarda es el OPERANDO, no el neto. El principio de C-3 («el neto
+   * no se guarda, se deriva») se mantiene intacto: un neto guardado se puede
+   * contradecir con sus propios operandos, mientras que esto es una suma más,
+   * del mismo tipo que `totalIncome` y recalculada igual de cero en cada pasada.
+   *
+   * Solo cuenta los ingresos: una comisión del medio de pago sobre un gasto no
+   * significa nada, y `firestore.rules` la rechaza desde el mismo cambio.
+   */
+  totalPlatformFees: number;
   transactionCount: number;
+}
+
+/**
+ * Convierte el resultado de una agregación en un número usable.
+ *
+ * `sum()` devuelve 0 cuando no hay valores y se salta los que no son números,
+ * pero puede devolver `Infinity` o `NaN` si algún documento los tiene. Las
+ * reglas lo impiden al cliente; el Admin SDK (sembrado de datos, migraciones) no
+ * pasa por ellas. Un `Infinity` en `months/*` es permanente: nada vuelve a
+ * recalcular el mes hasta la siguiente escritura, y mientras tanto la app y el
+ * asistente muestran "∞".
+ */
+function finiteSum(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**
@@ -52,6 +89,11 @@ export interface MonthTotals {
  * ceros: un mes en cero hacía que `chat.ts` eligiera como "último mes" un
  * documento vacío y le contara al asistente que el negocio no facturó nada.
  *
+ * Desde el contrato C-3 también suma `totalPlatformFees` (las comisiones de los
+ * medios de pago sobre los ingresos del mes), para que el neto del mes se pueda
+ * derivar del agregado en vez de recorriendo las transacciones. El por qué está
+ * en `MonthTotals`.
+ *
  * @returns los totales escritos, o `null` si el mes se borró por quedar vacío.
  */
 export async function recalcMonth(
@@ -62,27 +104,59 @@ export async function recalcMonth(
   const transactions = db.collection(`users/${uid}/transactions`);
   const monthRef = db.doc(`users/${uid}/months/${monthKey}`);
 
+  const monthTransactions = (type: 'income' | 'expense') =>
+    transactions.where('type', '==', type).where('monthKey', '==', monthKey);
+
   const aggregateFor = (type: 'income' | 'expense') =>
-    transactions
-      .where('type', '==', type)
-      .where('monthKey', '==', monthKey)
-      .aggregate({
-        total: AggregateField.sum('amount'),
-        count: AggregateField.count(),
-      });
+    monthTransactions(type).aggregate({
+      total: AggregateField.sum('amount'),
+      count: AggregateField.count(),
+    });
+
+  /**
+   * Las comisiones van en su PROPIA agregación, y esto NO es una redundancia
+   * que se pueda "simplificar" metiendo `fees` en la agregación de arriba.
+   *
+   * Comprobado contra el emulador: en una agregación COMBINADA, un
+   * `sum('platformFee')` restringe el conjunto entero a los documentos que
+   * TIENEN ese campo. Con dos ingresos de 100 y 50, y solo el primero con
+   * comisión, `{ total: sum('amount'), fees: sum('platformFee'), count: count() }`
+   * devolvía `{ total: 100, fees: 7, count: 1 }`: el ingreso de 50 desaparecía
+   * del total y de la cuenta. Y como `platformFee` es OPCIONAL, lo normal es que
+   * la mayoría de los ingresos no lo tengan, así que los totales del mes
+   * habrían contado solo las ventas con comisión.
+   *
+   * En consulta propia el comportamiento es el correcto: devuelve 0 cuando
+   * ningún documento tiene el campo y la suma de los que sí lo tienen en caso
+   * contrario. Cuesta una agregación más por recálculo; los totales correctos no
+   * son negociables.
+   */
+  const feesAggregate = () =>
+    monthTransactions('income').aggregate({ fees: AggregateField.sum('platformFee') });
 
   return db.runTransaction(async (tx) => {
-    const [income, expense] = await Promise.all([
+    const [income, expense, fees] = await Promise.all([
       tx.get(aggregateFor('income')),
       tx.get(aggregateFor('expense')),
+      tx.get(feesAggregate()),
     ]);
     const incomeData = income.data();
     const expenseData = expense.data();
+    const feesData = fees.data();
+
+    const totalIncome = finiteSum(incomeData.total);
+    // Acotado a [0, totalIncome]. Por documento, las reglas ya garantizan
+    // `0 <= platformFee <= amount`, así que la suma nunca puede pasarse del
+    // bruto... siempre que las escrituras pasen por las reglas. El Admin SDK no
+    // pasa, y un `totalPlatformFees` mayor que `totalIncome` daría un neto
+    // negativo, que es una cifra falsa, no un dato incómodo.
+    const totalPlatformFees = Math.min(Math.max(finiteSum(feesData.fees), 0), totalIncome);
 
     const totals: MonthTotals = {
-      totalIncome: Number(incomeData.total ?? 0),
-      totalExpenses: Number(expenseData.total ?? 0),
-      transactionCount: Number(incomeData.count ?? 0) + Number(expenseData.count ?? 0),
+      totalIncome,
+      totalExpenses: finiteSum(expenseData.total),
+      totalPlatformFees,
+      transactionCount: finiteSum(incomeData.count) + finiteSum(expenseData.count),
     };
 
     if (totals.transactionCount === 0) {

@@ -59,7 +59,7 @@ users/{uid}/transactions/{txId}          (owner: read/write)
   date: Timestamp
   monthKey: string 'yyyy-MM'  (derivado de date en el cliente; mes acotado a 01-12)
   docType: 'boleta_venta' | 'boleta_honorarios' | 'sin_documento'   (OPCIONAL, C-3)
-  platformFee: number (>= 0 y <= amount)                            (OPCIONAL, C-3)
+  platformFee: number (>= 0 y <= amount; SOLO si type == 'income')  (OPCIONAL, C-3)
   createdAt, updatedAt: Timestamp
 
 users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurrentes
@@ -68,8 +68,9 @@ users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurr
   createdAt, updatedAt: Timestamp
 
 users/{uid}/months/{yyyy-MM}             (owner: read; write SOLO backend)
-  totalIncome: number
+  totalIncome: number         BRUTO: suma de amount de los ingresos del mes
   totalExpenses: number
+  totalPlatformFees: number   suma de platformFee de los INGRESOS del mes (C-3)
   transactionCount: number
   updatedAt: Timestamp
 
@@ -136,8 +137,38 @@ negocio realmente recibió.
   representación.
 - `platformFee` va acotado a `[0, amount]`. Por encima de `amount`, el neto
   derivado saldría negativo.
+- `platformFee` se acepta **solo en los ingresos** (`type == 'income'`). La
+  comisión es lo que descuenta el medio de pago de una venta cobrada; en un
+  gasto no significa nada. Antes se aceptaba en los dos tipos, y era un dato
+  que nada podía interpretar: el agregado `totalPlatformFees` suma las
+  comisiones de los ingresos, así que una comisión guardada en un gasto se
+  ignoraba en silencio. El formulario del cliente nunca escribe una (en un
+  gasto borra el campo). El gasto que sí existe —la liquidación mensual que un
+  marketplace cobra aparte— se registra como gasto normal con la categoría
+  `Comisión de plataforma`.
 - **El neto NO se guarda.** Se deriva siempre como `amount - platformFee`. Un
   neto guardado se puede contradecir con sus propios operandos.
+
+### Decisión: `months/*` guarda la SUMA de las comisiones, no el neto
+
+`users/{uid}/months/{yyyy-MM}` guarda `totalPlatformFees`, y **no** guarda
+ningún neto. Las dos mitades de la decisión:
+
+**Por qué sí se guarda la suma de comisiones.** `months/*` es el único sitio del
+que el cliente y el asistente sacan el resumen de un mes, y solo tenía el bruto.
+El neto del mes no se podía derivar de él: había que recorrer las transacciones,
+que es exactamente lo que el agregado existe para evitar, y además el cliente
+solo puede leer **200 documentos por consulta** (el tope de `firestore.rules`),
+así que a partir del movimiento 201 de un mes el neto calculado en el cliente
+habría salido mal **sin avisar**. Un negocio que cobra con Mercado Pago o
+Transbank ve en pantalla un ingreso mensual que no recibió, y el asistente
+razona sobre esa misma cifra inflada.
+
+**Por qué no se guarda el neto.** Es la regla de C-3 y sigue en pie: un neto
+guardado se puede contradecir con sus propios operandos. `totalPlatformFees` es
+un **operando**, una suma más, del mismo tipo que `totalIncome` y recalculada de
+cero en cada pasada del trigger. El neto se deriva donde se muestra, como
+`totalIncome - totalPlatformFees`.
 
 Límite que no se cruza, y que vale para el cliente, para el backend y para el
 prompt del asistente: la app **registra y muestra**, no **asesora**. No calcula
@@ -238,8 +269,29 @@ Detalles que no son negociables:
 - Si el mes se queda sin transacciones, el documento se **borra** en vez de
   quedarse en ceros: un mes en cero hacía que `chat` eligiera como "último mes"
   un documento vacío y le contara al asistente que el negocio no facturó nada.
-- `platformFee` **no** entra en los agregados: `months/*` suma `amount`, que es
-  el bruto. El neto se deriva donde se muestra.
+- Suma también `totalPlatformFees` (comisiones de los **ingresos** del mes). El
+  bruto sigue siendo `totalIncome`; el neto se deriva donde se muestra.
+- **Las comisiones se suman en una agregación APARTE**, y eso no es una
+  redundancia que se pueda simplificar metiéndolas en la misma `aggregate()` que
+  el total y la cuenta. Comprobado contra el emulador: en una agregación
+  combinada, un `sum('platformFee')` restringe el conjunto entero a los
+  documentos que **tienen** ese campo. Con dos ingresos de 100 y 50, y solo el
+  primero con comisión,
+  `{ total: sum('amount'), fees: sum('platformFee'), count: count() }` devuelve
+  `{ total: 100, fees: 7, count: 1 }`: el ingreso de 50 desaparece del total y de
+  la cuenta. Y como `platformFee` es opcional, lo normal es que la mayoría de los
+  ingresos no lo tengan, así que los totales del mes habrían contado solo las
+  ventas con comisión. En consulta propia el comportamiento es el correcto.
+  `functions/test/months.test.ts` tiene el test que lo caza
+  («mezcla ingresos con y sin comision sin perder ninguno»).
+- Las sumas pasan por un filtro de finitud y `totalPlatformFees` se acota a
+  `[0, totalIncome]`. Por documento las reglas ya garantizan
+  `0 <= platformFee <= amount`, pero el Admin SDK (sembrado, migraciones) no pasa
+  por las reglas, y un `Infinity` o un neto negativo en `months/*` es permanente:
+  nada vuelve a recalcular ese mes hasta la siguiente escritura en él.
+- **El cliente no necesita cambiar para que esto no le rompa nada**:
+  `FinancesSummaryModel.fromDoc` lee los campos que conoce e ignora el resto, y
+  un `months/*` escrito antes de este cambio (sin el campo) se lee como 0.
 
 ### `waitlist` (HTTP, CORS abierto solo a los dominios de la landing)
 
