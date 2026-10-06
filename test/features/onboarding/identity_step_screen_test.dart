@@ -61,7 +61,10 @@ Future<_AuthFalso> _montar(
   final auth = _AuthFalso();
   await tester.pumpWidget(
     MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      data: MediaQueryData(
+        size: const Size(360, 800),
+        textScaler: TextScaler.linear(textScale),
+      ),
       // `InheritedProvider` y no `Provider`: el servicio real extiende
       // ChangeNotifier y `Provider` rechaza un Listenable. La pantalla lo
       // lee con `context.read`, que no escucha, así que no hace falta

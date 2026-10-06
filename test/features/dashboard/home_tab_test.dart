@@ -185,7 +185,10 @@ Future<_Acciones> _montar(
   final acciones = _Acciones();
   await tester.pumpWidget(
     MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      data: MediaQueryData(
+        size: const Size(360, 900),
+        textScaler: TextScaler.linear(textScale),
+      ),
       child: MultiProvider(
         providers: [
           ChangeNotifierProvider<FinancesProvider>.value(value: finanzas),

@@ -20,7 +20,10 @@ Future<void> _montar(
 
   await tester.pumpWidget(
     MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      data: MediaQueryData(
+        size: const Size(360, 800),
+        textScaler: TextScaler.linear(textScale),
+      ),
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: const WelcomeScreen(),
