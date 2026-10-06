@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/services/ai_service.dart';
 
@@ -74,7 +75,7 @@ enum AiReportReason {
 ///   gate), por eso `userId` llega por constructor.
 class AiProvider extends ChangeNotifier {
   static const String _welcomeText =
-      'Hola, soy tu asistente financiero Págate-IA.\n\n'
+      'Hola, soy tu asistente financiero de $kAppName.\n\n'
       'Conozco tus finanzas, tu inventario y tu valor hora. '
       'Pregúntame sobre precios, gastos, metas o pide un consejo '
       'para hacer crecer tu negocio.';

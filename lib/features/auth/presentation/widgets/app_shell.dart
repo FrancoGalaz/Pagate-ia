@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_brand.dart';
 import '../../../../core/theme/app_theme.dart';
 
 /// `MaterialApp` de la app, con el tema global.
@@ -21,7 +22,7 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(final BuildContext context) => MaterialApp(
         key: ValueKey('app-$sessionKey'),
-        title: 'Págate-IA',
+        title: kAppName,
         debugShowCheckedModeBanner: false,
         // Tema claro único (docs/DISENO-v2.md). `themeMode` se deja
         // explícito para que la app no siga al sistema si alguien vuelve a

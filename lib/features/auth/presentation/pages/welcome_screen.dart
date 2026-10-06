@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_links.dart';
 import '../../../../core/utils/url_opener.dart';
@@ -22,7 +23,7 @@ import 'login_screen.dart';
 // QUÉ SE BORRÓ Y POR QUÉ, una a una:
 //
 // · EL ORBE DE FONDO. Un `Positioned(top: -100, left: -50)` con un círculo
-//   de 400×400 en marca al 8% envuelto en un `BackdropFilter` de 80 de
+//   de 400×400 en marca al 8% envuelto en un filtro de desenfoque de 80 de
 //   blur cuyo hijo era un `SizedBox.shrink()`: el filtro se aplicaba sobre
 //   un área de 0×0, no producía ningún efecto visible y solo costaba un
 //   `saveLayer`. Con él se va el `import 'dart:ui'`.
@@ -96,7 +97,7 @@ class _Contenido extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppSpacing.x10),
-          const _Wordmark(),
+          const PagateWordmark(),
           const SizedBox(height: AppSpacing.x10),
 
           // Dice literalmente lo que la app calcula, con las palabras que el
@@ -108,8 +109,8 @@ class _Contenido extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.x4),
           Text(
-            'Registra tus ventas y tus gastos en segundos. Págate calcula '
-            'tu resultado del mes y el precio mínimo de tu trabajo.',
+            'Registra tus ventas y tus gastos en segundos. $kAppName '
+            'calcula tu resultado del mes y el precio mínimo de tu trabajo.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: AppPalette.textSecondary,
             ),
@@ -157,35 +158,6 @@ class _Contenido extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Marca provisional: un cuadrado de 28 en `brand` y el nombre en
-/// `headlineMedium` 20/700.
-///
-/// Honesto mientras no exista un logotipo. Antes había TRES marcas
-/// distintas para la misma app: `Icons.paid_outlined` aquí,
-/// `Icons.bolt_rounded` en el rail y las iniciales "IA" como avatar.
-class _Wordmark extends StatelessWidget {
-  const _Wordmark();
-
-  @override
-  Widget build(final BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: _lado,
-            height: _lado,
-            decoration: const BoxDecoration(
-              color: AppPalette.brand,
-              borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.x2),
-          Text('Págate', style: Theme.of(context).textTheme.headlineMedium),
-        ],
-      );
-
-  static const double _lado = 28;
 }
 
 /// Una de las tres pruebas: icono de contorno 20 dp y una línea de texto.

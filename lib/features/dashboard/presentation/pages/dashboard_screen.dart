@@ -154,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     top: AppSpacing.x5,
                     bottom: AppSpacing.x4,
                   ),
-                  child: _RailWordmark(),
+                  child: PagateWordmark.apilada(),
                 ),
                 destinations: [
                   for (final item in _navItems)
@@ -220,34 +220,9 @@ class _MonthlyGoalSync extends StatelessWidget {
 
 // ─── Marca del rail ─────────────────────────────────────────────────────
 
-/// Wordmark provisional del rail de escritorio.
-///
-/// Sustituye al cuadrado con `brandGradient` y el `Icons.bolt_rounded` que
-/// había aquí: era una TERCERA marca distinta para la misma app —la
-/// bienvenida usaba `Icons.paid_outlined` y el avatar por defecto las
-/// iniciales "IA"—. Hasta que exista un logotipo real, un wordmark en
-/// Manrope 700 es honesto, consistente y no cuesta nada.
-class _RailWordmark extends StatelessWidget {
-  const _RailWordmark();
-
-  @override
-  Widget build(final BuildContext context) => Column(
-        children: [
-          Container(
-            width: AppSizes.avatarSmall,
-            height: AppSizes.avatarSmall,
-            decoration: const BoxDecoration(
-              color: AppPalette.brand,
-              borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.x1),
-          Text(
-            'Págate',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textSecondary,
-                ),
-          ),
-        ],
-      );
-}
+// LA MARCA DEL RAIL VIVE EN core/widgets/pagate_wordmark.dart.
+//
+// Aquí había un `_RailWordmark` con su propio cuadrado en degradado de marca
+// y el nombre "Págate", sin el "-IA": era la tercera marca y el tercer nombre
+// de la misma app, junto al rayo del login y del splash. Los cinco sitios
+// usan ahora [PagateWordmark] y `kAppName`.

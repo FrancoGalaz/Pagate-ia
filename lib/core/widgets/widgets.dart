@@ -18,6 +18,9 @@ export 'pagate_section_card.dart';
 export 'pagate_section_header.dart';
 export 'pagate_step_header.dart';
 
+// ─── Marca ───────────────────────────────────────────────────────
+export 'pagate_wordmark.dart';
+
 // ─── Filas ───────────────────────────────────────────────────────
 export 'pagate_data_row.dart';
 export 'pagate_movement_row.dart';

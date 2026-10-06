@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pagate_ia/core/constants/app_brand.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
@@ -39,7 +40,10 @@ void main() {
   ) async {
     await _montar(tester);
 
-    expect(find.text('Págate'), findsOneWidget);
+    // El nombre de la marca es UNO en toda la app, y es el que el usuario
+    // ve bajo el icono en su teléfono (res/values/strings.xml). Antes esta
+    // pantalla decía "Págate" y el login "Págate-IA".
+    expect(find.text(kAppName), findsOneWidget);
     expect(
       find.text('Saber cuánto ganas cada mes\ny cuánto vale tu hora.'),
       findsOneWidget,
