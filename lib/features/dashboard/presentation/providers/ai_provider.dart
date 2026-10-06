@@ -42,6 +42,27 @@ class ChatMessage {
   }
 }
 
+/// Motivo por el que una persona reporta una respuesta del asistente.
+///
+/// Los cuatro motivos salen de lo que la política de Google Play para IA
+/// generativa pide poder marcar: contenido ofensivo o inapropiado, y
+/// contenido que engaña o puede hacer daño. El valor de [id] es lo que se
+/// guarda; la etiqueta es lo que se lee.
+enum AiReportReason {
+  ofensivo('ofensivo', 'Ofensivo o inapropiado'),
+  incorrecto('incorrecto', 'Información incorrecta'),
+  peligroso('peligroso', 'Consejo que puede hacer daño'),
+  otro('otro', 'Otro motivo');
+
+  const AiReportReason(this.id, this.label);
+
+  /// Lo que se persiste. Es estable aunque cambie la etiqueta.
+  final String id;
+
+  /// Lo que lee la persona en la hoja de reporte.
+  final String label;
+}
+
 /// Estado del chat con el asistente.
 ///
 /// Reglas (ver `docs/ARQUITECTURA.md`):
@@ -60,6 +81,27 @@ class AiProvider extends ChangeNotifier {
 
   static const String _historyErrorText = 'No se pudo cargar la conversación.';
 
+  /// Subcolección donde se guardan los reportes de respuestas del asistente.
+  ///
+  /// OJO, PENDIENTE DE BACKEND: `firestore.rules` todavía no tiene un `match`
+  /// para esta ruta, y lo que no coincide con ningún match cae en el
+  /// `match /{document=**} { allow read, write: if false; }` del final. O sea
+  /// que hoy la escritura se deniega. El cliente está escrito para el
+  /// contrato definitivo (ids de Firestore, `createdAt`/`updatedAt` de
+  /// servidor como en el resto del árbol) y falla de forma honesta mientras
+  /// tanto: no le dice a nadie que su reporte se envió si no se envió.
+  static const String aiReportsCollection = 'aiReports';
+
+  /// Tope del comentario libre del reporte, en caracteres.
+  static const int maxReportCommentChars = 1000;
+
+  /// Tope del fragmento de respuesta que se copia dentro del reporte.
+  ///
+  /// Se copia el texto y no solo el id del mensaje a propósito: si alguien
+  /// borra la conversación, el reporte tiene que seguir siendo legible, que
+  /// es justo para lo que sirve.
+  static const int maxReportedTextChars = 2000;
+
   final AiService _service;
   final String _userId;
   final FirebaseFirestore _firestore;
@@ -71,6 +113,10 @@ class AiProvider extends ChangeNotifier {
   String? _error;
   String? _lastFailedText;
   bool _historyFailed = false;
+
+  /// Ids de mensajes ya reportados en esta sesión. Solo sirve para que el
+  /// botón no invite a reportar dos veces lo mismo; no se persiste.
+  Set<String> _reportedMessageIds = const {};
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _messagesSub;
   int _generation = 0;
@@ -100,6 +146,10 @@ class AiProvider extends ChangeNotifier {
 
   /// `true` cuando hay algo que reintentar con [retry].
   bool get canRetry => _lastFailedText != null || _historyFailed;
+
+  /// `true` si [messageId] ya se reportó en esta sesión.
+  bool isReported(final String messageId) =>
+      _reportedMessageIds.contains(messageId);
 
   bool get _showWelcome =>
       _conversationId == null && !_isLoadingHistory && !_historyFailed;
@@ -256,6 +306,52 @@ class AiProvider extends ChangeNotifier {
         _notify();
       }
     }
+  }
+
+  /// Guarda el reporte de una respuesta del asistente.
+  ///
+  /// POR QUÉ EXISTE: la política de Google Play para apps con IA generativa
+  /// exige un mecanismo DENTRO de la app para marcar contenido ofensivo, sin
+  /// que la persona tenga que salir a buscar un correo de soporte.
+  ///
+  /// Devuelve `true` solo si Firestore aceptó la escritura. No hay reintento
+  /// ni cola local: un reporte que no se guardó se dice que no se guardó.
+  Future<bool> reportMessage({
+    required final ChatMessage message,
+    required final AiReportReason reason,
+    final String? comment,
+  }) async {
+    final trimmedComment = comment?.trim() ?? '';
+    final text = message.text.length > maxReportedTextChars
+        ? message.text.substring(0, maxReportedTextChars)
+        : message.text;
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection(aiReportsCollection)
+          .add({
+            'messageId': message.id,
+            'conversationId': ?_conversationId,
+            'reason': reason.id,
+            if (trimmedComment.isNotEmpty)
+              'comment': trimmedComment.length > maxReportCommentChars
+                  ? trimmedComment.substring(0, maxReportCommentChars)
+                  : trimmedComment,
+            'reportedText': text,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+    } catch (error) {
+      // Se registra y se devuelve false: quien llama decide qué enseñar, y
+      // lo que enseña es que no se pudo.
+      debugPrint('AiProvider.reportMessage: $error');
+      return false;
+    }
+    if (_disposed) return true;
+    _reportedMessageIds = {..._reportedMessageIds, message.id};
+    _notify();
+    return true;
   }
 
   /// Reintenta la última acción fallida: reenvía el último mensaje que no

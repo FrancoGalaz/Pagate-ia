@@ -2,7 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/constants/app_constants.dart';
+import '../../../../../core/theme/app_text.dart';
+import '../../../../../core/widgets/widgets.dart';
 import '../../providers/ai_provider.dart';
+
+/// Aviso de IA generativa que la pestaña muestra fijo bajo la cabecera.
+///
+/// Es público para que una prueba pueda comprobar que sigue diciendo las dos
+/// cosas que exige la política de Google Play: que responde una IA y que
+/// puede equivocarse. En una app de dinero la segunda es la que importa.
+const String kAiDisclosureText =
+    'Las respuestas las genera una IA y pueden tener errores. '
+    'Revisa las cifras antes de tomar una decisión.';
 
 /// Pestaña del asistente IA.
 ///
@@ -65,6 +76,7 @@ class _IaTabState extends State<IaTab> {
           conversationActive: ai.conversationId != null,
           onNewConversation: isSending ? null : ai.newConversation,
         ),
+        const _AiDisclosure(),
         Expanded(
           child: ai.isLoadingHistory
               ? const Center(
@@ -441,26 +453,38 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(width: AppSpacing.xs),
             ],
             Flexible(
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: isAssistant
-                      ? AppColors.surfaceDark
-                      : AppColors.brand.withValues(alpha: 0.15),
-                  borderRadius: AppRadius.lgBorder,
-                  border: Border.all(
-                    color: isAssistant
-                        ? AppColors.borderDark
-                        : AppColors.brand.withValues(alpha: 0.3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: isAssistant
+                          ? AppColors.surfaceDark
+                          : AppColors.brand.withValues(alpha: 0.15),
+                      borderRadius: AppRadius.lgBorder,
+                      border: Border.all(
+                        color: isAssistant
+                            ? AppColors.borderDark
+                            : AppColors.brand.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: SelectableText(
+                      message.text,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textPrimaryDark,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
-                ),
-                child: SelectableText(
-                  message.text,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    height: 1.4,
-                  ),
-                ),
+                  // El saludo local queda fuera a propósito: no lo genera el
+                  // modelo, es texto de la app, y reportarlo no informa de
+                  // nada. Tampoco se ofrece sobre un mensaje aún pendiente,
+                  // que todavía no existe como documento.
+                  if (isAssistant && message.id != 'welcome' && !message.pending)
+                    _ReportAction(message: message),
+                ],
               ),
             ),
           ],
@@ -468,4 +492,234 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Aviso permanente de que quien responde es una IA.
+///
+/// REQUISITO DE POLÍTICA DE GOOGLE PLAY, no un detalle de estilo: una app con
+/// IA generativa tiene que dejarle claro a la persona que el contenido lo
+/// genera una IA, sin que tenga que investigarlo. Por eso vive fijo bajo la
+/// cabecera del chat, se lee antes que la primera respuesta y no se puede
+/// cerrar: un diálogo que se descarta una vez, o una línea enterrada en
+/// Ayuda, no cumplen.
+///
+/// Y dice las dos cosas, no una: que responde una IA y que puede equivocarse.
+/// En una app de dinero la segunda es la que importa.
+class _AiDisclosure extends StatelessWidget {
+  const _AiDisclosure();
+
+  @override
+  Widget build(final BuildContext context) => Container(
+    width: double.infinity,
+    decoration: const BoxDecoration(
+      color: AppColors.surfaceSecondary,
+      border: Border(bottom: BorderSide(color: AppColors.border)),
+    ),
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.screenHorizontal,
+      vertical: AppSpacing.xs,
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.info_outline_rounded,
+          size: AppIconSize.xs,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            kAiDisclosureText,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Botón de reportar bajo una respuesta del asistente.
+///
+/// La otra mitad del requisito de Play: tiene que haber una forma de marcar
+/// contenido ofensivo DENTRO de la app. Va pegado a la respuesta que reporta,
+/// que es donde la persona está cuando decide reportarla, y no en un menú de
+/// ajustes.
+class _ReportAction extends StatelessWidget {
+  const _ReportAction({required this.message});
+
+  final ChatMessage message;
+
+  Future<void> _report(final BuildContext context) async {
+    final provider = context.read<AiProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final eleccion = await showModalBottomSheet<({AiReportReason reason, String comment})>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      elevation: 0,
+      barrierColor: AppPalette.scrim,
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppRadius.r16TopBorder,
+      ),
+      builder: (final _) => const _ReportSheet(),
+    );
+    if (eleccion == null) return;
+
+    final guardado = await provider.reportMessage(
+      message: message,
+      reason: eleccion.reason,
+      comment: eleccion.comment,
+    );
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            guardado
+                ? 'Reporte enviado. Gracias por avisar.'
+                // No se dice "enviado" si no se envió.
+                : 'No se pudo enviar el reporte. Intenta de nuevo.',
+          ),
+        ),
+      );
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final reportado = context.select<AiProvider, bool>(
+      (final ai) => ai.isReported(message.id),
+    );
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: reportado ? null : () => _report(context),
+        icon: Icon(
+          reportado ? Icons.check_rounded : Icons.flag_outlined,
+          size: AppIconSize.xs,
+        ),
+        label: Text(reportado ? 'Reportado' : 'Reportar respuesta'),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          disabledForegroundColor: AppColors.textSecondary,
+          textStyle: AppText.labelMedium,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          // Caja táctil de 48 aunque el texto mida menos: es lo que exige el
+          // informe previo al lanzamiento de Play.
+          minimumSize: const Size(0, AppSizes.minTouchTarget),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hoja para elegir el motivo del reporte.
+///
+/// Devuelve `null` si se cierra sin reportar, o el motivo y el comentario.
+/// No escribe nada: de persistir se encarga [AiProvider.reportMessage].
+class _ReportSheet extends StatefulWidget {
+  const _ReportSheet();
+
+  @override
+  State<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends State<_ReportSheet> {
+  final _comment = TextEditingController();
+  AiReportReason? _reason;
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) => Padding(
+    // El teclado no puede tapar el campo de comentario.
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // El asa de arrastre no se dibuja aqui: el tema ya la pone
+            // (`bottomSheetTheme.showDragHandle`), y dibujarla otra vez
+            // sacaba dos.
+            Text(
+              'Reportar esta respuesta',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Cuéntanos qué pasa con lo que respondió el asistente.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // `RadioGroup` y no `groupValue`/`onChanged` por tile: esos dos
+            // estan deprecados desde Flutter 3.32 y el analizador los marca.
+            RadioGroup<AiReportReason>(
+              groupValue: _reason,
+              onChanged: (final elegido) => setState(() => _reason = elegido),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final motivo in AiReportReason.values)
+                    RadioListTile<AiReportReason>(
+                      value: motivo,
+                      title: Text(
+                        motivo.label,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.textPrimary),
+                      ),
+                      activeColor: AppColors.brand,
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.standard,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            TextField(
+              controller: _comment,
+              maxLines: 3,
+              maxLength: AiProvider.maxReportCommentChars,
+              textCapitalization: TextCapitalization.sentences,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Comentario (opcional)',
+                hintText: '¿Qué debería saber quien revise esto?',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            PagatePrimaryButton(
+              label: 'Enviar reporte',
+              onPressed: _reason == null
+                  ? null
+                  : () => Navigator.of(context).pop((
+                      reason: _reason!,
+                      comment: _comment.text,
+                    )),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
