@@ -16,6 +16,7 @@ import {
   FREE_LIFETIME_QUOTA,
   PRO_DAILY_QUOTA,
   dayKeyOf,
+  freeQuotaExhaustedMessage,
   parseAiLimits,
   planOf,
   refundChatQuota,
@@ -147,8 +148,11 @@ describe('reserveChatQuota', () => {
     // El contador diario se reinició porque la clave del día cambió...
     expect(ok.usedDay).toBe(1);
 
-    // ...pero el de por vida no, así que el siguiente mensaje se rechaza.
-    await expect(reserveChatQuota(db, UID)).rejects.toThrow(/plan gratuito/i);
+    // ...pero el de por vida no, así que el siguiente mensaje se rechaza con el
+    // texto exacto que lee el usuario.
+    await expect(reserveChatQuota(db, UID)).rejects.toThrow(
+      freeQuotaExhaustedMessage(FREE_LIFETIME_QUOTA),
+    );
     expect(await usage()).toMatchObject({ chatCountLifetime: FREE_LIFETIME_QUOTA });
   });
 
@@ -207,7 +211,52 @@ describe('reserveChatQuota', () => {
     await db.doc(AI_CONFIG_DOC).set({ freeLifetimeQuota: 1 });
 
     await expect(reserveChatQuota(db, UID)).resolves.toMatchObject({ usedLifetime: 1 });
-    await expect(reserveChatQuota(db, UID)).rejects.toThrow(/1 mensajes incluidos/i);
+    // El texto se arma con el valor reconfigurado, no con el default.
+    await expect(reserveChatQuota(db, UID)).rejects.toThrow(freeQuotaExhaustedMessage(1));
+  });
+});
+
+/**
+ * El texto que lee el usuario cuando se le acaban los mensajes.
+ *
+ * POR QUÉ TIENE SUS PROPIOS TESTS: el anterior decía «Cambia a Pro para seguir
+ * conversando con el asistente» y no hay ningún plan Pro que se pueda comprar
+ * (no existe `in_app_purchase` ni integración de facturación en el proyecto).
+ * Era falso, y además anunciar dentro de la app un plan de pago que no pasa por
+ * la facturación de Google Play incumple su política. Estos tests son el candado
+ * para que no vuelva a aparecer una promesa así.
+ */
+describe('freeQuotaExhaustedMessage', () => {
+  it('no ofrece ningún plan de pago ni invita a comprar nada', () => {
+    const msg = freeQuotaExhaustedMessage(FREE_LIFETIME_QUOTA).toLowerCase();
+    // Se compara palabra por palabra, y no con una expresión regular con
+    // límites de palabra, para que 'pro' no se dé por encontrado dentro de
+    // 'propio' o 'próximo'.
+    const palabras = msg.split(/[^a-záéíóúñ]+/).filter(Boolean);
+    expect(palabras).not.toContain('pro');
+    for (const prohibido of ['plan', 'planes', 'pago', 'pagar', 'paga', 'comprar', 'compra', 'premium']) {
+      expect(palabras, `el mensaje no debe decir "${prohibido}"`).not.toContain(prohibido);
+    }
+    for (const raiz of ['suscri', 'mejora', 'upgrade']) {
+      expect(msg, `el mensaje no debe contener "${raiz}"`).not.toContain(raiz);
+    }
+  });
+
+  it('dice la verdad sobre la cuota: es un total y no se renueva', () => {
+    const msg = freeQuotaExhaustedMessage(25);
+    expect(msg).toContain('25 en total');
+    expect(msg).toMatch(/no por día/i);
+    expect(msg).toMatch(/no se renuevan/i);
+    // Y no manda a volver mañana, que es lo que sí vale para el plan pro.
+    expect(msg).not.toMatch(/vuelve mañana/i);
+  });
+
+  it('se lee bien con cualquier cuota que ponga el dueño, incluido 1', () => {
+    // `system/aiConfig.freeLifetimeQuota` lo edita el dueño sin desplegar, así
+    // que la frase no puede depender de que el número sea plural.
+    expect(freeQuotaExhaustedMessage(1)).toContain('incluye 1 en total');
+    expect(freeQuotaExhaustedMessage(0)).toContain('incluye 0 en total');
+    expect(freeQuotaExhaustedMessage(300)).toContain('incluye 300 en total');
   });
 });
 

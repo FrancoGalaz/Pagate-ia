@@ -18,8 +18,12 @@
  *   - plan `free`: 25 mensajes DE POR VIDA (campo `chatCountLifetime`). Crear
  *     otra cuenta sigue siendo posible, pero ya no reabre el grifo: cuesta
  *     registrarse otra vez por cada 25 mensajes.
- *   - plan `pro`: se mantiene la cuota DIARIA de 300 mensajes, porque ahí hay
- *     un pago detrás que cubre el consumo.
+ *   - plan `pro`: cuota DIARIA de 300 mensajes. OJO con lo que `pro` es HOY: un
+ *     valor del campo `plan` que solo escribe el backend, o el dueño a mano en
+ *     la consola. NO se puede comprar: el proyecto no tiene `in_app_purchase`
+ *     ni ninguna integración de facturación. Sirve para que el dueño abra la
+ *     mano con una cuenta concreta, no es un producto. Por eso ningún texto que
+ *     lea el usuario lo ofrece (ver `freeQuotaExhaustedMessage`).
  *   - tope GLOBAL diario de llamadas con interruptor, en `system/aiConfig`, que
  *     el dueño puede cambiar desde la consola de Firestore sin desplegar nada.
  *     Es el freno de mano: si algo se descontrola, se corta todo el gasto de IA
@@ -122,6 +126,39 @@ export function planOf(profile: DocumentData | undefined): Plan {
   return profile?.plan === 'pro' ? 'pro' : 'free';
 }
 
+/**
+ * Lo que lee el usuario del plan free cuando se le acaban los mensajes.
+ *
+ * POR QUÉ CAMBIÓ. Decía «Usaste los 25 mensajes incluidos en el plan gratuito.
+ * Cambia a Pro para seguir conversando con el asistente», y eso era falso y
+ * además un problema de política:
+ *
+ *   1. NO HAY PLAN PRO QUE COMPRAR. En el proyecto no existe `in_app_purchase`
+ *      ni ninguna integración de facturación: no hay ni un botón que lleve a
+ *      pagar. Se le pedía al usuario una acción imposible.
+ *   2. Anunciar dentro de la app un plan de pago que no pasa por la facturación
+ *      de Google Play incumple su política de pagos. Un aviso así, con el plan
+ *      sin implementar, es un motivo de rechazo gratuito.
+ *   3. «incluidos en el plan gratuito» sugiere que hay otro plan con más
+ *      mensajes disponible. No lo hay.
+ *
+ * El texto nuevo dice solo lo que es cierto: los mensajes eran un total, no una
+ * cuota diaria, así que no se renuevan, y el resto de la app sigue funcionando.
+ * No promete nada ni invita a comprar nada. El día que exista una compra real
+ * dentro de la app, este es el sitio donde se menciona, y no antes.
+ *
+ * El número viene de `system/aiConfig` (el dueño puede cambiarlo sin
+ * desplegar), así que la frase está escrita para ser correcta con cualquier
+ * valor, incluido 1: por eso no lleva artículo delante del número.
+ */
+export function freeQuotaExhaustedMessage(quota: number): string {
+  return (
+    'Ya usaste todos los mensajes del asistente: tu cuenta incluye ' +
+    `${quota} en total, no por día, así que no se renuevan mañana. ` +
+    'El resto de la app sigue funcionando igual.'
+  );
+}
+
 export interface QuotaReservation {
   /** Perfil leído dentro de la transacción (evita una lectura extra). */
   profile: DocumentData | undefined;
@@ -187,10 +224,7 @@ export async function reserveChatQuota(
     }
 
     if (plan === 'free' && usedLifetime >= limits.freeLifetimeQuota) {
-      throw new HttpsError(
-        'resource-exhausted',
-        `Usaste los ${limits.freeLifetimeQuota} mensajes incluidos en el plan gratuito. Cambia a Pro para seguir conversando con el asistente.`,
-      );
+      throw new HttpsError('resource-exhausted', freeQuotaExhaustedMessage(limits.freeLifetimeQuota));
     }
     if (plan === 'pro' && usedDay >= limits.proDailyQuota) {
       throw new HttpsError(
