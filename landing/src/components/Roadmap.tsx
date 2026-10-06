@@ -1,3 +1,12 @@
+// Sección «qué viene después».
+//
+// Dos cosas que había aquí y no deben volver: una barra de progreso con
+// porcentajes (60 %, 30 %, 15 %) derivados del texto del estado, que es una
+// cifra inventada presentada como medición, y el rótulo «Roadmap 2025», que
+// además es un año pasado. Los estados que quedan son los únicos dos
+// honestos: nada de esta lista tiene código escrito todavía, así que ninguna
+// función puede figurar «en desarrollo».
+
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -10,8 +19,7 @@ const roadmapItems = [
     icon: Rocket,
     title: 'Integración bancaria',
     description: 'Conecta tus cuentas bancarias para sincronización automática de ingresos y egresos.',
-    status: 'Próximamente',
-    color: 'bg-brand',
+    status: 'Previsto',
     lightColor: 'bg-brand-light',
     textColor: 'text-brand',
   },
@@ -19,8 +27,7 @@ const roadmapItems = [
     icon: Users,
     title: 'Gestión de clientes',
     description: 'CRM integrado para llevar seguimiento de tus clientes, proyectos y facturación por contacto.',
-    status: 'En desarrollo',
-    color: 'bg-accent',
+    status: 'En evaluación',
     lightColor: 'bg-accent-light',
     textColor: 'text-accent',
   },
@@ -28,8 +35,7 @@ const roadmapItems = [
     icon: Calendar,
     title: 'Calendario de proyectos',
     description: 'Planifica tus proyectos, establece deadlines y recibe alertas de tus entregas pendientes.',
-    status: 'Próximamente',
-    color: 'bg-blue-500',
+    status: 'En evaluación',
     lightColor: 'bg-blue-50',
     textColor: 'text-blue-600',
   },
@@ -37,8 +43,7 @@ const roadmapItems = [
     icon: Sparkles,
     title: 'IA para presupuestos',
     description: 'Inteligencia artificial que te sugiere precios óptimos basados en tu historial y el mercado.',
-    status: 'En investigación',
-    color: 'bg-purple-500',
+    status: 'En evaluación',
     lightColor: 'bg-purple-50',
     textColor: 'text-purple-600',
   },
@@ -46,8 +51,7 @@ const roadmapItems = [
     icon: TrendingUp,
     title: 'Reportes avanzados',
     description: 'Dashboards detallados con proyecciones financieras, análisis de tendencias y exportación a Excel/PDF.',
-    status: 'Próximamente',
-    color: 'bg-orange-500',
+    status: 'Previsto',
     lightColor: 'bg-orange-50',
     textColor: 'text-orange-600',
   },
@@ -55,8 +59,7 @@ const roadmapItems = [
     icon: Shield,
     title: 'Multi-usuario y equipos',
     description: 'Invita a tu equipo, asigna roles y permisos, y colabora en proyectos compartidos.',
-    status: 'En desarrollo',
-    color: 'bg-green-500',
+    status: 'En evaluación',
     lightColor: 'bg-green-50',
     textColor: 'text-green-600',
   },
@@ -95,7 +98,7 @@ export default function Roadmap() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="py-24 lg:py-32 bg-surface relative overflow-hidden">
+    <section ref={sectionRef} id="roadmap" className="py-24 lg:py-32 bg-surface relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-gradient-to-br from-brand/5 to-transparent rounded-full blur-3xl -translate-y-1/2 -translate-x-1/4" />
       <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gradient-to-tl from-accent/5 to-transparent rounded-full blur-3xl translate-y-1/2 translate-x-1/4" />
@@ -104,14 +107,15 @@ export default function Roadmap() {
         {/* Header */}
         <div className="roadmap-title text-center max-w-3xl mx-auto mb-16">
           <span className="inline-block px-4 py-1.5 rounded-full bg-brand-light text-brand-dark text-sm font-semibold mb-4 border border-brand/10">
-            Roadmap 2025
+            Qué viene después
           </span>
           <h2 className="font-display text-4xl lg:text-5xl font-bold tracking-tight text-text-primary">
             Futuras{' '}
             <span className="text-brand">funcionalidades</span>
           </h2>
           <p className="mt-6 text-lg text-text-secondary">
-            Estamos construyendo Pagate contigo. Esto es lo que viene próximamente.
+            Ninguna de estas funciones existe todavía. Las publicamos para que
+            sepas hacia dónde va la app y puedas decirnos qué priorizar.
           </p>
         </div>
 
@@ -143,21 +147,6 @@ export default function Roadmap() {
                 <p className="text-sm text-text-secondary leading-relaxed">
                   {item.description}
                 </p>
-
-                {/* Progress indicator */}
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.color} opacity-60`}
-                      style={{
-                        width: item.status === 'En desarrollo' ? '60%' : item.status === 'En investigación' ? '30%' : '15%',
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-text-muted font-medium">
-                    {item.status === 'En desarrollo' ? '60%' : item.status === 'En investigación' ? '30%' : '15%'}
-                  </span>
-                </div>
               </div>
             );
           })}
@@ -165,14 +154,17 @@ export default function Roadmap() {
 
         {/* CTA */}
         <div className="mt-16 text-center">
+          {/* Antes apuntaba a `#`, un enlace muerto. El único canal que
+              existe hoy es la lista de espera, así que ahí va. */}
           <p className="text-text-secondary mb-4">
-            ¿Tienes una idea o sugerencia? Nos encantaría escucharte.
+            ¿Tienes una idea o una prioridad distinta? Déjanos tu correo y te
+            escribimos para preguntártelo.
           </p>
           <a
-            href="#"
+            href="#cta"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-brand text-white font-semibold text-sm shadow-lg shadow-brand/25 hover:bg-brand-dark transition-all hover:scale-105"
           >
-            Sugerir una función
+            Unirme a la lista de espera
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>

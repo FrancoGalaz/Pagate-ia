@@ -1,6 +1,6 @@
 # Págate-IA
 
-[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/) · [App web](https://pagate-17211.web.app)
+[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/) · [App web](https://pagate-17211.web.app) · [Privacidad](https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/) · [Términos](https://francogalaz.github.io/Pagate-ia/landing-page/terminos/) · [Eliminar cuenta](https://francogalaz.github.io/Pagate-ia/landing-page/eliminar-cuenta/)
 
 Asistente financiero con IA para artesanos y creadores independientes. App Flutter + Firebase.
 
@@ -76,7 +76,14 @@ Automático: el workflow `.github/workflows/deploy-web.yml` corre con `workflow_
 | `FIREBASE_SERVICE_ACCOUNT` | JSON completo de una cuenta de servicio del proyecto `pagate-17211` con roles *Firebase Hosting Admin*, *Cloud Functions Admin*, *Firebase Rules Admin*, *Service Account User*, *Cloud Run Admin* y *Artifact Registry Administrator* (o simplemente *Editor* para empezar). `firebase init hosting:github` la genera con permisos de hosting; hay que ampliarlos para functions. |
 | `APP_CHECK_SITE_KEY` | Site key de reCAPTCHA v3 registrada en App Check para la app web. Si no existe, el build sigue pero App Check queda desactivado en web. |
 
-**Landing (GitHub Pages).** `landing-page/` lo regenera el workflow `.github/workflows/landing-pages.yml` en cada push a `main` que toque `landing/` (lint + test + build y commit automático de `landing-page/`). La URL de la función `waitlist` viene de `landing/.env.production` (o de la variable de repositorio `VITE_WAITLIST_URL`). Para regenerarlo a mano: `npm --prefix landing run build` y copiar `landing/dist/` sobre `landing-page/` (borrando antes los assets viejos).
+**Landing (GitHub Pages).** Es un sitio **multipágina**: además de la portada (`index.html`) publica
+`/privacidad/`, `/terminos/` y `/eliminar-cuenta/`, cada una con su propio punto de entrada declarado en
+`landing/vite.config.ts`. Esas tres URLs son obligatorias para Google Play y van declaradas en la ficha, así
+que no se pueden mover sin actualizar Play Console. Los datos del responsable (razón social, RUT, domicilio y
+correos) viven en `landing/src/content/legal-meta.ts` **con marcadores entre corchetes sin rellenar**: ver
+`docs/SEGURIDAD-DATOS-PLAY.md` §4.1.
+
+`landing-page/` lo regenera el workflow `.github/workflows/landing-pages.yml` en cada push a `main` que toque `landing/` (lint + test + build y commit automático de `landing-page/`). La URL de la función `waitlist` viene de `landing/.env.production` (o de la variable de repositorio `VITE_WAITLIST_URL`). Para regenerarlo a mano: `npm --prefix landing run build` y copiar `landing/dist/` sobre `landing-page/` (borrando antes los assets viejos).
 
 ### Checklist de configuración en consola (solo el dueño del proyecto)
 
@@ -96,6 +103,19 @@ Estas tareas requieren acceso a la consola de Firebase / Google Cloud y no puede
    - En ambas, limitar las APIs a las que usa Firebase (Identity Toolkit, Firestore, Cloud Functions, Firebase App Check, Token Service).
 6. **Cuenta de servicio para CI** (ver tabla de secretos más arriba).
 7. **Dominio de la landing** en el CORS de `waitlist` (`functions/src`) si cambia de `francogalaz.github.io`.
+8. **Datos del responsable para los textos legales.** Rellenar los cinco marcadores de
+   `landing/src/content/legal-meta.ts` (razón social o nombre, RUT, domicilio, correo de privacidad y correo de
+   soporte). Una política de privacidad publicada con corchetes visibles es motivo de rechazo en Play. El
+   inventario está en `docs/SEGURIDAD-DATOS-PLAY.md` §4.1.
+9. **Correo de soporte real.** El `soporte@pagate-ia.com` que muestra la app usa un dominio que no se controla.
+   Tiene que ser el mismo correo en la app, en los textos legales y en la ficha de Play.
+10. **Tipo de cuenta de desarrollador.** Si la cuenta de Play es personal y se creó después del 13 de noviembre
+    de 2023, hace falta una prueba cerrada con 12 probadores durante 14 días antes de poder publicar en abierto
+    ([documentación](https://support.google.com/googleplay/android-developer/answer/14151465)). Comprobarlo antes
+    de comprometer una fecha.
+11. **Política de datos en la cuenta de OpenRouter.** Fijar la más restrictiva (sin registro, sin entrenamiento).
+    Hasta que exista además un acuerdo de tratamiento, el envío al asistente se declara en Play como
+    *compartido con terceros*; el razonamiento está en `docs/SEGURIDAD-DATOS-PLAY.md` §0.2.
 
 ### Estructura del repo
 
@@ -105,7 +125,11 @@ functions/      Cloud Functions (TypeScript)
 firestore.rules reglas de seguridad
 landing/        landing page (Vite + React); build publicado en landing-page/
 landing-page/   build estático servido por GitHub Pages (no editar a mano; lo regenera landing-pages.yml)
-docs/           ARQUITECTURA.md (contrato), investigación, prototipos HTML/JSX
+docs/           ARQUITECTURA.md (contrato), auditoría, sistema visual, prototipos HTML/JSX
+                SEGURIDAD-DATOS-PLAY.md  respuestas al formulario de Seguridad de los datos
+                FICHA-PLAY.md            textos y recursos gráficos de la ficha
+                COMPETENCIA.md           competidores reales con fuentes
+                PLAN-PUBLICIDAD.md       plan de difusión sin presupuesto
 scripts/        dev.sh (emuladores) y deploy-web.sh
 test/           tests de Flutter
 ```
