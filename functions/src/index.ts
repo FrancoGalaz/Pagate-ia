@@ -10,4 +10,5 @@ initializeApp();
 export { deleteAccount } from './account';
 export { chat } from './chat';
 export { onTransactionWritten } from './months';
+export { scanReceipt } from './scan';
 export { waitlist } from './waitlist';
