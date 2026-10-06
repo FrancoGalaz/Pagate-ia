@@ -1,18 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Temas de la ventana durante el arranque.
+
+  ========================= NO HAY values-night/ =========================
+  Y es deliberado. Antes existía values-night/styles.xml con los mismos dos
+  estilos heredando de `Theme.Black.NoTitleBar`, de modo que con el sistema en
+  modo oscuro la ventana nacía negra y saltaba a claro en cuanto Flutter
+  pintaba su primer fotograma. Medido en emulator-5554 (API 36) con
+  `cmd uimode night yes`: 2,2 s de pantalla negra antes del salto.
+
+  Págate-IA tiene tema claro ÚNICO (`AppTheme.lightTheme`, brightness.light;
+  docs/DISENO-v2.md). La app nunca se pinta oscura, así que la ventana de
+  arranque tampoco debe hacerlo. Al borrar la carpeta values-night/, Android
+  cae a estos mismos recursos en los dos modos del sistema y el arranque es
+  idéntico en ambos: una sola definición que no puede divergir.
+
+  Si algún día Págate-IA gana tema oscuro, aquí es donde hay que volver:
+  recrear values-night/styles.xml Y values-night/launch_colors.xml a la vez.
+  Solo uno de los dos deja el mismo parpadeo, en el otro sentido.
+  ========================================================================
+-->
 <resources>
-    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
+    <!-- Tema de la ventana mientras arranca el proceso.
+
+         En Android 12+ el sistema dibuja encima el icono del lanzador con la
+         API de SplashScreen y usa este `windowBackground` como fondo; en
+         versiones anteriores se ve el drawable tal cual. Por eso basta con
+         fijar el color aquí para que el arranque sea claro en toda la gama de
+         versiones soportadas (minSdk 24). -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <!-- Show a splash screen on the activity. Automatically removed when
-             the Flutter engine draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
-    <!-- Theme applied to the Android Window as soon as the process has started.
-         This theme determines the color of the Android Window while your
-         Flutter UI initializes, as well as behind your Flutter UI while its
-         running.
 
-         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <!-- Tema de la ventana en cuanto el proceso ya arrancó: es el color que se
+         ve detrás de la UI de Flutter (por ejemplo durante un redimensionado o
+         al girar el dispositivo).
+
+         Antes era `?android:colorBackground`, que en `Theme.Light` resuelve a
+         blanco puro #FFFFFF. El lienzo de la app es #F6F7F8, así que en los
+         bordes se colaba un blanco que no es el del sistema visual. Ahora
+         apunta al mismo recurso que el splash. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <item name="android:windowBackground">@color/launch_background</item>
     </style>
 </resources>
