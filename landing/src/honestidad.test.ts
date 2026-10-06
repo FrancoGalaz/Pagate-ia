@@ -290,6 +290,68 @@ describe('lo que los documentos legales describen coincide con la app', () => {
   });
 });
 
+describe('la descripción de la ficha de Play cabe y dice lo que afirma', () => {
+  // La descripción completa de Play tiene un límite duro de 4.000 caracteres, y
+  // `docs/FICHA-PLAY.md` lleva el texto exacto que se pega más la cuenta escrita a
+  // mano. Esa combinación ya salió mal dos veces en este repositorio: el documento
+  // afirmaba que dieciséis palabras clave estaban «comprobado buscándolas una por
+  // una» y una no estaba, y el primer recuento de la revisión del lector de boletas
+  // dijo 3.998 cuando el texto medía 3.984.
+  //
+  // Una cuenta escrita a mano en un documento no se puede comprobar leyéndola. Así
+  // que se mide aquí: el límite, el número que el documento afirma y la lista de
+  // palabras clave, que se LEE del propio documento en vez de copiarse, para que
+  // el test siga afirmando lo que el documento afirma y no otra cosa.
+  const ficha = readFileSync(
+    join(SRC, '..', '..', 'docs', 'FICHA-PLAY.md'),
+    'utf8',
+  );
+
+  /** El bloque que se pega tal cual en Play Console. */
+  const bloque = /```\n(¿Sabes cuánto vale realmente[\s\S]*?)\n```/.exec(ficha);
+
+  it('el documento sigue llevando el bloque que se pega en Play', () => {
+    expect(
+      bloque,
+      'no se encontró la descripción completa en docs/FICHA-PLAY.md: si se movió, hay que arreglar este test, no borrarlo',
+    ).not.toBeNull();
+  });
+
+  it('no pasa de los 4.000 caracteres que admite Play', () => {
+    const largo = bloque![1].trim().length;
+    expect(largo, `la descripción mide ${largo} caracteres`).toBeLessThanOrEqual(4000);
+  });
+
+  it('el número que el documento afirma es el que mide el texto', () => {
+    const afirmado = /\*\*([\d.]+) caracteres de los 4\.000\*\*/.exec(ficha);
+    expect(afirmado, 'el documento ya no dice cuántos caracteres tiene').not.toBeNull();
+    // El documento escribe los miles con punto, como se escriben en Chile.
+    const cifra = Number(afirmado![1].replace(/\./g, ''));
+    expect(
+      cifra,
+      'la cuenta escrita en docs/FICHA-PLAY.md no coincide con el texto que lleva debajo',
+    ).toBe(bloque![1].trim().length);
+  });
+
+  it('contiene las palabras clave que el propio documento da por presentes', () => {
+    // Se lee la lista de la sección «Palabras que la ficha tiene que contener»,
+    // solo el párrafo de las presentes: el documento deja aparte, y a propósito,
+    // las que NO quiere («ganancias», «punto de venta»).
+    const marca = '**Presentes en el texto de arriba**';
+    const desde = ficha.indexOf(marca);
+    expect(desde, `no se encontró «${marca}» en docs/FICHA-PLAY.md`).toBeGreaterThan(-1);
+    const parrafo = ficha.slice(desde).split('\n\n')[1] ?? '';
+    const claves = [...parrafo.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+
+    expect(claves.length, 'la lista de palabras clave se quedó vacía').toBeGreaterThan(10);
+    const texto = bloque![1].toLowerCase();
+    expect(
+      claves.filter((k) => !texto.includes(k.toLowerCase())),
+      'el documento da estas palabras por presentes y no están en la descripción',
+    ).toEqual([]);
+  });
+});
+
 describe('la landing no vuelve a inventar datos', () => {
   const files = sourceFiles(SRC);
 
