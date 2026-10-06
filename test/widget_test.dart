@@ -1,5 +1,9 @@
-// Widget test que no toca Firebase: renderiza un widget de core dentro de un
-// MaterialApp con el tema de la app.
+// Prueba de humo del sistema visual, sin Firebase.
+//
+// Los widget tests por componente viven en `test/core/widgets/`, uno por
+// archivo, como manda el paso R-5 de docs/DISENO-v2.md. Aquí queda lo que no
+// pertenece a ningún componente: que el barrel exporte el sistema completo y
+// que el tema monte.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,49 +11,28 @@ import 'package:pagate_ia/core/theme/app_theme.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
 
 void main() {
-  testWidgets('PagatePrimaryButton muestra su etiqueta y responde al tap', (
+  testWidgets('el tema claro monta y pinta el lienzo del sistema', (
     final tester,
   ) async {
-    var taps = 0;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
         home: Scaffold(
           body: Center(
-            child: PagatePrimaryButton(
-              label: 'Continuar',
-              onPressed: () => taps++,
-            ),
+            child: PagatePrimaryButton(label: 'Continuar', onPressed: () {}),
           ),
         ),
       ),
     );
 
     expect(find.text('Continuar'), findsOneWidget);
-    await tester.tap(find.text('Continuar'));
-    expect(taps, 1);
-  });
 
-  testWidgets('PagatePrimaryButton en carga no responde al tap', (
-    final tester,
-  ) async {
-    var taps = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.lightTheme,
-        home: Scaffold(
-          body: PagatePrimaryButton(
-            label: 'Guardar',
-            isLoading: true,
-            onPressed: () => taps++,
-          ),
-        ),
-      ),
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.backgroundColor, isNull,
+        reason: 'el fondo lo pone el tema, no la pantalla');
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
+      const Color(0xFFF6F7F8),
     );
-
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Guardar'), findsNothing);
-    await tester.tap(find.byType(PagatePrimaryButton));
-    expect(taps, 0);
   });
 }
