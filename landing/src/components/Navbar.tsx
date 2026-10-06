@@ -15,6 +15,7 @@ import PagateLogo from './PagateLogo';
 import { LEGAL_ROUTES, siteUrl } from '../content/legal-meta';
 
 const links = [
+  { label: 'Por qué ahora', href: '#por-que-ahora' },
   { label: 'Funcionalidades', href: '#features' },
   { label: 'Cómo funciona', href: '#how-it-works' },
   { label: 'Qué viene después', href: '#roadmap' },

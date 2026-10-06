@@ -73,6 +73,24 @@ const PROHIBIDAS: Array<{ needle: string; porque: string }> = [
   { needle: 'Promedio mercado', porque: 'la app no tiene datos de mercado' },
   { needle: '+24% de productividad', porque: 'resultado medido que nunca se midió' },
   { needle: 'disponible en versión beta', porque: 'la app no está publicada' },
+  // Tres pestañas de Features.tsx anunciaban funciones que no existen en la
+  // app. Verificado: `lib/features/` solo tiene auth, dashboard, finances,
+  // hourly_value, inventory, onboarding y user_profile. No hay registro de
+  // horas, ni metas de ahorro, ni analítica de productividad.
+  { needle: 'Seguimiento de horas', porque: 'la app no registra horas trabajadas' },
+  { needle: 'horas facturables', porque: 'la app no calcula horas facturables' },
+  { needle: 'Metas de ahorro', porque: 'la app no tiene metas de ahorro' },
+  { needle: "label: 'Tiempo'", porque: 'pestaña de una función inexistente' },
+  { needle: "label: 'Ahorro'", porque: 'pestaña de una función inexistente' },
+  { needle: "label: 'Productividad'", porque: 'pestaña de una función inexistente' },
+  // La app no recibe pagos. Afirmarlo la arrastra a la política de remesas y
+  // servicios financieros de Google Play.
+  { needle: 'recibir pagos', porque: 'la app no recibe ni procesa pagos' },
+  { needle: 'punto de venta', porque: 'la app no es un POS' },
+  // Campos del contrato C-3: no existen todavía en `lib/`, así que la landing
+  // no los puede anunciar como funciones disponibles.
+  { needle: 'boleta de honorarios', porque: 'C-3 todavía no tiene código en lib/' },
+  { needle: 'comisión del medio de pago', porque: 'C-3 todavía no tiene código en lib/' },
 ];
 
 describe('la landing no vuelve a inventar datos', () => {
@@ -106,6 +124,28 @@ describe('la landing no vuelve a inventar datos', () => {
     expect(footer).toContain('LEGAL_ROUTES.privacidad');
     expect(footer).toContain('LEGAL_ROUTES.terminos');
     expect(footer).toContain('LEGAL_ROUTES.eliminarCuenta');
+  });
+
+  it('ningún texto renderizado deja un marcador entre corchetes', () => {
+    // Un `[RAZÓN SOCIAL…]` visible en una página legal es motivo de rechazo en
+    // Google Play. Los marcadores viven SOLO en legal-meta.ts, que es el
+    // archivo que el dueño rellena; ninguna página los imprime (ver el aviso
+    // de LegalLayout.tsx y las dos redacciones de cada página).
+    const culpables = files
+      .filter((f) => !/legal-meta\.ts$/.test(f))
+      .filter((f) => /\[[A-ZÁÉÍÓÚÑ][^\]]{4,}\]/.test(stripComments(readFileSync(f, 'utf8'))));
+    expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
+  });
+
+  it('ningún enlace mailto se construye con un dato sin rellenar', () => {
+    // `mailto:[CORREO…]` abre el cliente de correo con un destinatario
+    // inválido, que es peor que no ofrecer el enlace. Las páginas usan `BUZON`,
+    // que vale `null` mientras el correo siga siendo un marcador.
+    const culpables = files.filter((f) => {
+      const src = stripComments(readFileSync(f, 'utf8'));
+      return /mailto:\$\{CONTACT\./.test(src) || /mailto:\[/.test(src);
+    });
+    expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
   });
 
   it('no queda ninguna animación decorativa en bucle infinito', () => {

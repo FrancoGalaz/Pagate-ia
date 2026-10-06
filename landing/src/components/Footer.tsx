@@ -14,6 +14,7 @@ import { LEGAL_ROUTES, siteUrl } from '../content/legal-meta';
 
 const footerLinks = {
   Producto: [
+    { label: 'Por qué ahora', href: '#por-que-ahora' },
     { label: 'Funcionalidades', href: '#features' },
     { label: 'Cómo funciona', href: '#how-it-works' },
     { label: 'Qué viene después', href: '#roadmap' },
@@ -36,11 +37,12 @@ export default function Footer() {
             <a href={siteUrl(LEGAL_ROUTES.inicio)} className="flex items-center gap-2 mb-4">
               <PagateLogo className="w-10 h-10" />
               <span className="font-display font-bold text-xl tracking-tight text-white">
-                Pagate
+                Págate-IA
               </span>
             </a>
             <p className="text-sm text-text-muted leading-relaxed max-w-xs">
-              La app inteligente que calcula tu valor hora real y organiza tu negocio para que crezcas con claridad.
+              Calcula cuánto tiene que valer tu hora y te ordena las cuentas del
+              taller. Hecha en Chile para artesanos y microemprendedores.
             </p>
           </div>
 
@@ -69,7 +71,8 @@ export default function Footer() {
         {/* Bottom */}
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-text-muted">
-            © {new Date().getFullYear()} Pagate. Todos los derechos reservados.
+            © {new Date().getFullYear()} Págate-IA. Todos los derechos
+            reservados.
           </p>
           <div className="flex items-center gap-2 text-sm text-text-muted">
             <svg className="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">

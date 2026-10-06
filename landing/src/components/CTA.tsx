@@ -73,8 +73,8 @@ export default function CTA() {
             </h2>
 
             <p className="mt-6 text-lg lg:text-xl text-text-muted max-w-xl leading-relaxed">
-              Únete a la lista de espera. Sé de los primeros en usar Pagate 
-              y descubre cuánto vale realmente tu trabajo.
+              Déjanos tu correo y te escribimos cuando Págate-IA esté lista. Vas
+              a saber cuánto tiene que valer tu hora y cómo cerró tu mes.
             </p>
 
             <div className="mt-10">
@@ -98,7 +98,7 @@ export default function CTA() {
                   <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center mb-4 shadow-lg shadow-brand/40">
                     <span className="text-white text-2xl font-bold">P</span>
                   </div>
-                  <p className="text-lg font-bold text-text-primary mb-1">Pagate</p>
+                  <p className="text-lg font-bold text-text-primary mb-1">Págate-IA</p>
                   <p className="text-sm text-text-muted mb-6">Tu negocio, en control</p>
                   
                   <div className="w-full space-y-3">

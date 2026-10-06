@@ -47,7 +47,7 @@ export default function WaitlistForm() {
           ¡Estás en la lista!
         </h3>
         <p className="text-text-muted">
-          Te avisaremos cuando Pagate esté disponible.{'\n'}
+          Te avisaremos cuando Págate-IA esté disponible.{'\n'}
           Mientras tanto, síguenos para novedades.
         </p>
       </div>
