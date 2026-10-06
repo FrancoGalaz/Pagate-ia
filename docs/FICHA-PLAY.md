@@ -209,7 +209,8 @@ done
    **Las cuatro tienen que responder `200`.** Un `404` en `privacidad/` es el
    que bloquea la ficha; los otros dos dejan sin destino los términos y el
    enlace público de eliminación de cuenta, que Play exige a toda app que
-   permita crear una cuenta (ver `docs/SEGURIDAD-DATOS-PLAY.md` §3).
+   permita crear una cuenta (el detalle, con los archivos que lo sostienen, en
+   `docs/SEGURIDAD-DATOS-PLAY.md` §4.2).
 
 3. Abrir `…/privacidad/` en el teléfono y comprobar dos cosas a ojo: que **no
    se ve ningún `[MARCADOR]` entre corchetes** y que el aviso de datos
@@ -518,10 +519,15 @@ una. Nada de cifras que la app no pueda producir:
 2. **Calculadora de valor hora**, con el resultado visible. Titular: «Cuánto
    tiene que valer tu hora».
 3. **Valor hora neto**, la sección que descuenta las comisiones registradas.
-   Titular: «Y cuánto te quedó de verdad». Es lo que ninguna competidora de
-   `docs/COMPETENCIA.md` muestra, así que vale una captura propia. **Sale solo en
-   el mes en curso de la cuenta demo**, que es el único con comisiones
-   sembradas (8.995 CLP sobre 980.000 de ingresos).
+   Titular: «Y cuánto te quedó de verdad». Vale una captura propia porque es la
+   frontera que describe `docs/COMPETENCIA.md` §2: descontar la comisión del
+   medio de pago **no** es un diferenciador —CraftCost lo hace, con perfiles por
+   plataforma— pero hacerlo **sobre los ingresos reales del mes para sacar el
+   valor de la hora** sí lo es, porque ninguna de las siete calculadoras lleva
+   las cuentas del mes. No escribir en la ficha que «nadie descuenta comisiones»:
+   es falso y está desmentido en ese documento. **La sección sale solo en el mes
+   en curso de la cuenta demo**, que es el único con comisiones sembradas (8.995
+   CLP sobre 980.000 de ingresos).
 4. **Registro de un movimiento**, el formulario abierto, con los campos de
    documento y comisión a la vista. Titular: «Anota una venta en segundos».
 5. **Finanzas**, con la lista de movimientos del mes. Titular: «Todo lo que
@@ -562,7 +568,7 @@ la cuenta demo y hablar con el asistente antes de capturar.
 | Clasificación de contenido | Cuestionario IARC | Sin violencia, sexo, drogas, juego ni compras. Declarar que **sí** incluye IA generativa con contenido no filtrado por el desarrollador. |
 | Anuncios | **No contiene anuncios** | Verificado: no hay ningún SDK de publicidad en `pubspec.yaml`. |
 | Compras en la aplicación | **No** | No existe ninguna: no hay `in_app_purchase` ni integración de facturación en `pubspec.yaml`, y **ningún texto que lea el usuario menciona un plan de pago**. El día que haya algo que vender hay que cambiar esta respuesta y cobrarlo con Google Play Billing: cobrarlo por fuera es causa de suspensión de la cuenta. |
-| Eliminación de cuenta | Dentro de la app: *Perfil → Configuración → Eliminar cuenta*. URL pública: `.../landing-page/eliminar-cuenta/` | Play exige **las dos** a toda app que permita crear una cuenta. Las dos existen; la URL **hoy responde 404** hasta publicar la landing (§0 bis). El detalle, en `docs/SEGURIDAD-DATOS-PLAY.md` §3. |
+| Eliminación de cuenta | Dentro de la app: *Perfil → Configuración → Eliminar cuenta*. URL pública: `.../landing-page/eliminar-cuenta/` | Play exige **las dos** a toda app que permita crear una cuenta. Las dos existen; la URL **hoy responde 404** hasta publicar la landing (§0 bis). El detalle, en `docs/SEGURIDAD-DATOS-PLAY.md` §4.2. |
 
 ### Pendiente de decisión del dueño
 

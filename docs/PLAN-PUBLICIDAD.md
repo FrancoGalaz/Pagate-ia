@@ -613,9 +613,15 @@ No son tareas de código. Nadie puede decidirlas por él y el plan depende de el
    Comprometerse a que lo que anotas siempre se puede ver y exportar, aunque no
    pagues, es una decisión de producto con consecuencias de ingeniería. Si se
    toma, es el mejor argumento del plan; si no se toma, no se dice.
-5. **Qué pasa con el plan Pro.** La interfaz ya lo menciona en tres sitios y no
-   existe ninguna forma de comprarlo. O se construye con Google Play Billing, o
-   se quitan las menciones antes de publicar.
+5. **Qué pasa con el plan Pro.** **Ya no bloquea publicar.** Las menciones se
+   quitaron: ningún texto que lea el usuario nombra un plan de pago, y el aviso
+   de cuota agotada ya no invita a cambiar de plan. Lo único que queda es la
+   insignia de `perfil_tab.dart`, que solo se pinta si el perfil trae
+   `plan == 'pro'`, valor que escribe únicamente el backend. La decisión que
+   sigue abierta es **de producto, no de cumplimiento**: si algún día hay algo
+   que vender, se construye con Google Play Billing —cobrarlo por fuera es causa
+   de suspensión de la cuenta— y se cambia la respuesta de «Compras en la
+   aplicación» de la ficha. Mientras no exista, no se menciona.
 
 **Y una decisión más, que el gancho nuevo introduce:**
 
