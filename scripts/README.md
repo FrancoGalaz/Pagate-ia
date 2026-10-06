@@ -14,9 +14,22 @@ Utilidades de desarrollo y publicación. Ninguna forma parte del build de la app
 ## `seed-demo.js` — cuenta de demostración
 
 Crea `demo@pagate.cl` con un taller de cerámica chileno completo: perfil, valor
-hora, 35 movimientos repartidos en los últimos tres meses, 12 ítems de
-inventario (4 bajo el stock mínimo, para que se vea el estado de alerta) y 4
+hora, 38 movimientos repartidos en los últimos tres meses, 12 ítems de
+inventario (4 bajo el stock mínimo, para que se vea el estado de alerta) y 3
 gastos fijos.
+
+Tres cosas que los datos **sí** respetan, porque de lo contrario salen en una
+captura de la tienda y no cuadran:
+
+- **Los gastos fijos no duplican la cartola.** Son la referencia de lo que se
+  paga todos los meses; el arriendo del taller, que es una transacción real con
+  su fecha, ya no está además como gasto fijo. Antes estaba en los dos sitios y
+  la pantalla de Inicio mostraba las dos cifras una debajo de la otra.
+- **El mes en curso no tiene movimientos del futuro.** Los días del mes actual
+  se comprimen en los días ya transcurridos (`diaEfectivo`), así que sembrar el
+  día 6 no deja ventas fechadas el 24.
+- **Los tres meses cierran en positivo**, y el script lo comprueba antes de
+  escribir nada.
 
 Sirve para tres cosas: las capturas de la ficha de Google Play, la cuenta de
 prueba que hay que entregar en **Play Console → Prueba y publicación → Acceso a
@@ -62,17 +75,18 @@ así que las tres líneas del resumen cambian de nombre cada mes):
 ```
 Auth: usuario demo@pagate.cl actualizado (uid demo-pagate-cl)
 Perfil: Camila Rojas · Greda Austral · meta 1.200.000 CLP · valor hora 7.500 CLP
-Limpieza: 35 documentos en transactions
+Limpieza: 38 documentos en transactions
 Limpieza: 12 documentos en inventory
-Limpieza: 4 documentos en fixedExpenses
+Limpieza: 3 documentos en fixedExpenses
 Limpieza: 3 documentos en months
-Transacciones: 35
+Transacciones: 38
 Inventario: 12 ítems (4 en alerta de stock)
-Gastos fijos: 4
+Gastos fijos: 3 (103.490 CLP al mes, sin duplicar ninguna transacción de la cartola)
+Contrato C-3: 6 ingresos con docType, 2 con comisión del medio de pago
 
-  2026-08  ingresos 550.500  gastos 602.700  saldo -52.200  (10 movimientos)
-  2026-09  ingresos 1.139.400  gastos 667.600  saldo 471.800  (13 movimientos)
-  2026-10  ingresos 644.000  gastos 640.500  saldo 3.500  (12 movimientos)
+  2026-08  ingresos 695.500  gastos 602.700  saldo 92.800  comisiones 0  (11 movimientos)
+  2026-09  ingresos 1.139.400  gastos 667.600  saldo 471.800  comisiones 0  (13 movimientos)
+  2026-10  ingresos 980.000  gastos 640.500  saldo 339.500  comisiones 8.995  (14 movimientos)
 ```
 
 Las líneas de «Limpieza» solo aparecen si ya había datos de una siembra
@@ -117,12 +131,39 @@ curl -s -H 'Authorization: Bearer owner' "$BASE/users/demo-pagate-cl/transaction
 
 ### Si cambias los datos sembrados
 
-Las categorías de los movimientos tienen que seguir siendo las seis de
-`transactionCategories`
-(`lib/features/finances/presentation/widgets/transaction_form_sheet.dart`), y la
-forma de cada documento, la del contrato de `docs/ARQUITECTURA.md`, que es
-además lo que validan las reglas. El Admin SDK no las comprueba: un documento
-mal formado se escribe sin protestar y revienta después en el cliente.
+El Admin SDK **no** pasa por `firestore.rules`: un documento mal formado se
+escribe sin protestar y revienta después, en el cliente. Por eso el script lleva
+su propia `validarDatos()`, que corre **antes** de tocar Firestore y aborta sin
+escribir nada si:
+
+- un **gasto fijo duplica** una transacción del mes en curso (por nombre o por
+  monto);
+- una **categoría** no está entre las de `incomeCategories` /
+  `expenseCategories`
+  (`lib/features/finances/presentation/widgets/transaction_form_sheet.dart`);
+- un `docType` no es uno de los tres del contrato C-3, o va en un gasto;
+- una comisión no cabe en el monto (`platformFee <= amount`, el mismo tope que
+  `firestore.rules`);
+- algún mes **cierra en rojo**.
+
+La forma de cada documento sigue siendo la del contrato de
+`docs/ARQUITECTURA.md`, que es lo que validan las reglas; eso la validación del
+script no lo cubre.
+
+### Los campos chilenos del contrato C-3
+
+El mes en curso siembra `docType` y `platformFee` para que se vean funcionando:
+seis ingresos con documento (boleta de venta, boleta de honorarios y sin
+documento) y dos con comisión del medio de pago. Los **meses cerrados quedan sin
+esos campos a propósito**: son opcionales, es el caso real de los movimientos
+registrados antes del contrato, y así queda sembrada la prueba de que la app los
+sigue leyendo.
+
+La comisión se calcula en el script (3,19 % del monto, redondeado). Ese
+porcentaje es el que circula para Mercado Pago en Chile y
+`docs/FICHA-PLAY.md` §3 lo marca como **no verificado en la fuente**: aquí es el
+número que la usuaria de la demostración anotó, no una afirmación sobre la
+tarifa de nadie. La app nunca aplica una tasa por su cuenta.
 
 ---
 

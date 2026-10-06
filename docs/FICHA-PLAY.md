@@ -11,7 +11,8 @@ recibir pagos globalmente», que es falso y además arrastra la app hacia la
 política de remesas de Play). Esa frase hay que borrarla del código antes de
 publicar; aquí no aparece.
 
-**Índice.** §1 nombre · §2 descripción breve · **§3 el ángulo chileno y sus
+**Índice.** **§0 lo que solo puede hacer el dueño** · **§0 bis publicar la
+landing** · §1 nombre · §2 descripción breve · **§3 el ángulo chileno y sus
 fuentes** · §4 descripción completa · §5 recursos gráficos · §6 resto de campos ·
 §7 prueba cerrada obligatoria · **§8 lo que tiene que rellenar el dueño** · §9
 cuenta de demostración.
@@ -20,6 +21,149 @@ Límites verificados en la documentación oficial
 ([ficha de Play Store](https://support.google.com/googleplay/android-developer/answer/9866151),
 consultada el 6 de octubre de 2026): nombre 30 caracteres, descripción breve 80,
 descripción completa 4000.
+
+---
+
+## 0. LO QUE SOLO PUEDE HACER EL DUEÑO
+
+> **Seis bloqueos. Ninguno es trabajo de código y ninguno se puede inventar.**
+> Mientras falte cualquiera de ellos no hay nada que subir a Google Play: los
+> cinco primeros los rechaza Play, y el sexto lo rechaza antes incluso de
+> aceptar la ficha, porque exige que la URL de la política de privacidad
+> responda.
+
+| # | Qué falta | Dónde se hace | Qué pasa si falta |
+|---|---|---|---|
+| **1** | **Los cinco datos de identidad legal**: nombre completo o razón social, RUT, domicilio para notificaciones, correo de privacidad y correo de soporte | `landing/src/content/legal-meta.ts`, líneas **28, 29, 30, 42 y 43**. El detalle, dato por dato, en el **§8.1** | La política de privacidad y los términos identifican al responsable «por descripción» y no por nombre. Es un riesgo de revisión en Play y un documento legal cojo |
+| **2** | **El correo de soporte real** | El mismo archivo (línea **43**) **y** Play Console → *Crecimiento → Ficha de Play Store → Ficha principal → Correo electrónico de contacto*. **Tienen que ser el mismo** | Play exige un correo de contacto en la ficha. El `soporte@pagate-ia.com` que muestra hoy la app usa un dominio que el dueño no controla (`docs/AUDITORIA-2026-09-29.md`): no sirve. Lo más rápido es usar el correo de la cuenta de desarrollador |
+| **3** | **La clave de subida real** (*upload keystore*) | Se genera en el equipo del dueño con `keytool` y se declara en `android/key.properties`. Receta exacta abajo, en el **§0.1** | Sin `android/key.properties`, el build de release se firma con el keystore de **depuración** y Play lo rechaza con *«You uploaded an APK or Android App Bundle that was signed in debug mode»*. El propio `android/app/build.gradle.kts` lo avisa a gritos al compilar |
+| **4** | **12 probadores durante 14 días seguidos** | Play Console → *Probar y publicar → Pruebas → Prueba cerrada*. **Primero** hay que comprobar el tipo de cuenta en *Configuración → Detalles de la cuenta de desarrollador* | Solo aplica si la cuenta es **personal y se creó después del 13 de noviembre de 2023**. Si aplica y no está hecho, *Producción* sigue **inhabilitada** en Play Console: no es que la revisión salga mal, es que el botón no existe. El detalle y las citas de la documentación oficial, en el **§7** |
+| **5** | **El formulario de Seguridad de los datos** | Play Console → *Política → Contenido de la aplicación → Seguridad de los datos* | Es obligatorio para publicar. Las respuestas ya están decididas y razonadas, una por una, en **`docs/SEGURIDAD-DATOS-PLAY.md`**; lo que todavía bloquea enviarlo está en su §4. Hace falta además la URL de la política de privacidad del punto 6 |
+| **6** | **Publicar la landing**, para que respondan las tres URLs legales | Un solo gesto, y está detallado en el **§0 bis** | **Comprobado hoy, 6 de octubre de 2026:** la portada responde `200` y las tres páginas legales responden **`404`**. Play **exige** que la URL de política de privacidad responda, así que esto bloquea la ficha entera |
+
+**Tres decisiones más que son suyas y no bloquean**, pero conviene tomarlas
+antes de escribir la ficha: el nombre público del desarrollador, el nombre
+comercial (`Págate-IA` o `Pagate`) y qué pasa con el plan Pro. Están en el
+**§8.3** y en `docs/PLAN-PUBLICIDAD.md` §7.
+
+### 0.1 La clave de subida, paso a paso
+
+El proyecto ya está preparado: `android/app/build.gradle.kts` lee
+`android/key.properties` si existe y, si no, firma con el keystore de
+depuración **avisando por consola**. Lo único que falta es el archivo.
+
+```sh
+# 1. Generar el keystore. FUERA del repositorio.
+keytool -genkeypair -v   -keystore C:/Users/Franco/claves/pagate-upload.jks   -storetype JKS -keyalg RSA -keysize 2048 -validity 10000   -alias upload   -dname "CN=Pagate, OU=Desarrollo, O=Pagate, L=Santiago, ST=RM, C=CL"
+```
+
+```properties
+# 2. Crear android/key.properties con estas cuatro líneas.
+#    NO se versiona: android/.gitignore ya excluye key.properties, *.jks,
+#    *.keystore, *.aab y *.apk.
+storeFile=C:/Users/Franco/claves/pagate-upload.jks
+storePassword=<la que pusiste en el paso 1>
+keyAlias=upload
+keyPassword=<la de la clave, normalmente la misma>
+```
+
+```sh
+# 3. Generar el artefacto que se sube a Play.
+flutter build appbundle --release   --dart-define=PAGATE_ENV=prod   --dart-define=APP_CHECK_SITE_KEY=<la clave de reCAPTCHA v3>
+```
+
+**Respalda el `.jks` y las contraseñas.** Si se pierde la clave de subida, Play
+la puede reiniciar, pero **solo** si la app usa Play App Signing. Y ojo con la
+huella: la SHA-256 que hay que registrar en App Check / Play Integrity es la del
+**certificado de firma de la app** (Play Console → *Probar y publicar →
+Integridad de la app*), no la de este keystore de subida.
+
+---
+
+## 0 bis. PUBLICAR LA LANDING: UN SOLO GESTO
+
+> **Por qué va aquí y no en un documento de la web:** sin esto no hay URL de
+> política de privacidad, y sin esa URL Play no acepta la ficha. Es el bloqueo
+> número 6 del §0.
+
+### Qué hay hecho y qué falta
+
+Hecho: `landing/` tiene las tres páginas legales y `landing-page/` —la carpeta
+que sirve GitHub Pages— ya está reconstruida con ellas **en la rama
+`arquitectura-segura`**. Falta: que ese contenido llegue a **`main`**, que es la
+rama que GitHub Pages publica.
+
+Comprobado hoy, 6 de octubre de 2026, con `curl`:
+
+| URL | Hoy |
+|---|---|
+| `https://francogalaz.github.io/Pagate-ia/landing-page/` | **200** |
+| `https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/` | **404** |
+| `https://francogalaz.github.io/Pagate-ia/landing-page/terminos/` | **404** |
+| `https://francogalaz.github.io/Pagate-ia/landing-page/eliminar-cuenta/` | **404** |
+
+Que la portada responda `200` demuestra que Pages ya está configurado y
+sirviendo `landing-page/` desde `main`: no hay nada que configurar, solo que
+llegue el contenido.
+
+### El gesto
+
+```sh
+# Desde el repositorio principal, con el árbol limpio.
+git checkout main
+git merge arquitectura-segura      # o la rama que lleve la landing al día
+git push origin main
+```
+
+Eso dispara `.github/workflows/landing-pages.yml`, que corre con `landing/**` y
+hace, por su cuenta: `npm ci`, `npm run lint`, `npm test`, `npm run build`,
+copia `landing/dist/` a `landing-page/` y commitea el resultado con `[skip ci]`.
+Si la build falla, **no publica nada**: es la red de seguridad, no un trámite.
+
+**Si no se quiere fusionar la rama entera** (lleva app, backend y reglas), vale
+igual con llevar solo la landing, porque el filtro del workflow es por rutas:
+
+```sh
+git checkout main
+git checkout arquitectura-segura -- landing landing-page
+git commit -m "landing: publica las tres páginas legales"
+git push origin main
+```
+
+### Cómo se comprueba, dos minutos después
+
+1. En GitHub, pestaña **Actions**, el workflow **«Landing Pages»** tiene que
+   terminar en verde. Si falla en `lint` o `test`, no se publicó nada y hay que
+   arreglar eso primero.
+2. Esperar a que Pages termine de desplegar (suele tardar de uno a tres minutos
+   más que el workflow) y pedir las cuatro URLs:
+
+```sh
+for u in "" privacidad/ terminos/ eliminar-cuenta/; do
+  printf "%-16s " "${u:-portada}"
+  curl -s -o /dev/null -w "%{http_code}" \
+    "https://francogalaz.github.io/Pagate-ia/landing-page/$u"
+  echo
+done
+```
+
+   **Las cuatro tienen que responder `200`.** Un `404` en `privacidad/` es el
+   que bloquea la ficha; los otros dos dejan sin destino los términos y el
+   enlace público de eliminación de cuenta, que Play exige a toda app que
+   permita crear una cuenta (ver `docs/SEGURIDAD-DATOS-PLAY.md` §3).
+
+3. Abrir `…/privacidad/` en el teléfono y comprobar dos cosas a ojo: que **no
+   se ve ningún `[MARCADOR]` entre corchetes** y que el aviso de datos
+   pendientes corresponde a lo que todavía falta del §0. Cuando se rellenen los
+   cinco datos, ese aviso desaparece solo.
+
+4. Pegar la URL de `…/privacidad/` en Play Console → *Ficha principal →
+   Política de Privacidad* y en *Contenido de la aplicación → Seguridad de los
+   datos*. Son dos sitios distintos y los dos la piden.
+
+**Lo que no hay que hacer:** subir `landing-page/` a mano desde el equipo. El
+workflow la reconstruye desde `landing/` en cada push, así que un cambio hecho
+solo en la carpeta publicada se pierde en la siguiente publicación.
 
 ---
 
@@ -267,7 +411,7 @@ Fuente: [Ficha de Play Store — recursos gráficos](https://support.google.com/
 
 | Recurso | Dimensiones | Formato | Tamaño máx. | Cantidad | Estado |
 |---|---|---|---|---|---|
-| **Icono de la app** | 512 × 512 px | PNG de 32 bits con alfa | 1024 KB | 1, obligatorio | **Falta.** Hoy el icono de la app es, byte a byte, el logo por defecto de Flutter, y no hay icono adaptativo. Existe `landing/public/assets/brand/app-icon.png`, que puede servir de base. |
+| **Icono de la app** | 512 × 512 px | PNG de 32 bits con alfa | 1024 KB | 1, obligatorio | **Listo.** `android/play/icon-512.png`, generado por `scripts/generate-android-icons.py` desde la misma geometría que el icono adaptativo (`android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`), así que es idéntico al del lanzador. Se entrega cuadrado y a sangre: la máscara la aplica Play. Ya no es el logo por defecto de Flutter. |
 | **Gráfico de funciones** (*feature graphic*) | 1024 × 500 px | JPEG o PNG de 24 bits, sin alfa | — | 1, obligatorio | **Falta.** Es la imagen grande de cabecera de la ficha. |
 | **Capturas de teléfono** | lado mínimo 320 px, máximo 3840 px; 16:9 o 9:16 | JPEG o PNG de 24 bits, sin alfa | 8 MB cada una | mínimo 2, hasta 8 | **Faltan.** Hay que tomarlas del rediseño terminado, no del estado actual. |
 | **Capturas de tablet de 7″** | 1080–7680 px por lado; 16:9 horizontal o 9:16 vertical | JPEG o PNG de 24 bits | 8 MB | mínimo 4 | **Faltan.** |
@@ -310,7 +454,7 @@ la siguiente vacía.
 | Etiquetas | `Finanzas personales`, `Presupuesto`, `Negocios` | Play permite hasta 5. |
 | Correo electrónico de contacto | *(pendiente — ver abajo)* | Tiene que ser el mismo que `CONTACT.support` en `landing/src/content/legal-meta.ts`. |
 | Sitio web | `https://francogalaz.github.io/Pagate-ia/landing-page/` | |
-| Política de Privacidad | `https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/` | Obligatoria. |
+| Política de Privacidad | `https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/` | Obligatoria. **Hoy responde 404**: hay que publicar la landing antes de pegarla (§0 bis). |
 | Teléfono de contacto | Dejar vacío | Es opcional y publica el número. |
 | Clasificación de contenido | Cuestionario IARC | Sin violencia, sexo, drogas, juego ni compras. Declarar que **sí** incluye IA generativa con contenido no filtrado por el desarrollador. |
 | Anuncios | **No contiene anuncios** | Verificado: no hay ningún SDK de publicidad en `pubspec.yaml`. |
@@ -441,6 +585,18 @@ evaluar.
 La cuenta debe venir precargada con: perfil completo, valor hora calculado, 15 a
 20 transacciones repartidas en varios meses, 8 a 10 ítems de inventario con al
 menos uno bajo el stock mínimo, y una conversación de chat.
+
+**Quién la siembra:** `scripts/seed-demo.js`, que escribe **solo** contra los
+emuladores (aborta si no están las variables de entorno). Hoy deja la cuenta
+`demo@pagate.cl` del taller «Greda Austral» con 38 movimientos en tres meses,
+12 ítems de inventario (4 bajo el mínimo), 3 gastos fijos y los campos
+`docType` y `platformFee` del contrato C-3 rellenos en el mes en curso. Los tres
+meses cierran en positivo y los gastos fijos **no duplican** ninguna transacción
+de la cartola, que es lo que antes no cuadraba en las capturas.
+
+**Para la cuenta que se le entrega al revisor hay que volver a sembrar contra el
+proyecto de producción**, y eso solo lo puede hacer el dueño: el script, por
+diseño, se niega a escribir fuera de los emuladores.
 
 **Nota para el revisor**, a pegar en el mismo formulario:
 

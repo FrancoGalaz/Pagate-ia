@@ -11,6 +11,16 @@ app se leyeron de los datos estructurados (`application/ld+json`) y del bloque d
 detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 `hl=es_CL`). Las reseñas que se citan son las que la ficha muestra públicamente.
 
+**La fecha de actualización sale de un sitio concreto y conviene decir cuál**,
+porque la primera versión de este documento la tomó mal en seis de las siete
+calculadoras. Es el valor del bloque visible de detalles de la ficha, el
+rotulado **«Actualización»**, que en el HTML es
+`<div class="lXlx5">Actualización</div><div class="xg1aie">29 ago 2026</div>`.
+No es el `datePublished` del `ld+json` ni la fecha de la primera publicación,
+que son otras y van por su cuenta. **Todas las fechas de este documento se
+volvieron a leer así el 6 de octubre de 2026**, una por una, y el apartado
+«Qué se corrigió» del §1.9 dice cuáles cambiaron.
+
 **Lo que no pude verificar, y por tanto no afirmo:**
 
 - Los precios de los planes de Treinta y Yimi: sus páginas publican cifras sin
@@ -25,9 +35,15 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
   saben calcular su precio por hora. Que Sercotec dicte un curso específico
   sobre el tema es una señal, no un dato.
 - **Las valoraciones de las siete calculadoras de §1.9**: ninguna de las siete
-  publica `aggregateRating`, así que la columna dice «no la publica» y no un
-  número inventado. Lo más probable es que tengan pocas valoraciones, pero eso es
-  una conjetura y va dicha como tal.
+  publica `aggregateRating` —comprobado clave por clave en el `ld+json` de las
+  siete fichas el 6 de octubre de 2026—, así que la columna dice «no la publica»
+  y no un número inventado. Lo más probable es que tengan pocas valoraciones,
+  pero eso es una conjetura y va dicha como tal.
+- **Por qué cada app hace lo que hace.** Todo lo que este documento dice sobre
+  las funciones de un competidor sale de **lo que declara su propia ficha**
+  (descripción, capturas, novedades), no de haber usado la app. Es la diferencia
+  entre «no lo anuncia» y «no lo tiene», y aquí solo se puede afirmar lo
+  primero.
 - **Los idiomas reales de la app**, por dentro. Lo que se puede comprobar es si
   el desarrollador publicó una ficha en español (ver el método en §1.9), no en
   qué idiomas está la interfaz.
@@ -41,7 +57,8 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - **Ficha:** <https://play.google.com/store/apps/details?id=com.treintaapp>
 - **Sitio:** <https://treinta.co/>
 - **Verificado en la ficha:** categoría Finanzas · **10.000.000+ instalaciones** ·
-  **4,1 estrellas sobre 105.668 valoraciones** · descarga gratuita.
+  **4,1 estrellas sobre 105.669 valoraciones** · descarga gratuita ·
+  actualizada el **15 sept 2026**.
 - **Modelo de negocio:** gratis con suscripción. Los planes publicados son
   **Esencial** (solo app) y **Pro** (app + web, con facturación electrónica
   ilimitada), con descuento trimestral y anual
@@ -76,7 +93,8 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - **Ficha:** <https://play.google.com/store/apps/details?id=com.kio.yimitpv>
 - **Sitio:** <https://yimiglobal.com/>
 - **Verificado en la ficha:** categoría Negocios · **100.000+ instalaciones** ·
-  **4,2 estrellas sobre 2.663 valoraciones** · descarga gratuita.
+  **4,2 estrellas sobre 2.663 valoraciones** · descarga gratuita · actualizada el
+  **2 oct 2026**.
 - **Modelo de negocio:** gratis con suscripciones **Plus** y **Premium**, mensual
   o anual, con 7 días de prueba (planes recogidos en
   <https://www.capterra.com/p/253827/Yimi-POS/>; precios localizados, no
@@ -92,7 +110,8 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - **Ficha:** <https://play.google.com/store/apps/details?id=cl.minegociosimple.app>
 - **Sitio:** <https://www.minegociosimple.cl>
 - **Verificado en la ficha:** categoría Negocios · **100+ instalaciones** ·
-  **5,0 estrellas sobre 6 valoraciones** · descarga gratuita.
+  **5,0 estrellas sobre 6 valoraciones** · descarga gratuita · actualizada el
+  **27 jul 2026**.
 - **Modelo de negocio:** la ficha no declara compras dentro de la aplicación ni
   anuncios. Aparentemente gratis; no hay información pública de monetización.
 - **Qué hace mejor:** el posicionamiento. Su propia descripción dice «ideal para
@@ -134,8 +153,11 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - **Sitio:** <https://tecydo.com>
 - **Verificado en la ficha:** categoría Herramientas · **10.000+ instalaciones** ·
   **contiene anuncios** · descarga gratuita con compra «pro». Su ficha no
-  publica valoración y su **última actualización es del 12 de noviembre de
-  2023**: casi tres años sin tocarla.
+  publica valoración y su **última actualización es del 29 de agosto de 2026**.
+  **Corregido:** la primera versión de este documento decía «12 de noviembre de
+  2023, casi tres años sin tocarla», y es falso. El bloque «Actualización» de su
+  ficha, releído el 6 de octubre de 2026, dice `29 ago 2026`. Está viva y es la
+  calculadora en español con ficha propia más veterana del grupo.
 - **Qué hace mejor:** está hecha exactamente para esto. Su descripción breve es
   «calculadora de costos y precios para crochet, costura y manualidades»:
   calcula tela, hilo, cintas y relleno, incluye mano de obra y gastos
@@ -161,8 +183,9 @@ detalle de su propia ficha de Google Play, en la tienda de Chile (`gl=CL`,
 - **Verificado en la ficha:** categoría Productividad · **100.000+
   instalaciones** · **contiene anuncios** · descarga gratuita · **actualizada el
   28 de septiembre de 2026**. Su ficha no publica valoración. Es la calculadora
-  de artesanía con más instalaciones de las siete y la más recientemente
-  actualizada.
+  de artesanía con **más instalaciones** de las siete. No es la más reciente:
+  CraftCost (5 oct 2026) y *Handmade Pricing Calculator* (4 oct 2026) la
+  adelantaron.
 - **Qué hace mejor:** una sola cosa, muy bien: materiales, unidades producidas y
   tiempo empleado, y devuelve el costo por unidad y el precio para no perder
   dinero o para un margen dado. Permite **tarifas horarias distintas según el
@@ -178,9 +201,13 @@ porque es la que conoce. Son competencia por sustitución, no por función.
 
 | App | Ficha | Verificado |
 |---|---|---|
-| **Monefy** | <https://play.google.com/store/apps/details?id=com.monefy.app.lite> | Finanzas · **4,4 sobre 194.554 valoraciones** · gratis |
-| **Controlar Gastos** | <https://play.google.com/store/apps/details?id=com.smartexpenditure> | Finanzas · **4,6 sobre 110.114 valoraciones** · gratis |
-| **Bluecoins** | <https://play.google.com/store/apps/details?id=com.rammigsoftware.bluecoins> | Finanzas · **4,3 sobre 40.900 valoraciones** · gratis |
+| **Monefy** | <https://play.google.com/store/apps/details?id=com.monefy.app.lite> | Finanzas · **4,5 sobre 194.559 valoraciones** · gratis · act. 16 ago 2026 |
+| **Controlar Gastos** | <https://play.google.com/store/apps/details?id=com.smartexpenditure> | Finanzas · **4,7 sobre 110.114 valoraciones** · gratis · act. 25 sept 2025 |
+| **Bluecoins** | <https://play.google.com/store/apps/details?id=com.rammigsoftware.bluecoins> | Finanzas · **4,3 sobre 40.900 valoraciones** · gratis · act. 2 oct 2026 |
+
+Releídas el 6 de octubre de 2026. Las dos primeras subieron una décima respecto
+de la versión anterior de este documento (Monefy iba como 4,4 sobre 194.554 y
+Controlar Gastos como 4,6): son cifras vivas y hay que fecharlas siempre.
 
 - **Qué hacen mejor:** entrada de datos rapidísima, categorías, gráficos y años
   de pulido. Las valoraciones altas con volúmenes de seis cifras marcan el nivel
@@ -199,33 +226,75 @@ Todos los datos de la tabla salen de los datos estructurados
 (`application/ld+json`) y del bloque de detalle de su propia ficha, el 6 de
 octubre de 2026.
 
+Fechas, instalaciones y valoraciones **releídas el 6 de octubre de 2026** del
+bloque «Actualización» y del bloque de descargas de cada ficha:
+
 | App | Paquete | Categoría | Instalaciones | Valoración | Actualizada | Anuncios | Ficha en español |
 |---|---|---|---|---|---|---|---|
+| **CraftCost: Precios Artesanía** | `com.codeensis.craftcost` | Negocios | 100+ | no la publica | **5 oct 2026** | No declara | **Sí, con título propio** |
+| Handmade Pricing Calculator | `dev.mdwalid.craft_pricing` | Productividad | 10+ | no la publica | **4 oct 2026** | No declara | Traducida; título en inglés |
 | Craft Pricing Calculator | `co.uk.handmadeaberdeenshire.craftpricingcalculator` | Productividad | **100 k+** | no la publica | **28 sept 2026** | Sí | Traducida; el título sigue en inglés |
-| Calculadora Artesanía — Tecydo | `com.akynoapps.craftcalculator` | Herramientas | 10 k+ | no la publica | 12 nov 2023 | Sí | **Sí, con título propio** |
-| Craft Pricing Calculator (Subbarao) | `com.subbarao.craftpricingcalculator` | Productividad | 1 k+ | no la publica | 1 dic 2025 | Sí | Traducida; título en inglés |
-| **CraftCost: Precios Artesanía** | `com.codeensis.craftcost` | Negocios | 100+ | no la publica | **8 jun 2026** | No declara | **Sí, con título propio** |
-| Product Maker: Calcular Costos | `com.domene.productmaker` | Productividad | 500+ | no la publica | 10 may 2026 | No declara | **Sí, con título propio** |
-| CostoPro | `com.susucrea.costopro` | Productividad | 100+ | no la publica | 3 feb 2026 | No declara | Sí |
-| Handmade Pricing Calculator | `dev.mdwalid.craft_pricing` | Productividad | 10+ | no la publica | 14 sept 2026 | No declara | Traducida; título en inglés |
+| Product Maker: Calcular Costos | `com.domene.productmaker` | Productividad | 500+ | no la publica | **14 sept 2026** | No declara | **Sí, con título propio** |
+| Calculadora Artesanía — Tecydo | `com.akynoapps.craftcalculator` | Herramientas | 10 k+ | no la publica | **29 ago 2026** | Sí | **Sí, con título propio** |
+| CostoPro | `com.susucrea.costopro` | Productividad | 100+ | no la publica | **13 abr 2026** | No declara | No se puede saber: el título es el mismo en los dos idiomas |
+| Craft Pricing Calculator (Subbarao) | `com.subbarao.craftpricingcalculator` | Productividad | 1 k+ | no la publica | **6 ene 2026** | Sí | Traducida; título en inglés |
+
+**Ninguna de las siete publica `aggregateRating`**, y eso no es una suposición:
+en el `ld+json` de las siete fichas no existe la clave. Lo más probable es que
+tengan pocas valoraciones, pero eso sigue siendo conjetura y va dicha como tal.
+**Las siete siguen vivas**: la más antigua de las siete actualizaciones es de
+enero de 2026.
 
 **Cómo distinguí «ficha en español» de «ficha traducida».** Google traduce
 automáticamente la descripción breve de cualquier app al idioma de la tienda, así
 que leer español no prueba nada. Lo que sí lo prueba es que el **título** cambie
 entre `hl=es_CL` y `hl=en`: eso solo ocurre cuando el desarrollador publicó una
-ficha en español. `CraftCost: Precios Artesanía` / `CraftCost: Handmade Pricing` y
-`Product Maker: Calcular Costos` / `Product Maker: Cost Calculator` cambian;
-`Handmade Pricing Calculator` y `Craft Pricing Calculator` no.
+ficha en español. Comprobado par a par el 6 de octubre de 2026:
 
-### Una corrección al dato de partida
+| Paquete | `hl=es_CL` | `hl=en` | ¿Ficha propia? |
+|---|---|---|---|
+| `com.akynoapps.craftcalculator` | Calculadora Artesanía - Tecydo | Craft Calculator - Tecydo | **Sí** |
+| `com.codeensis.craftcost` | CraftCost: Precios Artesanía | CraftCost: Handmade Pricing | **Sí** |
+| `com.domene.productmaker` | Product Maker: Calcular Costos | Product Maker: Cost Calculator | **Sí** |
+| `com.susucrea.costopro` | CostoPro | CostoPro | No se puede saber |
+| `dev.mdwalid.craft_pricing` | Handmade Pricing Calculator | (igual) | No |
+| `com.subbarao.craftpricingcalculator` | Craft Pricing Calculator | (igual) | No |
+| `co.uk.handmadeaberdeenshire.craftpricingcalculator` | Craft Pricing Calculator | (igual) | No |
 
-El encargo decía que una de estas calculadoras estaba «en español y actualizada
-en **agosto de 2026**». **Ninguna lo está.** La más reciente de todas es *Craft
-Pricing Calculator* (28 de septiembre de 2026), cuya ficha está traducida pero no
-publicada en español; y la más reciente **con ficha propia en español** es
-*CraftCost* (8 de junio de 2026). Ninguna ficha de las siete muestra una
-actualización en agosto de 2026. Lo escribo aquí porque el número de la fecha no
-cambia la conclusión, pero una cifra mal citada en un documento de estrategia se
+Son **tres**, no dos: la versión anterior de este documento contaba dos porque
+dejaba fuera a Tecydo, que sí tiene título propio en español. Y de CostoPro no se
+puede afirmar nada por este método: su nombre es el mismo en los dos idiomas.
+
+### Qué se corrigió, y el dato de partida que resultó ser cierto
+
+El encargo decía que en Google Play había **al menos seis** calculadoras de
+precio para artesanía y que **una estaba en español y actualizada en agosto de
+2026**. Una versión anterior de este documento respondió que «ninguna lo está».
+**Esa respuesta era la equivocada, y el dato de partida era correcto:**
+
+> **Calculadora Artesanía — Tecydo** (`com.akynoapps.craftcalculator`) tiene
+> ficha propia en español —su título cambia entre `hl=es_CL` y `hl=en`— y su
+> bloque «Actualización» dice **29 ago 2026**.
+
+De paso, al releer las siete fichas el 6 de octubre de 2026 cambiaron **seis de
+las siete fechas** de la tabla:
+
+| App | Decía | Dice su ficha hoy |
+|---|---|---|
+| Calculadora Artesanía — Tecydo | 12 nov 2023 | **29 ago 2026** |
+| CraftCost | 8 jun 2026 | **5 oct 2026** |
+| Handmade Pricing Calculator | 14 sept 2026 | **4 oct 2026** |
+| Product Maker | 10 may 2026 | **14 sept 2026** |
+| CostoPro | 3 feb 2026 | **13 abr 2026** |
+| Craft Pricing Calculator (Subbarao) | 1 dic 2025 | **6 ene 2026** |
+| Craft Pricing Calculator | 28 sept 2026 | 28 sept 2026 (sin cambio) |
+
+Y una conclusión que sí cambia con esto: el pelotón **no está abandonado**. La
+idea de que eran calculadoras viejas que nadie mantiene era un consuelo falso.
+Dos se actualizaron esta semana. Lo que las separa de Págate-IA no es que estén
+muertas, es lo que no hacen, y eso está en el apartado siguiente.
+
+Queda escrito porque una cifra mal citada en un documento de estrategia se
 convierte en una cifra mal citada en una publicación.
 
 ### Las dos que hay que mirar de cerca
@@ -280,7 +349,7 @@ mensual y las horas disponibles. No son lo mismo y la diferencia es el producto.
 
 | App | Instalaciones | Valoración | Modelo | Precio por pieza | Valor hora | Cuentas del mes | Inventario con stock | Asistente | Chile |
 |---|---|---|---|---|---|---|---|---|---|
-| Treinta | 10 M+ | 4,1 (105.668) | Freemium agresivo | No | No | Sí | Sí | No | Sí |
+| Treinta | 10 M+ | 4,1 (105.669) | Freemium agresivo | No | No | Sí | Sí | No | Sí |
 | Yimi POS | 100 K+ | 4,2 (2.663) | Freemium | No | No | Sí | Sí | No | Sí |
 | Mi Negocio Simple | 100+ | 5,0 (6) | Gratis | No | No | Sí | Parcial | No | **Chileno** |
 | Control de Mi Negocio | 100 K+ | 4,2 (1.427) | Gratis con anuncios | No | No | Sí | Sí | No | Sí |
@@ -289,7 +358,7 @@ mensual y las horas disponibles. No son lo mismo y la diferencia es el producto.
 | CraftCost | 100+ | no la publica | Pro por suscripción | **Sí**, con comisiones | No | No | No | No | Soporta CLP |
 | Product Maker | 500+ | no la publica | Gratis / Pro | **Sí**, con IA de visión | No | No | No | No | Sí |
 | CostoPro · Handmade Pricing · Craft Pricing (Subbarao) | 10 a 1 K+ | no la publican | Gratis | **Sí** | No | No | No | No | Mixto |
-| Monefy / Controlar Gastos / Bluecoins | 100 K+ a 10 M+ | 4,3–4,6 | Gratis / freemium | No | No | Personal | No | No | Sí |
+| Monefy / Controlar Gastos / Bluecoins | 100 K+ a 10 M+ | 4,3–4,7 | Gratis / freemium | No | No | Personal | No | No | Sí |
 | **Págate-IA** | — | — | Gratis hoy | No (todavía) | **Sí** | **Sí** | **Sí** | **Sí** | **Chileno** |
 
 Dos casillas de la fila de Págate-IA merecen una nota, porque son las que la

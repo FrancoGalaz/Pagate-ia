@@ -8,6 +8,27 @@ menos de 100.000 pesos al mes. No hay agencia, no hay community manager y no hay
 «estrategia de contenidos omnicanal». Hay cuatro canales, un calendario de seis
 semanas y cinco números que mirar.
 
+> ### Cómo leer las cifras de este documento
+>
+> Hay dos clases de número aquí dentro y **no valen lo mismo**:
+>
+> - **Hechos verificados.** Llevan su enlace al lado, en el párrafo donde
+>   aparecen: la normativa del SII, las fechas de la Muestra UC, el curso de
+>   Sercotec, las postulaciones al Sello de Excelencia y todas las cifras de los
+>   competidores (que están en `docs/COMPETENCIA.md`, con el método y la fecha
+>   de lectura).
+> - **Estimaciones de trabajo.** Todo lo que este documento llama «cuesta» y
+>   «rinde» por canal, lo que cuesta imprimir las tarjetas y la expectativa de
+>   correos del §5 van marcados **(estimación sin fuente)**. No salen de ningún
+>   estudio, de ninguna medición propia y de ningún dato del sector: son
+>   órdenes de magnitud para dimensionar el esfuerzo y decidir qué probar.
+>   **No se publican, no se le dicen a nadie y no se usan para prometer nada.**
+>   En cuanto haya tres semanas de datos reales en la hoja del §5, se sustituyen
+>   por lo que de verdad pase.
+>
+> Si un número no está en ninguno de los dos grupos, es que sobra y hay que
+> quitarlo.
+
 ---
 
 ## 0. El bloqueo que va primero que todo
@@ -30,11 +51,16 @@ documento:
 1. Habilitar Firestore y desplegar las funciones (consola de Firebase, es del
    dueño).
 2. ~~Regenerar y publicar la landing con las páginas legales y sin las métricas
-   inventadas.~~ **HECHO.** `landing-page/` se reconstruyó desde `landing/` y hoy
-   contiene las tres páginas legales, la URL real de la función `waitlist` y
-   ninguna de las cifras ni los testimonios inventados. Lo que falta no es
-   técnico: que GitHub Pages sirva esa carpeta requiere que el commit llegue a
-   `main`, y **el dueño es el único que puede hacer ese push**.
+   inventadas.~~ **La carpeta ya está reconstruida; falta publicarla.**
+   `landing-page/` se reconstruyó desde `landing/` y hoy contiene las tres
+   páginas legales, la URL real de la función `waitlist` y ninguna de las cifras
+   ni los testimonios inventados. Lo que falta no es técnico: que GitHub Pages
+   sirva esa carpeta requiere que el commit llegue a `main`, y **el dueño es el
+   único que puede hacer ese push**. Comprobado hoy, 6 de octubre de 2026: la
+   portada responde `200` y las tres páginas legales responden **`404`**. Los
+   pasos exactos —qué rama, qué comando y cómo comprobar las cuatro URLs
+   después— están en **`docs/FICHA-PLAY.md` §0 bis**. Sin esto Play no acepta
+   la ficha, porque exige que la URL de política de privacidad responda.
 3. Rellenar los **cinco** marcadores de `landing/src/content/legal-meta.ts`. La
    lista exacta, con línea y constante, está en `docs/FICHA-PLAY.md §8`.
    Las páginas ya **no muestran corchetes** al visitante, pero eso no rellena el
@@ -127,11 +153,19 @@ es lo que convierte una conversación de feria en un correo: la persona pasa de
 ### El hueco: hay siete calculadoras, y ninguna lleva las cuentas
 
 En la tienda chilena de Google Play hay **al menos siete calculadoras de precio
-para artesanía**. Una tiene 100.000 instalaciones. Dos están publicadas en
+para artesanía**. Una tiene 100.000 instalaciones. Tres están publicadas en
 español con ficha propia. Y una de ellas, **CraftCost**, ya descuenta la comisión
 de Mercado Libre, Etsy, Shopify, eBay y Amazon Handmade, y soporta el peso
-chileno. El inventario completo, con instalaciones y fechas de actualización,
-está en **`docs/COMPETENCIA.md §1.9`**.
+chileno. El inventario completo, con instalaciones y fechas de actualización
+releídas el 6 de octubre de 2026, está en **`docs/COMPETENCIA.md §1.9`**.
+
+**Y ninguna está abandonada.** Al releer las siete fichas, seis de las siete
+fechas de actualización resultaron ser más recientes de lo que decía la versión
+anterior del documento de competencia: dos se actualizaron esta misma semana y
+la más antigua es de enero de 2026. La *Calculadora Artesanía — Tecydo*, que
+figuraba como «sin tocar desde 2023», se actualizó el **29 de agosto de 2026**.
+Conviene saberlo antes de escribir una línea: el argumento «son calculadoras
+viejas que nadie mantiene» es falso y se desmonta en treinta segundos.
 
 **Qué significa esto para el mensaje:**
 
@@ -139,12 +173,16 @@ está en **`docs/COMPETENCIA.md §1.9`**.
   segundos buscando en Play. Quien lo diga queda como vendedor.
 - **No se dice que descontar la comisión del medio de pago sea novedad.** Ya está
   hecho y mejor documentado por un competidor.
+- **No se dice que estén abandonadas.** Seis de las siete se actualizaron en
+  2026 y dos esta semana.
 - **Lo que sí es verdad, y es el eje:** ninguna de las siete **lleva las cuentas
   del mes**, ninguna tiene **inventario con stock mínimo**, ninguna tiene un
   **asistente con el que conversar sobre tus propios números** y ninguna calcula
   el valor hora **a partir de cuánto quieres ganar al mes**. Y ninguna de las
   cuatro apps de gestión del mercado (Treinta, Yimi, Mi Negocio Simple, Control
-  de Mi Negocio) calcula precios.
+  de Mi Negocio) calcula precios. Esto sale de **lo que declara cada ficha**
+  —descripción, capturas y novedades—, que es lo que se puede comprobar sin
+  instalar las once apps; es «no lo anuncia», no «lo probé y no lo tiene».
 
 > **La frase del posicionamiento, entonces, es:** «Una calculadora te da el
 > precio y después cierras la app. Esta se queda con el mes.»
@@ -160,7 +198,10 @@ huecos 2 y 3). Eso no se anuncia: se demuestra en un vídeo de 30 segundos.
 
 ## 1. A quién se le habla
 
-No «emprendedores». Una persona concreta:
+No «emprendedores». Una persona concreta. **Es un retrato de trabajo, no un
+dato demográfico**: sirve para decidir qué se dice y dónde, y no está sacado de
+ninguna encuesta. Lo que sí está verificado va justo debajo, en «Por qué este
+público».
 
 > **Una mujer de entre 28 y 45 años que hace cerámica, telar, joyería o
 > repostería en su casa o en un taller compartido. Vende en dos o tres ferias al
@@ -245,12 +286,15 @@ bien en una presentación.
 ### Canal 1 — Ferias y encuentros de artesanía (el que más rinde)
 
 **Cuesta:** la entrada o el pasaje, más una tarde. Entre 0 y 20.000 pesos por
-salida. Es el canal más barato y el único donde hablas con la persona exacta.
+salida *(estimación sin fuente)*. Es el canal más barato y el único donde hablas
+con la persona exacta.
 
-**Rinde:** entre 5 y 15 conversaciones reales por tarde, de las cuales 2 a 5
-dejan su correo. Son pocos números, pero cada uno trae una frase textual sobre el
-problema que no vas a conseguir de ninguna otra forma. En esta etapa, **entender
-vale más que convertir**.
+**Rinde** *(estimación sin fuente: ninguna de estas cifras está medida, son el
+orden de magnitud con el que se dimensiona la tarde)*: entre 5 y 15
+conversaciones reales por tarde, de las cuales 2 a 5 dejan su correo. Son pocos
+números, pero cada uno trae una frase textual sobre el problema que no vas a
+conseguir de ninguna otra forma. En esta etapa, **entender vale más que
+convertir**.
 
 **Cómo se hace, concretamente:**
 
@@ -273,9 +317,11 @@ vale más que convertir**.
   visitante. Y está perfecto: en cinco días hay más de cien artesanos de Chile y
   Latinoamérica en un mismo lugar y con tiempo para conversar. Es el mejor día
   de trabajo del año para este plan.
-- **Feria de Invierno Artesanía UC**, en mayo, mucho más pequeña (37 artesanos en
-  2026). Útil si se quiere postular como expositor más adelante: se postula con
-  mucha antelación.
+- **Feria de Invierno Artesanía UC**, en mayo, mucho más pequeña. Útil si se
+  quiere postular como expositor más adelante: se postula con mucha antelación.
+  *(El número de expositores de la edición de 2026 no lo pude verificar en
+  [artesania.uc.cl](https://artesania.uc.cl/extension/muestra/); la versión
+  anterior de este documento decía «37 artesanos» sin fuente y se ha quitado.)*
 
 Entre medio, ferias locales: las de barrio, las municipales de fin de semana y
 las de Navidad de noviembre y diciembre. Se encuentran en el Instagram de cada
@@ -283,12 +329,15 @@ municipalidad.
 
 ### Canal 2 — Instagram y TikTok orgánicos
 
-**Cuesta:** cero en dinero. Entre 3 y 5 horas a la semana.
+**Cuesta:** cero en dinero. Entre 3 y 5 horas a la semana *(estimación sin
+fuente)*.
 
-**Rinde:** poco al principio y de golpe cuando un vídeo pega. Lo realista en seis
-semanas, empezando de cero y sin pauta: entre 300 y 2.000 reproducciones por
-pieza, y entre 20 y 80 seguidores. Si un vídeo se sale, puede llegar a decenas de
-miles; no se puede planificar, solo se puede estar publicando cuando pase.
+**Rinde** *(estimación sin fuente)*: poco al principio y de golpe cuando un vídeo
+pega. Lo realista en seis semanas, empezando de cero y sin pauta: entre 300 y
+2.000 reproducciones por pieza, y entre 20 y 80 seguidores. Si un vídeo se sale,
+puede llegar a decenas de miles; no se puede planificar, solo se puede estar
+publicando cuando pase. **Ninguno de estos rangos está medido**: son la
+expectativa con la que no desmoralizarse, no una promesa.
 
 **El formato que funciona, y es uno solo:** el cálculo en vivo.
 
@@ -331,12 +380,15 @@ de las tres; úsalo tal cual.
 
 ### Canal 3 — Tiendas de insumos
 
-**Cuesta:** entre 0 y 30.000 pesos, si se imprime algo.
+**Cuesta:** entre 0 y 30.000 pesos, si se imprime algo *(estimación sin
+fuente)*.
 
-**Rinde:** es el canal de mayor apalancamiento del plan. Una tienda de arcilla,
-lanas o insumos de repostería ve pasar entre 50 y 300 artesanos al mes, y **ya
-tiene su confianza**. Una recomendación del dueño de la tienda vale cincuenta
-anuncios.
+**Rinde:** es el canal de mayor apalancamiento del plan, porque la tienda **ya
+tiene la confianza** del artesano y una recomendación de quien atiende vale
+mucho más que un anuncio. *(Cuánta gente pasa al mes por una tienda de insumos
+es una estimación sin fuente: la versión anterior decía «entre 50 y 300
+artesanos al mes» y no hay dato público que lo respalde. Pregúntalo en la
+primera visita: es una de las cosas que la tienda sí sabe.)*
 
 **Cómo se hace:**
 
@@ -350,7 +402,8 @@ anuncios.
   atiende saca el tema del SII —en una tienda de insumos sale—, la respuesta es
   la frase media del §0 bis, sin adornarla.
 - Lo que dejas es **una tarjeta tamaño bolsillo con un código QR** a la landing,
-  no un folleto. 100 tarjetas cuestan entre 15.000 y 30.000 pesos.
+  no un folleto. *(El precio de 100 tarjetas es una estimación sin fuente: pide
+  dos cotizaciones antes de presupuestarlo.)*
 - **Usa un `source` distinto por tienda** en la URL del QR. El backend ya guarda
   ese campo (`functions/src/waitlist.ts` acepta `source`), así que sabrás qué
   tienda trae gente y cuál no. Es la medición más barata de todo el plan.
@@ -359,8 +412,8 @@ anuncios.
 
 **Cuesta:** cero. Entre 2 y 3 horas a la semana.
 
-**Rinde:** entre 1 y 5 correos por grupo bien trabajado. Y, mal hecho, cero más
-una expulsión.
+**Rinde** *(estimación sin fuente)*: entre 1 y 5 correos por grupo bien
+trabajado. Y, mal hecho, cero más una expulsión.
 
 **Cómo se hace, y esto importa:** no publicas la app. Buscas las preguntas sobre
 precios, que aparecen todas las semanas en cualquier grupo de artesanía, y las
@@ -476,10 +529,17 @@ Una hoja de cálculo, una fila por semana. Nada más.
 **Lo que NO se mide:** seguidores, «me gusta», impresiones y alcance. Suben solos
 y no predicen nada.
 
-**Una expectativa honesta para no desmoralizarse:** entre 30 y 120 correos en
-seis semanas, trabajando constante y sin pauta. Si alguien te promete miles, está
-vendiendo algo. Con 50 personas reales que tienen el problema se puede lanzar y
-aprender; con 5.000 correos comprados, no.
+**Una expectativa honesta para no desmoralizarse** *(estimación sin fuente)*:
+entre 30 y 120 correos en seis semanas, trabajando constante y sin pauta. **Ese
+rango no está medido ni sale de ningún estudio**; es el orden de magnitud con el
+que se decide si el plan va o no va, y se sustituye por datos reales en cuanto
+haya tres semanas en la hoja. Si alguien te promete miles, está vendiendo algo.
+Con 50 personas reales que tienen el problema se puede lanzar y aprender; con
+5.000 correos comprados, no.
+
+**Y un recordatorio que vale para todo el documento:** estas estimaciones son
+para tu cuaderno. No van en la landing, no van en la ficha de Play y no se le
+dicen a un posible socio como si fueran una proyección.
 
 ---
 
