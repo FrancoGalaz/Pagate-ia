@@ -117,7 +117,8 @@ export default function TerminosPage() {
           items={[
             'Las respuestas del asistente las genera un modelo de lenguaje. Pueden contener errores, cifras equivocadas o afirmaciones desactualizadas. Verifica siempre antes de actuar.',
             'El asistente usa como contexto los datos de tu negocio que tengas registrados. Qué datos salen exactamente y hacia dónde está detallado en la política de privacidad.',
-            'El asistente tiene un límite diario de mensajes según tu plan. Al alcanzarlo tendrás que esperar al día siguiente.',
+            'El asistente tiene un límite de mensajes. En las cuentas gratuitas es un número total, no una cuota diaria: cuando se agota no se renueva al día siguiente. La app te lo dice en ese momento, y el resto de la app sigue funcionando igual.',
+            'Puedes reportar cualquier respuesta del asistente con el botón que lleva cada mensaje.',
             'No uses el asistente para obtener instrucciones sobre asuntos legales, médicos o tributarios concretos: no está hecho para eso y puede equivocarse.',
           ]}
         />

@@ -87,10 +87,27 @@ const PROHIBIDAS: Array<{ needle: string; porque: string }> = [
   // servicios financieros de Google Play.
   { needle: 'recibir pagos', porque: 'la app no recibe ni procesa pagos' },
   { needle: 'punto de venta', porque: 'la app no es un POS' },
-  // Campos del contrato C-3: no existen todavía en `lib/`, así que la landing
-  // no los puede anunciar como funciones disponibles.
-  { needle: 'boleta de honorarios', porque: 'C-3 todavía no tiene código en lib/' },
-  { needle: 'comisión del medio de pago', porque: 'C-3 todavía no tiene código en lib/' },
+  // Los dos campos del contrato C-3 («boleta de honorarios» y «comisión del
+  // medio de pago») estuvieron aquí, prohibidos, porque entonces no existían en
+  // `lib/` y la landing no podía anunciarlos. Ya existen, así que la prohibición
+  // se volvió lo contrario de lo que este archivo defiende: un guardia que
+  // impedía decir la verdad. Lo que ocupa su sitio es el test
+  // «los campos chilenos que nombra la política existen en la app», más abajo:
+  // no prohíbe la frase, exige que el código la respalde.
+];
+
+/**
+ * Campos del contrato C-3 que la política de privacidad nombra, con el valor
+ * exacto que tienen que tener en el cliente para que nombrarlos sea verdad.
+ *
+ * `wire` es el literal que viaja a Firestore, no la etiqueta de la interfaz:
+ * una etiqueta se puede traducir, y lo que determina si el dato existe es el
+ * campo.
+ */
+const CAMPOS_C3: Array<{ wire: string; donde: string }> = [
+  { wire: 'boleta_honorarios', donde: 'docType de una transacción' },
+  { wire: 'boleta_venta', donde: 'docType de una transacción' },
+  { wire: 'platformFee', donde: 'la comisión del medio de pago' },
 ];
 
 describe('la landing no vuelve a inventar datos', () => {
@@ -111,6 +128,35 @@ describe('la landing no vuelve a inventar datos', () => {
       ).toEqual([]);
     });
   }
+
+  it('los campos chilenos que nombra la política existen en la app', () => {
+    // Este test sustituye a dos prohibiciones que se volvieron falsas (ver la
+    // nota al final de PROHIBIDAS). La política de privacidad dice hoy que el
+    // asistente recibe el tipo de documento y la comisión del medio de pago de
+    // cada ingreso. Eso solo es verdad si los campos existen en el cliente, así
+    // que se comprueba en el cliente y no se da por bueno.
+    //
+    // Se leen los archivos de `lib/` desde aquí a propósito: la landing y la app
+    // son dos builds distintos, y esta afirmación cruza las dos. Si alguien
+    // retira el contrato C-3 del cliente, el que queda mintiendo es un documento
+    // legal publicado, y este es el único test que lo ve.
+    const repo = join(SRC, '..', '..');
+    const entity = readFileSync(
+      join(repo, 'lib', 'features', 'finances', 'domain', 'entities', 'finances_transaction_entity.dart'),
+      'utf8',
+    );
+    const ausentes = CAMPOS_C3.filter(({ wire }) => !entity.includes(wire));
+    expect(
+      ausentes.map(({ wire, donde }) => `${wire} (${donde})`),
+      'la política de privacidad nombra campos que ya no están en el cliente',
+    ).toEqual([]);
+
+    // Y que la política los siga nombrando: si se borran de la página, el
+    // formulario de Seguridad de los datos de Play deja de coincidir con la app.
+    const privacidad = readFileSync(join(SRC, 'pages', 'PrivacidadPage.tsx'), 'utf8');
+    expect(privacidad).toContain('boleta de honorarios');
+    expect(privacidad).toContain('comisión que te descontó el medio de pago');
+  });
 
   it('no quedan enlaces muertos href="#" en los componentes', () => {
     const culpables = files.filter((f) =>

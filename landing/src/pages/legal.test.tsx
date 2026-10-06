@@ -6,6 +6,8 @@
 // quita de los términos la frase de que la app no procesa pagos, la revisión
 // de Play se cae semanas después y nadie sabrá por qué. Esto lo detecta antes.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import PrivacidadPage from './PrivacidadPage';
@@ -37,7 +39,14 @@ describe('Política de privacidad', () => {
       'Gastos fijos',
       'Inventario',
       'Resúmenes mensuales',
-      'contador de uso diario',
+      // Antes decía 'contador de uso diario'. La cuota del plan free NO es
+      // diaria: son mensajes DE POR VIDA (`FREE_LIFETIME_QUOTA` en
+      // functions/src/quota.ts) y el contador guarda los dos números.
+      'contador de mensajes',
+      'en total desde que creaste la cuenta',
+      // El reporte de respuestas de la IA (`users/{uid}/aiReports`) es un dato
+      // que la app recoge y que la política no nombraba.
+      'reportas una respuesta',
       'lista de espera',
     ]) {
       expect(text).toContain(dato);
@@ -47,11 +56,35 @@ describe('Política de privacidad', () => {
   it('divulga qué se envía a OpenRouter y al proveedor del modelo', () => {
     const text = textOf(<PrivacidadPage />);
     expect(text).toContain('OpenRouter');
-    expect(text).toContain('últimas 10 transacciones');
-    expect(text).toContain('últimos 20 mensajes');
     expect(text).toContain('valor hora calculado');
     // La advertencia sobre nombres de clientes en el título de la transacción.
     expect(text).toContain('nombre de un cliente');
+  });
+
+  it('los límites que divulga coinciden con los del backend', () => {
+    // Este test decía `toContain('últimos 20 mensajes')` y pasaba en verde
+    // mientras `HISTORY_LIMIT` valía 6: estaba fijando una cifra falsa en una
+    // política de privacidad publicada, y el verde la defendía.
+    //
+    // Ahora las dos cifras se LEEN de functions/src/chat.ts, que es su única
+    // fuente. Si alguien las cambia ahí, este test falla y nombra el párrafo de
+    // la política que hay que corregir, en vez de dejarlo mintiendo.
+    const chat = readFileSync(
+      join(import.meta.dirname, '..', '..', '..', 'functions', 'src', 'chat.ts'),
+      'utf8',
+    );
+    const leer = (constante: string): number => {
+      const m = chat.match(new RegExp(`${constante}\\s*=\\s*(\\d+)`));
+      expect(m, `no se encontró ${constante} en functions/src/chat.ts`).not.toBeNull();
+      return Number(m![1]);
+    };
+
+    const historial = leer('HISTORY_LIMIT');
+    const transacciones = leer('RECENT_TRANSACTIONS_LIMIT');
+
+    const text = textOf(<PrivacidadPage />);
+    expect(text).toContain(`últimos ${historial} mensajes`);
+    expect(text).toContain(`últimas ${transacciones} transacciones`);
   });
 
   it('indica dónde se guardan los datos y que van cifrados en tránsito', () => {

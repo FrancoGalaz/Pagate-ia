@@ -237,10 +237,10 @@ const DOC_TYPES = ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
  * Tasa con la que se calcula la comisión de Mercado Pago de la demostración.
  *
  * El 3,19 % es la cifra que circula para Chile en 2026 y `docs/FICHA-PLAY.md`
- * §3 la deja marcada como **NO verificada en la fuente**: la página de costos
- * de Mercado Pago se renderiza con JavaScript y no devuelve ninguna cifra a un
- * cliente de texto (vuelto a comprobar el 6 de octubre de 2026: responde 200 y
- * en el HTML no aparece ningún porcentaje).
+ * §3 la deja marcada como **NO verificada en la fuente**: la página de costos de
+ * Mercado Pago está detrás de la sesión (vuelto a comprobar el 6 de octubre de
+ * 2026: responde 302 y redirige a `mercadopago.cl/login/identification`, así que
+ * la tarifa solo la puede leer alguien con cuenta).
  *
  * Por eso aquí no se afirma que esa sea la comisión real de nadie: es el número
  * que la usuaria de la demostración anotó en su venta. Se calcula en el script
@@ -522,15 +522,53 @@ async function crearUsuarioAuth() {
 }
 
 /**
+ * Subcolecciones que el sembrado deja EXACTAMENTE como las escribe este script.
+ *
+ * Las cuatro primeras las escribe el script. Las tres últimas no las escribe
+ * nadie aquí, y por eso tenían que entrar en la lista: son las que el emulador
+ * acumula mientras se prueba la app a mano, y lo que quedaba dentro NO era dato
+ * de demostración.
+ *
+ * Comprobado en el emulador antes de ampliar la lista (6 de octubre de 2026):
+ *  - `conversations/` tenía una conversación con un único mensaje del usuario y
+ *    `messageCount: 0`: una pregunta que el asistente nunca respondió.
+ *  - `meta/usage` tenía `chatCountLifetime: 1`, o sea un mensaje de los 25 del
+ *    plan free ya gastado. La cuenta que se le entrega al revisor de Play tiene
+ *    que llegar con los 25 sin gastar, y esto es lo único que los devuelve.
+ *  - `aiReports/` estaba vacía. Se limpia igual: es donde caen los reportes de
+ *    respuestas de la IA, y una prueba a mano deja uno dentro.
+ */
+const SUBCOLECCIONES = [
+  'transactions',
+  'inventory',
+  'fixedExpenses',
+  'months',
+  'conversations',
+  'aiReports',
+  'meta',
+];
+
+/**
  * Vacía una subcolección del usuario demo. Sin esto, editar las listas de
  * arriba dejaría documentos huérfanos de la ejecución anterior.
+ *
+ * Borra en RECURSIVO, no con un lote de deletes sobre los documentos de primer
+ * nivel. Dos razones, las dos reales:
+ *  - `conversations/{id}/messages/` es una subcolección: borrar el documento
+ *    padre con un `batch.delete()` deja los mensajes dentro, alcanzables por
+ *    ruta y contados por cualquier lectura que los pida.
+ *  - un lote de Firestore admite 500 operaciones. Con 38 movimientos sobraba
+ *    sitio, pero el tope no estaba comprobado en ninguna parte y las listas de
+ *    arriba se siguen editando.
+ *
+ * Devuelve cuántos documentos de primer nivel había, solo para el informe de
+ * consola; el borrado no depende de esa cuenta.
  */
 async function limpiarSubcoleccion(nombre) {
-  const snapshot = await db.collection(`users/${DEMO_UID}/${nombre}`).get();
+  const coleccion = db.collection(`users/${DEMO_UID}/${nombre}`);
+  const snapshot = await coleccion.get();
   if (snapshot.empty) return 0;
-  const lote = db.batch();
-  snapshot.docs.forEach((doc) => lote.delete(doc.ref));
-  await lote.commit();
+  await db.recursiveDelete(coleccion);
   return snapshot.size;
 }
 
@@ -556,7 +594,7 @@ async function sembrar() {
       `valor hora ${PERFIL.hourlyRate.hourlyValue.toLocaleString('es-CL')} CLP`,
   );
 
-  for (const nombre of ['transactions', 'inventory', 'fixedExpenses', 'months']) {
+  for (const nombre of SUBCOLECCIONES) {
     const borrados = await limpiarSubcoleccion(nombre);
     if (borrados > 0) console.log(`Limpieza: ${borrados} documentos en ${nombre}`);
   }
@@ -630,17 +668,25 @@ async function sembrar() {
   // ---- Agregados mensuales ----
   // En producción los escribe el trigger onTransactionWritten y el cliente
   // nunca los toca. Aquí se calculan con la MISMA fórmula que
-  // functions/src/months.ts (suma del monto por tipo y conteo total) porque
-  // este script actúa como backend: si el emulador de Functions está arriba, el
-  // trigger se dispara igual y llega al mismo resultado, así que las dos
-  // escrituras convergen en vez de pelearse.
+  // functions/src/months.ts (suma del monto por tipo, suma de las comisiones de
+  // los ingresos y conteo total) porque este script actúa como backend: si el
+  // emulador de Functions está arriba, el trigger se dispara igual y llega al
+  // mismo resultado, así que las dos escrituras convergen en vez de pelearse.
+  //
+  // Esa convergencia es exactamente lo que se rompió. `months/*` tenía tres
+  // campos cuando se escribió este bloque; el contrato C-3 le añadió un cuarto,
+  // `totalPlatformFees`, y aquí se seguía escribiendo sin él. Como el orden
+  // entre el `set()` de este lote y el recálculo del trigger no está
+  // garantizado, la última escritura podía ser la de tres campos, y entonces el
+  // agregado del mes se quedaba SIN las comisiones: el valor hora neto de la
+  // cuenta demo salía igual al bruto y nadie lo notaba, porque la cifra que
+  // falta no se ve, se ve una que cuadra con otra cosa. Comprobado en el
+  // emulador: los tres `months/*` estaban sin el campo.
   for (const [monthKey, totales] of totalesDelPeriodo) {
     lote.set(db.doc(`users/${DEMO_UID}/months/${monthKey}`), {
-      // `comisiones` NO se escribe: `months/*` tiene exactamente tres campos
-      // (functions/src/months.ts) y el trigger, que también recalcula estos
-      // documentos, dejaría el extra fuera en la siguiente escritura.
       totalIncome: totales.totalIncome,
       totalExpenses: totales.totalExpenses,
+      totalPlatformFees: totales.comisiones,
       transactionCount: totales.transactionCount,
       updatedAt: ahora,
     });
@@ -675,13 +721,148 @@ async function sembrar() {
         `  (${t.transactionCount} movimientos)`,
     );
   }
+  const agregados = await comprobarAgregados(totalesDelPeriodo);
+
   console.log('');
-  console.log(`Listo. Entra con ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  // No dice «Listo» cuando no lo está: la cuenta existe y se puede abrir, pero
+  // con los agregados mal no sirve para una captura de la tienda ni para el
+  // revisor, que es para lo que se siembra.
+  console.log(
+    agregados
+      ? `Listo. Entra con ${DEMO_EMAIL} / ${DEMO_PASSWORD}`
+      : `SEMBRADO INCOMPLETO (los agregados de months/ están mal). La cuenta ` +
+          `${DEMO_EMAIL} / ${DEMO_PASSWORD} se abre, pero no la uses para capturas.`,
+  );
   console.log('Panel de los emuladores: http://localhost:4000/firestore');
+  return agregados;
+}
+
+/**
+ * Vuelve a LEER `months/*` de Firestore y lo compara con lo que se sembró.
+ *
+ * Por qué no sobra, habiéndolos escrito tres líneas más arriba: en este mes
+ * concreto el documento se escribe DOS veces, y no desde aquí. El lote de este
+ * script escribe una versión, y el trigger `onTransactionWritten` recalcula el
+ * mes por cada una de las 38 transacciones que acaba de ver nacer. Quién
+ * commitea último no está en manos del script, así que «lo escribí» no
+ * demuestra «quedó escrito»: lo único que lo demuestra es leerlo de vuelta.
+ *
+ * Y por eso no basta con UNA lectura correcta: la primera versión de esta
+ * comprobación daba verde en el primer intento, y lo daba porque leía antes de
+ * que el trigger escribiera. Con una compilación anterior del trigger —que es el
+ * caso que esta comprobación existe para cazar— habría leído los cuatro campos
+ * del lote de este script, dicho «correcto», y el trigger habría dejado tres
+ * campos cuatro segundos después. Un verde mintiendo sobre lo que acababa de
+ * sembrar.
+ *
+ * Así que lo que se exige es un estado ESTABLE: [LECTURAS_ESTABLES] lecturas
+ * correctas seguidas, separadas un segundo. Medido en el emulador, el trigger
+ * tarda unos 4 s en terminar sus recálculos desde que se commitean las
+ * transacciones, así que la ventana de estabilidad lo cubre con margen.
+ *
+ * Devuelve `true` si los cuatro campos de los tres meses coinciden con lo
+ * sembrado. No lanza: la siembra ya ocurrió, y lo útil es decir qué quedó mal.
+ */
+async function comprobarAgregados(totalesDelPeriodo) {
+  const INTENTOS = 20;
+  const ESPERA_MS = 1000;
+  const LECTURAS_ESTABLES = 6;
+
+  const esperados = new Map(
+    [...totalesDelPeriodo].map(([monthKey, t]) => [
+      monthKey,
+      {
+        totalIncome: t.totalIncome,
+        totalExpenses: t.totalExpenses,
+        totalPlatformFees: t.comisiones,
+        transactionCount: t.transactionCount,
+      },
+    ]),
+  );
+
+  let diferencias = [];
+  let correctasSeguidas = 0;
+  for (let intento = 1; intento <= INTENTOS; intento += 1) {
+    const snapshot = await db.collection(`users/${DEMO_UID}/months`).get();
+    const leidos = new Map(snapshot.docs.map((doc) => [doc.id, doc.data()]));
+    diferencias = [];
+
+    for (const [monthKey, esperado] of esperados) {
+      const real = leidos.get(monthKey);
+      if (!real) {
+        diferencias.push(`${monthKey}: el documento no existe`);
+        continue;
+      }
+      for (const [campo, valor] of Object.entries(esperado)) {
+        if (real[campo] === undefined) {
+          diferencias.push(`${monthKey}.${campo}: falta el campo`);
+        } else if (real[campo] !== valor) {
+          diferencias.push(`${monthKey}.${campo}: ${real[campo]}, se esperaba ${valor}`);
+        }
+      }
+    }
+    for (const monthKey of leidos.keys()) {
+      if (!esperados.has(monthKey)) {
+        diferencias.push(`${monthKey}: mes de sobra, no lo siembra este script`);
+      }
+    }
+
+    if (diferencias.length === 0) {
+      correctasSeguidas += 1;
+      if (correctasSeguidas >= LECTURAS_ESTABLES) {
+        console.log('');
+        console.log(
+          `Agregados comprobados LEYÉNDOLOS de Firestore: ${esperados.size} meses ` +
+            `con los cuatro campos correctos en ${LECTURAS_ESTABLES} lecturas ` +
+            `seguidas (${intento} en total, ${LECTURAS_ESTABLES - 1} s estables).`,
+        );
+        for (const [monthKey, real] of [...leidos].sort()) {
+          console.log(
+            `  months/${monthKey}  totalIncome ${real.totalIncome}` +
+              `  totalExpenses ${real.totalExpenses}` +
+              `  totalPlatformFees ${real.totalPlatformFees}` +
+              `  transactionCount ${real.transactionCount}`,
+          );
+        }
+        return true;
+      }
+    } else {
+      // Una lectura mala tira por tierra la racha: lo que se exige es que el
+      // estado correcto se MANTENGA, no que haya aparecido alguna vez.
+      correctasSeguidas = 0;
+    }
+
+    if (intento < INTENTOS) {
+      await new Promise((resolve) => setTimeout(resolve, ESPERA_MS));
+    }
+  }
+
+  console.error('');
+  console.error(
+    `Los agregados de months/ NO cuadran después de ${INTENTOS} lecturas ` +
+      `(${(INTENTOS * ESPERA_MS) / 1000} s). Las transacciones sí se sembraron; ` +
+      'lo que está mal es el agregado, y la app y el asistente leen de ahí:',
+  );
+  if (diferencias.length === 0) {
+    // La última lectura era correcta, pero la racha nunca llegó a
+    // [LECTURAS_ESTABLES]: algo sigue reescribiendo los agregados. Decirlo así
+    // y no «no cuadran» a secas, porque el síntoma es distinto.
+    console.error(
+      `  - la última lectura era correcta, pero nunca hubo ${LECTURAS_ESTABLES} ` +
+        'seguidas: algo está reescribiendo months/ sin parar.',
+    );
+  }
+  diferencias.forEach((d) => console.error(`  - ${d}`));
+  console.error(
+    'Causa más probable: el emulador de Functions corre una compilación ' +
+      'anterior de functions/src/months.ts. Reconstruye con ' +
+      '`npm --prefix functions run build` y vuelve a sembrar.',
+  );
+  return false;
 }
 
 sembrar().then(
-  () => process.exit(0),
+  (agregadosCorrectos) => process.exit(agregadosCorrectos ? 0 : 1),
   (error) => {
     console.error('Falló la siembra:', error);
     process.exit(1);

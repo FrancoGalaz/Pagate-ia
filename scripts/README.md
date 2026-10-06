@@ -35,6 +35,28 @@ Sirve para tres cosas: las capturas de la ficha de Google Play, la cuenta de
 prueba que hay que entregar en **Play Console → Prueba y publicación → Acceso a
 la app**, y probar la app a mano sin teclear treinta movimientos.
 
+### El sembrado manda sobre toda la cuenta demo, no solo sobre lo que escribe
+
+Vacía **siete** subcolecciones de `users/demo-pagate-cl`: las cuatro que escribe
+(`transactions`, `inventory`, `fixedExpenses`, `months`) y tres que no escribe
+nadie aquí (`conversations`, `aiReports`, `meta`). Las tres últimas son las que
+el emulador va acumulando al probar la app a mano, y lo que quedaba dentro no era
+dato de demostración. Comprobado en el emulador el 2026-10-06, antes de
+ampliarlo: había una conversación con un solo mensaje del usuario y
+`messageCount: 0` —una pregunta que el asistente nunca contestó— y `meta/usage`
+con `chatCountLifetime: 1`, o sea **un mensaje de los 25 del plan free ya
+gastado**. La cuenta que se le entrega al revisor de Play tiene que llegar con
+los 25 enteros, y esto es lo único que los devuelve.
+
+El borrado es **recursivo**: `conversations/{id}/messages/` es una subcolección y
+un `batch.delete()` sobre el documento padre dejaba los mensajes dentro,
+alcanzables por ruta.
+
+Lo que el sembrado **no** toca: otros usuarios del emulador. Si alguien se
+registró a mano para probar, su `users/{uid}` sigue ahí. No estorba —las capturas
+se toman con la cuenta demo— pero conviene saberlo antes de contar documentos en
+el panel.
+
 ### Credenciales
 
 ```
@@ -87,14 +109,49 @@ Contrato C-3: 6 ingresos con docType, 2 con comisión del medio de pago
   2026-08  ingresos 695.500  gastos 602.700  saldo 92.800  comisiones 0  (11 movimientos)
   2026-09  ingresos 1.139.400  gastos 667.600  saldo 471.800  comisiones 0  (13 movimientos)
   2026-10  ingresos 980.000  gastos 640.500  saldo 339.500  comisiones 8.995  (14 movimientos)
+
+Agregados comprobados LEYÉNDOLOS de Firestore: 3 meses con los cuatro campos correctos en 6 lecturas seguidas (6 en total, 5 s estables).
+  months/2026-08  totalIncome 695500  totalExpenses 602700  totalPlatformFees 0  transactionCount 11
+  months/2026-09  totalIncome 1139400  totalExpenses 667600  totalPlatformFees 0  transactionCount 13
+  months/2026-10  totalIncome 980000  totalExpenses 640500  totalPlatformFees 8995  transactionCount 14
+
+Listo. Entra con demo@pagate.cl / PagateDemo2026
+Panel de los emuladores: http://localhost:4000/firestore
 ```
 
 Las líneas de «Limpieza» solo aparecen si ya había datos de una siembra
-anterior; la primera vez no salen. Los agregados de `months/` los escribe aquí
-el propio script —con la misma fórmula que `functions/src/months.ts`— porque
-actúa como backend; si el emulador de Functions está arriba, el trigger
-`onTransactionWritten` se dispara además y llega al mismo resultado, así que
-las dos escrituras convergen en vez de pelearse.
+anterior; la primera vez no salen.
+
+### El bloque de «Agregados comprobados», y cuándo el script sale con 1
+
+`months/{yyyy-MM}` lo escriben **dos** cosas: este script, que actúa de backend
+con la misma fórmula que `functions/src/months.ts`, y el trigger
+`onTransactionWritten`, que recalcula el mes por cada una de las 38
+transacciones que acaba de ver nacer. Quién commitea la última versión no está
+en manos del script.
+
+Eso ya falló una vez, y en silencio. El contrato C-3 añadió un cuarto campo,
+`totalPlatformFees`, al agregado; el script seguía escribiendo tres, y con el
+emulador de Functions corriendo una compilación anterior del trigger los tres
+meses de la cuenta demo quedaron **sin las comisiones**. El valor hora neto
+salía idéntico al bruto: una cifra que cuadra con otra cosa no se ve como un
+error, se ve como un número. Comprobado en el panel: los tres documentos estaban
+sin el campo.
+
+Por eso el script termina **volviendo a leer** `months/` y comparándolo con lo
+que sembró, y exige **seis lecturas correctas seguidas** (≈5 s) antes de dar
+verde: una sola lectura puede caer antes de que el trigger escriba, y entonces
+el verde certificaría un estado que cuatro segundos después ya no existe. Si no
+cuadra, imprime campo por campo lo que falta, el mensaje final dice «SEMBRADO
+INCOMPLETO» y **sale con código 1**.
+
+Si falla ahí, lo primero es reconstruir el backend **en el directorio desde el
+que se levantaron los emuladores** —es de ahí de donde el emulador de Functions
+sirve `functions/lib/`— y volver a sembrar:
+
+```bash
+npm --prefix functions run build
+```
 
 Luego, la app contra los emuladores:
 
