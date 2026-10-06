@@ -104,14 +104,30 @@ class FinancesProvider extends ChangeNotifier {
 
   /// Resumen del mes seleccionado, nunca nulo: si el backend aún no escribió
   /// el mes, se calcula localmente a partir de las transacciones visibles.
+  ///
+  /// El agregado del backend manda siempre que exista. El recorrido de abajo
+  /// es SOLO el respaldo de la ventana en la que el usuario ya registró un
+  /// movimiento y el trigger `onTransactionWritten` todavía no escribió el
+  /// mes: ahí `months/{yyyy-MM}` no existe y la pantalla tendría que elegir
+  /// entre un 0 falso y lo que ya tiene en memoria.
+  ///
+  /// Límite conocido y asumido del respaldo: `_transactions` llega acotada a
+  /// 200 documentos por `firestore.rules`, así que en un mes con más de 200
+  /// movimientos las cifras del respaldo se quedan cortas. Dura segundos y es
+  /// la única alternativa a no mostrar nada; el agregado, que no tiene ese
+  /// tope, lo sustituye en cuanto llega.
   FinancesSummaryEntity get summary {
     final fromBackend = selected;
     if (fromBackend != null) return fromBackend;
     double income = 0;
     double expenses = 0;
+    double fees = 0;
     for (final t in _transactions) {
       if (t.isIncome) {
         income += t.amount;
+        // `effectivePlatformFee`, no `platformFee`: la entidad ya acota la
+        // comisión a [0, amount], así que el neto no puede salir negativo.
+        fees += t.effectivePlatformFee;
       } else {
         expenses += t.amount;
       }
@@ -120,6 +136,11 @@ class FinancesProvider extends ChangeNotifier {
       monthKey: selectedMonthKey,
       totalIncome: income,
       totalExpenses: expenses,
+      totalPlatformFees: fees,
+      // El respaldo SÍ sabe cuánto fue de comisiones: las acaba de sumar. El
+      // `false` queda reservado para un documento del backend anterior a C-3,
+      // donde el 0 significaría "no se sabe".
+      hasPlatformFeesTotal: true,
       transactionCount: _transactions.length,
     );
   }

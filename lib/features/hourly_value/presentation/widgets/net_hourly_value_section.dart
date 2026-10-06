@@ -10,13 +10,29 @@ import '../bloc/hourly_rate_provider.dart';
 
 /// PROPÓSITO
 /// ---------
-/// Muestra el valor hora **neto** del mes en pantalla: lo que de verdad le
-/// quedó al usuario por hora, descontadas las comisiones del medio de pago
-/// que registró (contrato C-3).
+/// Enseña las DOS cifras por hora del mes, cada una con su nombre exacto:
 ///
-/// Es el contrapunto honesto del valor hora *objetivo* que configura arriba:
-/// ese es una meta, este es un hecho. Las horas salen de la configuración del
-/// propio usuario y los ingresos de lo que registró; la app no supone nada.
+/// · **Lo que te entró por hora** = (ingresos − comisiones del medio de pago)
+///   ÷ horas configuradas. Es el neto del contrato C-3. No descuenta gastos.
+/// · **Lo que te sobró por hora** = lo anterior − los gastos del mes.
+///
+/// POR QUÉ SON DOS. Hasta ahora había una sola, calculada como la primera y
+/// rotulada como la segunda ("Lo que te quedó por hora"). Medido en
+/// emulator-5554 con los datos demo de octubre de 2026 la pantalla decía
+/// $8.092 cuando lo que sobró por hora eran $2.754. La etiqueta no describía
+/// el cálculo, y el propio caso de uso lo decía por escrito: el valor hora
+/// responde "cuánto me entró por hora", no "cuánto me sobró".
+///
+/// Se podía arreglar de dos maneras —cambiar el rótulo o cambiar el cálculo—
+/// y las dos cifras le sirven a una artesana: la primera se compara con el
+/// valor hora objetivo de arriba (lo que cobra por su trabajo), la segunda
+/// dice si el mes cerró en positivo. Así que se enseñan ambas, rotuladas sin
+/// ambigüedad y con una línea que explica de dónde sale cada una.
+///
+/// Es el contrapunto honesto del valor hora *objetivo* que se configura
+/// arriba: ese es una meta, estos son hechos. Las horas salen de la
+/// configuración del propio usuario y las cifras del agregado mensual que
+/// escribe el backend; la app no supone nada.
 ///
 /// Mide, no asesora: ni una palabra sobre impuestos, declaraciones o precios
 /// recomendados.
@@ -59,54 +75,71 @@ class NetHourlyValueSection extends StatelessWidget {
     // después cambiaría solo.
     if (finances.isLoadingTransactions) return const SizedBox.shrink();
 
-    final mes = _nombreDelMes(finances.summary.monthKey);
-    final neto = _useCase.execute(
+    final summary = finances.summary;
+    final mes = _nombreDelMes(summary.monthKey);
+    final cifras = _useCase.execute(
+      summary: summary,
       transactions: finances.transactions,
       availableHoursPerMonth: rate.availableHoursPerMonth,
     );
 
-    if (!neto.hasIncome) {
+    if (!cifras.hasIncome) {
       return _Bloque(
         children: [
-          _LineaGuia('Lo que te quedó por hora en $mes'),
-          const SizedBox(height: AppSpacing.xs),
+          _LineaGuia('Lo que te entró por hora en $mes'),
+          const SizedBox(height: AppSpacing.x2),
           Text(
-            'Registra tus ingresos del mes y aquí aparece lo que te quedó '
-            'por cada hora de trabajo.',
+            'Registra tus ingresos del mes y aquí aparece lo que te entró '
+            'por cada hora de trabajo, y lo que te sobró después de los '
+            'gastos.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: AppPalette.textSecondary,
             ),
           ),
         ],
       );
     }
 
-    final horas = _formatearHoras(neto.availableHoursPerMonth);
+    final horas = _formatearHoras(cifras.availableHoursPerMonth);
 
     return _Bloque(
       children: [
-        _LineaGuia('Lo que te quedó por hora en $mes'),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          formatCurrency(neto.netHourlyValue, currency: kFallbackCurrency),
-          style: theme.textTheme.displaySmall?.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
+        // ─── 1. Lo que ENTRÓ por hora ───────────────────────────────
+        _LineaGuia('Lo que te entró por hora en $mes'),
+        const SizedBox(height: AppSpacing.x2),
+        _Cifra(cifras.entryHourlyValue),
+        const SizedBox(height: AppSpacing.x2),
         // La línea sobria que exige el contrato: el usuario tiene que saber
-        // que la cifra YA tiene descontadas las comisiones, y cuánto fue.
-        Text(
-          neto.hasPlatformFees
-              ? 'Ya descuenta ${formatCurrency(neto.platformFees, currency: kFallbackCurrency)} '
+        // qué descuenta la cifra y qué NO descuenta.
+        _Nota(
+          cifras.hasPlatformFees
+              ? 'Tus ingresos de $mes menos '
+                  '${formatCurrency(cifras.platformFees, currency: kFallbackCurrency)} '
                   'de comisiones del medio de pago que registraste, sobre las '
-                  '$horas que configuraste.'
-              : 'Sobre las $horas que configuraste. No registraste comisiones '
-                  'del medio de pago este mes, así que no hay nada que '
-                  'descontar.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+                  '$horas que configuraste. No descuenta tus gastos.'
+              : 'Tus ingresos de $mes sobre las $horas que configuraste. No '
+                  'registraste comisiones del medio de pago este mes, y esta '
+                  'cifra no descuenta tus gastos.',
+        ),
+
+        // ─── 2. Lo que SOBRÓ por hora ───────────────────────────────
+        const SizedBox(height: AppSpacing.x6),
+        _LineaGuia('Lo que te sobró por hora en $mes'),
+        const SizedBox(height: AppSpacing.x2),
+        _Cifra(
+          cifras.leftoverHourlyValue,
+          // Un resultado negativo se pinta en el color del dinero que sale:
+          // es la misma señal que usa el balance de Inicio.
+          color: cifras.leftoverHourlyValue < 0 ? AppPalette.moneyOut : null,
+        ),
+        const SizedBox(height: AppSpacing.x2),
+        _Nota(
+          cifras.hasExpenses
+              ? 'Lo de arriba menos los '
+                  '${formatCurrency(cifras.expenses, currency: kFallbackCurrency)} '
+                  'de gastos que registraste en $mes.'
+              : 'No registraste gastos en $mes, así que por ahora es lo mismo '
+                  'que te entró.',
         ),
       ],
     );
@@ -123,7 +156,7 @@ class NetHourlyValueSection extends StatelessWidget {
   }
 
   /// "160 horas al mes". Sin decimales cuando son horas enteras, que es el
-  /// caso normal (días × horas por día).
+  /// caso normal.
   static String _formatearHoras(final double hours) {
     final enteras = hours == hours.roundToDouble();
     final texto = enteras
@@ -144,8 +177,8 @@ class _Bloque extends StatelessWidget {
   @override
   Widget build(final BuildContext context) => Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(top: AppSpacing.xl),
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        margin: const EdgeInsets.only(top: AppSpacing.x6),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.x4),
         decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(color: AppColors.border),
@@ -158,11 +191,39 @@ class _Bloque extends StatelessWidget {
       );
 }
 
+/// Una de las dos cifras del bloque.
+class _Cifra extends StatelessWidget {
+  const _Cifra(this.valor, {this.color});
+
+  final double valor;
+  final Color? color;
+
+  @override
+  Widget build(final BuildContext context) => Text(
+        formatCurrency(valor, currency: kFallbackCurrency),
+        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: color ?? AppPalette.textPrimary,
+            ),
+      );
+}
+
+/// Línea de contexto bajo una cifra: de dónde sale y qué no incluye.
+class _Nota extends StatelessWidget {
+  const _Nota(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(final BuildContext context) => Text(
+        texto,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
+      );
+}
+
 /// Línea guía sobre la cifra, en `labelSmall` 11/600 mayúsculas
 /// `textSecondary` (6,91:1).
-///
-/// Sustituye a `PagateLabel(isUppercase: true)`, que pintaba el mismo texto
-/// en `textTertiary` #9CA3AF: 2,54 sobre blanco, un fallo de AA.
 class _LineaGuia extends StatelessWidget {
   const _LineaGuia(this.texto);
 
