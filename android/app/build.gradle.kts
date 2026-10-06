@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,6 +7,57 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     // Google services for Firebase
     id("com.google.gms.google-services")
+}
+
+// ---------------------------------------------------------------------------
+// Firma de release
+//
+// Las credenciales viven en android/key.properties, que NO se versiona
+// (android/.gitignore lo excluye junto con *.jks y *.keystore). Si el archivo
+// no está —por ejemplo en un clon limpio o en CI sin secretos— el build de
+// release NO falla: cae al keystore de depuración y avisa en voz alta. Esa es
+// una decisión deliberada: que cualquiera pueda comprobar que el proyecto
+// compila sin tener que pedir las claves, a cambio de un aviso imposible de
+// pasar por alto para que nadie intente subir ese artefacto a Play.
+//
+// Para generar un keystore de subida propio:
+//
+//   keytool -genkeypair -v \
+//     -keystore C:/Users/Franco/claves/pagate-upload.jks \
+//     -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+//     -alias upload \
+//     -dname "CN=Pagate, OU=Desarrollo, O=Pagate, L=Santiago, ST=RM, C=CL"
+//
+// Guardarlo FUERA del repositorio y respaldarlo: si se pierde la clave de
+// subida, Play permite reiniciarla, pero solo si la app usa Play App Signing.
+// La huella SHA-256 que hay que registrar en App Check / Play Integrity es la
+// de Play Console -> Probar y publicar -> Integridad de la app -> certificado
+// de la clave de firma de la app, no la de este keystore de subida.
+// ---------------------------------------------------------------------------
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
+
+if (!hasReleaseKeystore) {
+    logger.warn(
+        """
+        |
+        |  ============================================================
+        |   AVISO: no se encontró android/key.properties.
+        |   El build de release se firmará con el keystore de DEPURACIÓN.
+        |   Google Play RECHAZA ese artefacto:
+        |     «You uploaded an APK or Android App Bundle that was signed
+        |      in debug mode».
+        |   Crea android/key.properties (ver el comentario de este
+        |   archivo) antes de generar el AAB que se vaya a publicar.
+        |  ============================================================
+        |
+        """.trimMargin()
+    )
 }
 
 android {
@@ -31,11 +84,27 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                // file() resuelve relativo a android/app/, que es el directorio
+                // de este módulo; por eso key.properties usa ../ para llegar a
+                // android/.
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
