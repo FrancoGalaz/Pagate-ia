@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_constants.dart';
+import 'app_text.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // PÁGATE-IA — UNIFIED THEME
@@ -16,108 +17,12 @@ class AppTheme {
   /// Font family name — matches the family registered in pubspec.yaml.
   static const String _fontFamily = 'Manrope';
 
-  // ─── Typography (Manrope for all text) ────────────────────────────
+  // ─── Tipografía ───────────────────────────────────────
+  // La escala vive en `app_text.dart`. Este archivo ya no construye ningún
+  // `TextStyle` de texto corrido: si lo hiciera, ese estilo no heredaría
+  // `fontVariations` y volvería a dibujarse en ExtraLight.
 
-  static TextTheme get _baseTextTheme => const TextTheme(
-        displayLarge: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 48,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1.5,
-          height: 1.1,
-        ),
-        displayMedium: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 36,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1.0,
-          height: 1.15,
-        ),
-        displaySmall: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 30,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.75,
-          height: 1.2,
-        ),
-        headlineLarge: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-          height: 1.25,
-        ),
-        headlineMedium: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
-          height: 1.3,
-        ),
-        headlineSmall: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          height: 1.35,
-        ),
-        titleLarge: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-        ),
-        titleMedium: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-        ),
-        titleSmall: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-        ),
-        bodyLarge: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-        ),
-        bodySmall: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-        ),
-        labelLarge: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          height: 1.4,
-        ),
-        labelMedium: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-          height: 1.4,
-        ),
-        labelSmall: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          height: 1.4,
-        ),
-      );
+  static TextTheme get _baseTextTheme => AppText.theme;
 
   // ─── Light Theme ──────────────────────────────────────────────────
 
@@ -129,6 +34,11 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+
+      // Raíz de la familia: lo que construya su propio `TextStyle` sin
+      // pasar por el `textTheme` (fl_chart, tooltips de la plataforma) cae
+      // aquí en vez de caer en Roboto.
+      fontFamily: kFontFamily,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.background,
 
@@ -403,6 +313,11 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+
+      // Raíz de la familia: lo que construya su propio `TextStyle` sin
+      // pasar por el `textTheme` (fl_chart, tooltips de la plataforma) cae
+      // aquí en vez de caer en Roboto.
+      fontFamily: kFontFamily,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.backgroundDark,
       colorScheme: const ColorScheme.dark(
