@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Timestamp } from 'firebase-admin/firestore';
-import { recalcMonth } from '../src/months';
+import { monthKeyOf, recalcMonth } from '../src/months';
 import { adminDb, wipeUser } from './helpers/admin';
 
 const UID = 'agregados';
@@ -34,6 +34,40 @@ async function addTx(
 async function month(monthKey: string = MONTH): Promise<Record<string, unknown> | undefined> {
   return (await adminDb().doc(`users/${UID}/months/${monthKey}`).get()).data();
 }
+
+/**
+ * `monthKeyOf` es la puerta de entrada del trigger: solo recalcula los meses
+ * cuya clave pasa por aquí. Es una función pura, así que no necesita emulador.
+ */
+describe('monthKeyOf', () => {
+  it('acepta los doce meses reales', () => {
+    for (const mm of ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']) {
+      expect(monthKeyOf({ monthKey: `2026-${mm}` })).toBe(`2026-${mm}`);
+    }
+  });
+
+  it('rechaza el mes 00 y los meses 13 a 99', () => {
+    // Era el agujero del regex anterior (`^\d{4}-\d{2}$`): con él, el cliente
+    // podía fabricar hasta 10.000 documentos distintos en months/ y la app los
+    // mostraba como meses reales.
+    for (const key of ['2026-00', '2026-13', '2026-19', '2026-20', '2026-42', '2026-99']) {
+      expect(monthKeyOf({ monthKey: key }), key).toBeUndefined();
+    }
+  });
+
+  it('rechaza claves mal formadas', () => {
+    for (const key of ['2026-9', '26-09', '2026/09', '2026-091', '02026-09', 'septiembre', '', ' 2026-09']) {
+      expect(monthKeyOf({ monthKey: key }), JSON.stringify(key)).toBeUndefined();
+    }
+  });
+
+  it('rechaza lo que no es texto y el documento sin campo', () => {
+    expect(monthKeyOf(undefined)).toBeUndefined();
+    expect(monthKeyOf({})).toBeUndefined();
+    expect(monthKeyOf({ monthKey: null })).toBeUndefined();
+    expect(monthKeyOf({ monthKey: 202609 })).toBeUndefined();
+  });
+});
 
 describe('recalcMonth', () => {
   beforeEach(async () => {

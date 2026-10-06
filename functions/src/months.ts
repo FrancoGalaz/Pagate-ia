@@ -10,7 +10,18 @@ import { logger } from 'firebase-functions/v2';
 import { AggregateField, FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { REGION } from './config';
 
-const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
+/**
+ * Forma de una clave de mes: `yyyy-MM` con el mes acotado a 01-12.
+ *
+ * El regex anterior era `^\d{4}-\d{2}$`, que aceptaba `2026-00` y de `2026-13`
+ * a `2026-99`. Esas claves no son meses, y el trigger las trataba como tales:
+ * creaba `months/2026-00` y la app lo listaba como un mes más. `firestore.rules`
+ * ya rechaza esas claves al escribir la transacción, así que aquí el regex no es
+ * redundante: es la segunda mitad de la misma validación, y la que cubre los
+ * documentos escritos por el Admin SDK (sembrado de datos, migraciones), que no
+ * pasan por las reglas.
+ */
+const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export interface MonthTotals {
   totalIncome: number;
@@ -84,7 +95,14 @@ export async function recalcMonth(
   });
 }
 
-function monthKeyOf(data: FirebaseFirestore.DocumentData | undefined): string | undefined {
+/**
+ * Devuelve el `monthKey` del documento si es una clave de mes válida, o
+ * `undefined` si falta, no es texto o no es un mes real.
+ *
+ * Exportada solo para poder probarla: es la puerta por la que `monthKey` entra
+ * al trigger.
+ */
+export function monthKeyOf(data: FirebaseFirestore.DocumentData | undefined): string | undefined {
   const key = data?.monthKey;
   return typeof key === 'string' && MONTH_KEY_RE.test(key) ? key : undefined;
 }
