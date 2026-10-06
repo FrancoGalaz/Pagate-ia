@@ -14,7 +14,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   assertFails,
   assertSucceeds,
@@ -487,6 +487,108 @@ describe('users/{uid}/transactions', () => {
     await assertFails(getDoc(doc(bobDb(), 'users', ALICE, 'transactions', 't1')));
     await assertFails(listOf(bobDb(), ['users', ALICE, 'transactions'], 10));
     await assertFails(addDoc(collection(bobDb(), 'users', ALICE, 'transactions'), validTransaction()));
+  });
+});
+
+/**
+ * Contrato C-3: `docType` y `platformFee` en `users/{uid}/transactions/{txId}`.
+ *
+ * Los dos son opcionales. La prueba que de verdad importa es la última: un
+ * documento escrito ANTES de este contrato, sin ninguno de los dos campos, tiene
+ * que seguir pudiendo leerse y actualizarse. Si eso se rompiera, la app dejaría
+ * de poder editar el historial que el usuario ya tiene registrado.
+ */
+describe('C-3: docType y platformFee en transactions', () => {
+  const txs = () => collection(aliceDb(), 'users', ALICE, 'transactions');
+
+  it('acepta una transacción sin docType ni platformFee', async () => {
+    const tx = validTransaction();
+    expect('docType' in tx).toBe(false);
+    expect('platformFee' in tx).toBe(false);
+    await assertSucceeds(addDoc(txs(), tx));
+  });
+
+  it('acepta los tres docType del contrato', async () => {
+    for (const docType of ['boleta_venta', 'boleta_honorarios', 'sin_documento']) {
+      await assertSucceeds(addDoc(txs(), { ...validTransaction(), docType }));
+    }
+  });
+
+  it('rechaza un docType fuera del conjunto', async () => {
+    for (const docType of ['factura', 'boleta', 'BOLETA_VENTA', 'boleta_venta ', '']) {
+      await assertFails(addDoc(txs(), { ...validTransaction(), docType }));
+    }
+  });
+
+  it('rechaza docType que no es texto, incluido null', async () => {
+    // `null` se rechaza a propósito: "sin documento" se dice omitiendo el campo
+    // o con 'sin_documento', no con un tercer valor que signifique lo mismo.
+    for (const docType of [null, 1, true, ['boleta_venta']]) {
+      await assertFails(addDoc(txs(), { ...validTransaction(), docType }));
+    }
+  });
+
+  it('acepta platformFee entre 0 y amount, incluidos los extremos', async () => {
+    for (const platformFee of [0, 1, 4580, 12000]) {
+      await assertSucceeds(addDoc(txs(), { ...validTransaction(), amount: 12000, platformFee }));
+    }
+  });
+
+  it('rechaza platformFee negativo', async () => {
+    await assertFails(addDoc(txs(), { ...validTransaction(), platformFee: -1 }));
+  });
+
+  it('rechaza platformFee mayor que amount: el neto derivado sería negativo', async () => {
+    await assertFails(addDoc(txs(), { ...validTransaction(), amount: 12000, platformFee: 12001 }));
+    await assertFails(addDoc(txs(), { ...validTransaction(), amount: 12000, platformFee: 99999 }));
+  });
+
+  it('rechaza platformFee que no es número, incluidos null e Infinity', async () => {
+    for (const platformFee of [null, '382', true, Number.POSITIVE_INFINITY, Number.NaN]) {
+      await assertFails(addDoc(txs(), { ...validTransaction(), platformFee }));
+    }
+  });
+
+  it('acepta los dos campos juntos', async () => {
+    await assertSucceeds(
+      addDoc(txs(), {
+        ...validTransaction(),
+        amount: 45000,
+        docType: 'boleta_venta',
+        platformFee: 1436,
+      }),
+    );
+  });
+
+  it('un documento viejo sin los campos nuevos se sigue pudiendo actualizar', async () => {
+    // Se siembra con las reglas desactivadas para que sea exactamente un
+    // documento de antes del contrato C-3.
+    await seed((db) => setDoc(doc(db, 'users', ALICE, 'transactions', 'viejo'), validTransaction()));
+
+    // Edición que no toca los campos nuevos: sigue funcionando.
+    await assertSucceeds(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'transactions', 'viejo'), {
+        amount: 20000,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+
+    // Y se le pueden añadir los campos nuevos sin reescribir el resto.
+    await assertSucceeds(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'transactions', 'viejo'), {
+        docType: 'boleta_honorarios',
+        platformFee: 0,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+
+    // Pero el tope sigue vigente en update: 20.000 es el amount que quedó.
+    await assertFails(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'transactions', 'viejo'), {
+        platformFee: 20001,
+        updatedAt: serverTimestamp(),
+      }),
+    );
   });
 });
 
