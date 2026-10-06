@@ -39,7 +39,14 @@ datos, la API del backend y las convenciones del cliente es
   `inventory/`, `transactions/`, `fixedExpenses/`, `months/` (solo backend),
   `conversations/{id}/messages/` (solo backend), `meta/usage` (solo backend).
 - Ids generados por Firestore, fechas como `Timestamp`, sin campo `userId`
-  duplicado. `monthKey` es `yyyy-MM` derivado de `date` en el cliente.
+  duplicado. `monthKey` es `yyyy-MM` derivado de `date` en el cliente, con el
+  mes acotado a 01-12 (mismo regex en reglas y en `months.ts`).
+- Contrato **C-3** en `transactions`: `docType`
+  (`boleta_venta` | `boleta_honorarios` | `sin_documento`) y `platformFee`
+  (`0 <= platformFee <= amount`), los dos **opcionales**. Ausentes valen
+  `'sin_documento'` y `0`. El neto **no se guarda**: se deriva como
+  `amount - platformFee`. La app registra y muestra, **no asesora**: nada de
+  calcular impuestos a pagar ni dar consejo tributario.
 - Las lecturas son **streams** (`snapshots()`), nunca `get()` puntuales.
 - Los providers exponen `error` (String?) y `retry()`. Nunca devolver una
   lista vacía como si fuera un estado válido ante un error.
@@ -47,22 +54,42 @@ datos, la API del backend y las convenciones del cliente es
   cliente no escribe `months/*`.
 
 ## Backend (`functions/`, TypeScript, Node 22, `southamerica-west1`)
-- `chat` (callable): auth + cuota diaria (`free` 30 / `pro` 300) + prompt del
-  lado servidor + OpenRouter con el secreto `OPENROUTER_API_KEY` + persistencia
-  de la conversación. El cliente **no** escribe en `messages`.
+- `chat` (callable): auth + App Check + cuota + prompt del lado servidor +
+  OpenRouter con el secreto `OPENROUTER_API_KEY` + persistencia de la
+  conversación. El cliente **no** escribe en `messages`.
+  - Cuota: plan `free` **25 mensajes DE POR VIDA** (`chatCountLifetime`), NO
+    diarios; plan `pro` **300 al día** (`chatCountDay`). Más un tope global
+    diario con interruptor en `system/aiConfig`, que el dueño cambia desde la
+    consola sin desplegar. El día se calcula en `America/Santiago`.
+  - Historial reenviado al modelo: **6** mensajes (`HISTORY_LIMIT`). Era 20; el
+    historial viaja completo en cada turno, así que ese número multiplica los
+    tokens de entrada de toda la conversación.
+  - Si OpenRouter falla, la cuota se devuelve y lo escrito se deshace.
+- `deleteAccount` (callable): auth + App Check, borra `users/{uid}` y todo su
+  árbol y luego el usuario de Authentication, en ese orden. Lo exige la política
+  de borrado de datos de Google Play. Por eso las reglas deniegan `delete` en
+  `users/{uid}`.
 - `onTransactionWritten`: recalcula `months/{monthKey}` (ambos meses si cambió
-  `monthKey`). Idempotente.
+  `monthKey`) dentro de una transacción. Idempotente. `months/*` suma `amount`
+  (bruto); `platformFee` no entra en los agregados.
 - `waitlist` (HTTP): `POST {name, email, source}` → `200 {ok:true}` |
-  `400/429 {error}`. Lo consume `landing/src/services/waitlist-service.ts`.
-- Parámetros: `ENFORCE_APP_CHECK` (default `false`), `OPENROUTER_MODEL`.
+  `400/429 {error}`. Lo consume `landing/src/services/waitlist-service.ts`. El
+  id del documento es el sha256 del correo normalizado: reenviar no duplica.
+- Parámetros: `ENFORCE_APP_CHECK` (default `false`, aplica a los DOS callables),
+  `OPENROUTER_MODEL`.
+- `firebase.json`: las cabeceras de enmarcado (`X-Frame-Options`,
+  `frame-ancestors`) van en los `source` `/`, `/!(__)` y `/!(__)/**`, NUNCA en
+  `**`. Sobre `**` alcanzan a `/__/auth/iframe`, que es el iframe del login con
+  Google, y lo rompen. El por qué completo está en `docs/ARQUITECTURA.md`.
 - Ningún secreto se compila en el cliente. No reintroducir
   `--dart-define=OPENROUTER_API_KEY`.
 
 ## UI y theming
 - `lib/core/constants/app_constants.dart` es la fuente de tokens (colores,
   spacing, radios, tamaños, duraciones). No hardcodear estilos.
-- `lib/core/theme/app_theme.dart` centraliza el tema Material
-  (`lightTheme` / `darkTheme`).
+- `lib/core/theme/app_theme.dart` centraliza el tema Material. **Tema claro
+  único**: solo existe `lightTheme`, no hay `darkTheme` ni `themeMode`, y ningún
+  widget decide colores según `brightness`.
 - Widgets compartidos en `lib/core/widgets/` (export en `widgets.dart`).
 - Breakpoint web/mobile 720 px: NavigationRail en escritorio,
   BottomNavigationBar en móvil.

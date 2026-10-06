@@ -185,6 +185,22 @@ describe('reserveChatQuota', () => {
     await expect(reserveChatQuota(db, UID)).rejects.toThrow(/tope de uso del día/i);
   });
 
+  it('no borra los demás campos de meta/usage al reservar', async () => {
+    const db = adminDb();
+    await seedProfile('free');
+    // Campo ajeno a la cuota que ya vivía en el documento. La reserva escribía
+    // con `set` sin merge, así que lo borraba en cada mensaje del asistente.
+    await db.doc(`users/${UID}/meta/usage`).set({ campoAjeno: 'no me borres', chatCountLifetime: 2 });
+
+    const res = await reserveChatQuota(db, UID);
+    expect(res.usedLifetime).toBe(3);
+    expect(await usage()).toMatchObject({
+      campoAjeno: 'no me borres',
+      chatCountLifetime: 3,
+      dayKey: res.dayKey,
+    });
+  });
+
   it('respeta una cuota free reconfigurada por el dueño sin desplegar', async () => {
     const db = adminDb();
     await seedProfile('free');

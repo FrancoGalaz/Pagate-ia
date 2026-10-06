@@ -26,6 +26,11 @@
 // 5. `delete` de users/{uid} denegado: borraba el documento y dejaba huérfanas
 //    todas las subcolecciones. Ahora el borrado de cuenta pasa por el callable
 //    `deleteAccount`, que borra el árbol completo y la credencial de Auth.
+//
+// Contrato C-3 (mercado chileno): `transactions` acepta dos campos nuevos,
+// `docType` y `platformFee`, los dos OPCIONALES para no invalidar ni un solo
+// documento ya escrito. El detalle y el por qué están junto a
+// `validTransaction`, más abajo.
 
 rules_version = '2';
 
@@ -182,10 +187,38 @@ service cloud.firestore {
 
       // ---------- transactions ----------
 
+      // Contrato C-3 (orientacion al mercado chileno). Dos campos OPCIONALES:
+      //
+      // - `docType`: con que documento respaldo el usuario el movimiento. Importa
+      //   porque en Chile una boleta de honorarios y una boleta de venta no son
+      //   lo mismo (la primera no lleva IVA y le retienen un porcentaje; la
+      //   segunda lleva IVA), asi que un "ingreso" a secas no se puede agrupar
+      //   de forma util. Se acepta AUSENTE o exactamente uno de los tres
+      //   valores; `null` NO se acepta a proposito, para que "sin documento"
+      //   tenga una sola representacion: el campo ausente se lee como
+      //   'sin_documento'.
+      // - `platformFee`: la comision que se queda el medio de pago, en la misma
+      //   moneda que `amount`. El tope superior es `amount`: una comision mayor
+      //   que el monto cobrado no existe, y sin ese tope el neto derivado
+      //   (`amount - platformFee`) saldria negativo.
+      //
+      // No se guarda ningun neto: se deriva siempre. Un neto guardado se puede
+      // contradecir con sus propios operandos, y aqui no hay forma de validar
+      // esa coherencia sin recalcularla.
+      function validDocType(v) {
+        return v in ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
+      }
+
+      function validPlatformFee(d) {
+        // El orden importa: `isMoney` primero, porque comparar un valor no
+        // numerico con `d.amount` es un error de ejecucion, no un `false`.
+        return isMoney(d.platformFee) && d.platformFee <= d.amount;
+      }
+
       function validTransaction(d) {
         return d.keys().hasOnly([
             'title', 'description', 'amount', 'type', 'category', 'date', 'monthKey',
-            'createdAt', 'updatedAt'
+            'docType', 'platformFee', 'createdAt', 'updatedAt'
           ])
           && d.keys().hasAll(['title', 'amount', 'type', 'category', 'date', 'monthKey', 'createdAt', 'updatedAt'])
           && isNonEmptyStr(d.title, 200)
@@ -194,6 +227,8 @@ service cloud.firestore {
           && d.type in ['income', 'expense']
           && isStr(d.category, 200)
           && isTs(d.date)
+          && (!('docType' in d) || validDocType(d.docType))
+          && (!('platformFee' in d) || validPlatformFee(d))
           && d.monthKey is string
           // El mes acotado a 01-12. El regex anterior (`[0-9]{2}`) aceptaba
           // meses 00 y 13-99, con los que el cliente podía fabricar hasta
