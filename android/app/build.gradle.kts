@@ -105,6 +105,31 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+
+            // R8 y el eliminador de recursos.
+            //
+            // El plugin de Gradle de Flutter ya los activa por su cuenta
+            // (FlutterPlugin.kt:262-265 del SDK), así que estas dos líneas no
+            // cambian el resultado de hoy: están para fijar el comportamiento
+            // de forma explícita y auditable en vez de depender de un detalle
+            // interno del SDK que puede cambiar de versión.
+            //
+            // Lo que SÍ es nuevo es proguard-rules.pro. Flutter solo lo añade
+            // «si existe» (FlutterPlugin.kt:277-279) y hasta ahora no existía:
+            // R8 llevaba corriendo sobre este proyecto sin una sola regla
+            // propia, apoyado únicamente en las que traen los AAR de Firebase.
+            //
+            // Efecto medido en el tamaño: ninguno apreciable. El APK de release
+            // pesa 57,1 MB antes y después, porque 54,7 MB son bibliotecas
+            // nativas (.so de las tres ABI) que R8 no toca; el dex entero son
+            // 3,6 MB. Quien reduce esto de verdad es el AAB, que Play reparte
+            // por ABI.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
