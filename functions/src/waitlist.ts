@@ -1,15 +1,18 @@
+/**
+ * Endpoint HTTP `waitlist`: alta en la lista de espera desde la landing.
+ *
+ * Lo consume `landing/src/services/waitlist-service.ts`.
+ *
+ * Contrato: `POST { name, email, source? }` → `200 {ok:true}` |
+ * `400/403/405/429/500 {error}`.
+ */
+
 import { onRequest, type Request } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
 import type { Response } from 'express';
-import { REGION } from './config';
-
-const ALLOWED_ORIGINS = new Set([
-  'https://francogalaz.github.io',
-  'https://pagate-17211.web.app',
-  'https://pagate-17211.firebaseapp.com',
-  'http://localhost:5173',
-]);
+import { REGION, waitlistOrigins } from './config';
 
 const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
 const RATE_MAX_PER_WINDOW = 5;
@@ -41,13 +44,51 @@ export function isRateLimited(ip: string, now: number = Date.now()): boolean {
   return false;
 }
 
-function clientIp(req: Request): string {
+/** Solo para los tests: vacía el mapa del límite por IP. */
+export function resetRateLimit(): void {
+  hitsByIp.clear();
+}
+
+/**
+ * IP del cliente a efectos del límite de tasa (S-04).
+ *
+ * Antes se tomaba el PRIMER valor de `X-Forwarded-For`, que es exactamente el
+ * que controla quien llama: con `curl -H 'X-Forwarded-For: 1.2.3.4'` y un valor
+ * distinto en cada petición, `isRateLimited` nunca disparaba porque el mapa se
+ * indexaba por esa cadena inventada.
+ *
+ * Se toma el ÚLTIMO salto. La infraestructura de Cloud Run (donde corren las
+ * funciones de 2ª generación) AÑADE la IP real al final de la cabecera cuando el
+ * cliente ya mandó una, así que el último elemento es el único valor de la lista
+ * que el cliente no puede escribir.
+ *
+ * Aviso para quien ponga un balanceador de carga HTTP(S) propio delante de esta
+ * función: en ese caso el balanceador añade `IP-del-cliente, IP-del-balanceador`
+ * y el último elemento pasa a ser la IP del balanceador, igual para todo el
+ * mundo. Si eso llega a pasar, hay que tomar el penúltimo.
+ */
+export function clientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
-  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  if (typeof first === 'string' && first.trim()) {
-    return first.split(',')[0].trim();
+  const raw = Array.isArray(forwarded) ? forwarded.join(',') : forwarded;
+  if (typeof raw === 'string' && raw.trim()) {
+    const hops = raw
+      .split(',')
+      .map((h) => h.trim())
+      .filter((h) => h.length > 0);
+    if (hops.length > 0) return hops[hops.length - 1];
   }
   return req.ip ?? 'unknown';
+}
+
+/**
+ * Id determinista del documento: sha256 del correo ya normalizado.
+ *
+ * Antes se usaba `.add()`, que genera un id nuevo en cada llamada: el mismo
+ * correo podía entrar mil veces. Con un id derivado del correo, reenviar el
+ * formulario es idempotente.
+ */
+export function waitlistDocId(normalizedEmail: string): string {
+  return createHash('sha256').update(normalizedEmail, 'utf8').digest('hex');
 }
 
 interface WaitlistInput {
@@ -86,7 +127,7 @@ export function validateWaitlistBody(body: unknown): { ok: true; value: Waitlist
 
 function applyCors(req: Request, res: Response): boolean {
   const origin = req.headers.origin;
-  if (typeof origin !== 'string' || !ALLOWED_ORIGINS.has(origin)) {
+  if (typeof origin !== 'string' || !waitlistOrigins().has(origin)) {
     return false;
   }
   res.set('Access-Control-Allow-Origin', origin);
@@ -145,9 +186,32 @@ export const waitlist = onRequest(
     }
 
     try {
-      await getFirestore()
-        .collection('waitlist')
-        .add({ ...parsed.value, createdAt: FieldValue.serverTimestamp() });
+      const db = getFirestore();
+      const ref = db.collection('waitlist').doc(waitlistDocId(parsed.value.email));
+      // Transacción para que `createdAt` sea la PRIMERA vez y no se sobrescriba
+      // en cada reenvío, y para contar los reenvíos sin perder el original.
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists) {
+          tx.set(
+            ref,
+            {
+              name: parsed.value.name,
+              source: parsed.value.source,
+              updatedAt: FieldValue.serverTimestamp(),
+              submissions: FieldValue.increment(1),
+            },
+            { merge: true },
+          );
+        } else {
+          tx.set(ref, {
+            ...parsed.value,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            submissions: 1,
+          });
+        }
+      });
       res.status(200).json({ ok: true });
     } catch (err) {
       logger.error('No se pudo guardar en waitlist', { err: String(err) });
