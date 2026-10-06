@@ -1,3 +1,15 @@
+// Sección de funcionalidades, con pestañas y una maqueta por pestaña.
+//
+// Dos cosas corregidas y que no deben volver:
+//  1. El titular de la cuarta pestaña era «+24 % de productividad». Es una
+//     cifra inventada presentada como resultado medido.
+//  2. La maqueta de la primera pestaña mostraba «Promedio mercado: $35.000» y
+//     «+22 % arriba». La app no tiene ningún dato de mercado con el que
+//     comparar: eso no era una cifra falsa, era una funcionalidad falsa.
+//
+// Las cifras que quedan en las maquetas son una ilustración de la interfaz y
+// van rotuladas como tal al pie del bloque.
+
 import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -60,7 +72,7 @@ const features = [
     id: 'productividad',
     icon: Zap,
     label: 'Productividad',
-    title: '+24% de productividad',
+    title: 'Entiende en qué se te va el tiempo',
     description: 'Analiza tu rendimiento, identifica patrones y optimiza tu tiempo para maximizar resultados.',
     color: 'bg-green-500',
     lightColor: 'bg-green-50',
@@ -207,8 +219,8 @@ export default function Features() {
                       <div className="h-full w-[75%] bg-brand rounded-full" />
                     </div>
                     <div className="flex justify-between text-xs text-text-muted">
-                      <span>Promedio mercado: $35.000</span>
-                      <span className="text-success font-semibold">+22% arriba</span>
+                      <span>Meta mensual</span>
+                      <span className="font-semibold">75% alcanzado</span>
                     </div>
                   </div>
                 )}
@@ -247,6 +259,9 @@ export default function Features() {
                   </div>
                 )}
               </div>
+              <p className="mt-4 text-xs text-text-muted text-center">
+                Ejemplo ilustrativo de la interfaz
+              </p>
             </div>
 
             {/* Floating accent */}
