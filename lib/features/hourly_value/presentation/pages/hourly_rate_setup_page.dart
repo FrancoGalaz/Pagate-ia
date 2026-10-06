@@ -1,17 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../bloc/hourly_rate_provider.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/net_hourly_value_section.dart';
-import '../widgets/premium_text_field.dart';
-import '../../../../core/theme/app_text.dart';
 
-/// Premium configuration page for setting up hourly rate.
-/// Features: Gradient background, glassmorphism, smooth animations.
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
+import '../bloc/hourly_rate_provider.dart';
+import '../widgets/net_hourly_value_section.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// VALOR DE TU HORA
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 7.
+//
+// Era la pantalla más lejana al sistema: su propio comentario de cabecera
+// decía, en inglés, que sus rasgos eran el fondo en degradado, el cristal
+// y las animaciones suaves.
+//
+// QUÉ SE SUSTITUYÓ Y POR QUÉ:
+//
+// · EL DEGRADADO DE FONDO de tres paradas (lienzo → marca al 10% → lienzo)
+//   en diagonal. Sobre un lienzo claro el tramo verde al 10% es una mancha,
+//   y el sistema no tiene degradados. Fondo plano del tema.
+//
+// · `GlassCard` y `PremiumTextField`, LOS DOS ARCHIVOS BORRADOS en este
+//   paso. La tarjeta era la superficie del tema oscuro al 60%, con borde de
+//   cristal de 1,5 dp y una sombra grande: blanco translúcido pensado para
+//   ir sobre una
+//   superficie oscura, es decir invisible sobre el lienzo claro, más una
+//   sombra de 24 dp de blur. El campo "premium" era una etiqueta en
+//   `titleMedium` 600 sobre un `TextFormField` con la decoración del tema:
+//   exactamente lo que ya hace [PagateTextField], solo que sin
+//   `autofillHints`, sin `textInputAction` y sin ocultar el contador de
+//   caracteres. Ninguno de los dos tenía otro consumidor; lo verifiqué con
+//   grep antes de borrarlos.
+//
+// · LA ANIMACIÓN DE ENTRADA (fade de 500 ms + slide de 0,3 de alto) con su
+//   `AnimationController` y su `SingleTickerProviderStateMixin`. El sistema
+//   no anima la entrada de una pantalla: la transición la pone el
+//   Navigator, y encadenar las dos hace que el formulario entre dos veces.
+//
+// · LOS TRES DEGRADADOS DE MARCA (el cuadrado del icono de cabecera, el
+//   bloque
+//   de la cifra del diálogo y el fondo del botón).
+//
+// · EL `AlertDialog` DE ÉXITO, con la cifra en blanco sobre un bloque verde
+//   y un `ElevatedButton` que el tema estira a ancho completo dentro del
+//   `OverflowBar`. Pasa a hoja del sistema, con la cifra como lo que es: la
+//   cifra dominante de la pantalla, en tinta y alineada a la izquierda.
+//
+// · EL AVISO AZUL del pie (`AppColors.info` #3B82F6, que da 3,68 sobre
+//   blanco y NO cumple AA como texto normal; el token `info` ni existe en
+//   la paleta v2, y esta pantalla era su único consumidor). Pasa a
+//   superficie `sunken` con texto `textSecondary`, 6,91:1.
+//
+// · LOS TRES `validator` que leían el campo con `double.tryParse` y
+//   `replaceAll(',', '')`: un sueldo escrito "1.000.000" como lo escribe un
+//   chileno se guardaba como 1 peso y ninguna validación lo detectaba.
+//   Ahora pasa por `parseCurrencyInput`, el único lector de montos de la
+//   app, igual que el resto de los formularios.
+// ═══════════════════════════════════════════════════════════════════════
+
 class HourlyRateSetupPage extends StatefulWidget {
   const HourlyRateSetupPage({super.key});
 
@@ -19,372 +68,295 @@ class HourlyRateSetupPage extends StatefulWidget {
   State<HourlyRateSetupPage> createState() => _HourlyRateSetupPageState();
 }
 
-class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
-    with SingleTickerProviderStateMixin {
+class _HourlyRateSetupPageState extends State<HourlyRateSetupPage> {
   final _formKey = GlobalKey<FormState>();
-  final _salaryController = TextEditingController();
-  final _daysController = TextEditingController();
-  final _hoursController = TextEditingController();
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      duration: AppDurations.slow,
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: AppCurves.enter,
-      ),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: AppCurves.emphasis,
-      ),
-    );
-
-    _animationController.forward();
-  }
+  final _sueldo = TextEditingController();
+  final _dias = TextEditingController();
+  final _horas = TextEditingController();
 
   @override
   void dispose() {
-    _salaryController.dispose();
-    _daysController.dispose();
-    _hoursController.dispose();
-    _animationController.dispose();
+    _sueldo.dispose();
+    _dias.dispose();
+    _horas.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _calcular() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final provider = context.read<HourlyRateProvider>();
+    final sueldo = parseCurrencyInput(_sueldo.text);
+    if (sueldo == null) return;
 
-    final success = await provider.calculateAndSave(
-      desiredSalary: double.parse(_salaryController.text.replaceAll(',', '')),
-      workingDays: int.parse(_daysController.text),
-      hoursPerDay: double.parse(_hoursController.text),
+    final guardado = await provider.calculateAndSave(
+      desiredSalary: sueldo,
+      workingDays: int.parse(_dias.text.trim()),
+      hoursPerDay: double.parse(_horas.text.trim().replaceAll(',', '.')),
     );
 
     if (!mounted) return;
-    if (success) {
-      _showSuccessDialog();
-    } else {
-      AppFeedback.showError(
-        context,
-        provider.saveError ?? 'No se pudo guardar el valor hora.',
-      );
-    }
-  }
+    if (!guardado) return; // El error lo pinta `_AvisoDeError`.
 
-  void _showSuccessDialog() {
-    final provider = context.read<HourlyRateProvider>();
-    final hourlyValue = provider.currentRate?.hourlyValue ?? 0;
-
-    showDialog(
+    await showPagateSheet<void>(
       context: context,
-      builder: (final context) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.xlBorder,
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.2),
-                borderRadius: AppRadius.xsBorder,
-              ),
-              child: const Icon(Icons.check_circle, color: AppColors.success),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            const Text('Valor hora guardado'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tu valor hora objetivo:',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
-                borderRadius: AppRadius.smBorder,
-              ),
-              child: Text(
-                formatCurrency(hourlyValue, currency: kFallbackCurrency),
-                style: AppText.weight(
-                  Theme.of(context).textTheme.headlineLarge!,
-                  700,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Lo vuelves a ver en Configuración, en Valor hora.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondaryDark,
-                  ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Continuar'),
-          ),
-        ],
+      builder: (final _) => _HojaDeResultado(
+        valorHora: provider.currentRate?.hourlyValue ?? 0,
       ),
     );
   }
 
   @override
-  Widget build(final BuildContext context) => Scaffold(
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.backgroundDark,
-                AppColors.brand.withValues(alpha: 0.1),
-                AppColors.backgroundDark,
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: AppSpacing.xl),
-                        _buildHeader(),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _buildLoadError(),
-                        _buildInputCard(),
-                        const SizedBox(height: AppSpacing.xl),
-                        _buildSubmitButton(),
-                        const SizedBox(height: AppSpacing.md),
-                        _buildHelper(),
-                        // Contrato C-3: debajo de la meta, el hecho. Lo que
-                        // le quedo por hora este mes, con las comisiones del
-                        // medio de pago ya descontadas.
-                        const NetHourlyValueSection(),
-                      ],
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Volver',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Valor de tu hora'),
+      ),
+      body: SafeArea(
+        top: false,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: AppSpacing.x8),
+            children: [
+              // ─── Qué hace esta pantalla ─────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x4,
+                  AppSpacing.x2,
+                  AppSpacing.x4,
+                  AppSpacing.x6,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¿Cuánto quieres ganar?',
+                      style: theme.textTheme.headlineLarge,
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.x2),
+                    Text(
+                      'Dinos tu meta y las horas que trabajas, y calculamos '
+                      'cuánto tendría que valer tu hora para llegar a ella.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: AppPalette.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+
+              const _AvisoDeError(),
+
+              // ─── Los tres datos ─────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x4,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PagateTextField.amount(
+                      labelText: 'Sueldo que quieres al mes',
+                      controller: _sueldo,
+                      hintText: '0',
+                      textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                      ],
+                      validator: (final v) {
+                        final sueldo = parseCurrencyInput(v ?? '');
+                        if (sueldo == null) return 'Ingresa un sueldo válido';
+                        if (sueldo <= 0) {
+                          return 'Tiene que ser mayor que cero';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.x4),
+
+                    PagateTextField(
+                      labelText: 'Días que trabajas al mes',
+                      controller: _dias,
+                      hintText: '20',
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      validator: (final v) {
+                        final dias = int.tryParse((v ?? '').trim());
+                        if (dias == null) return 'Escribe cuántos días';
+                        if (dias <= 0 || dias > 31) {
+                          return 'Entre 1 y 31 días';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.x4),
+
+                    PagateTextField(
+                      labelText: 'Horas que trabajas al día',
+                      controller: _horas,
+                      hintText: '8',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d{0,2}([.,]\d{0,2})?'),
+                        ),
+                      ],
+                      onFieldSubmitted: (final _) => _calcular(),
+                      validator: (final v) {
+                        final horas = double.tryParse(
+                          (v ?? '').trim().replaceAll(',', '.'),
+                        );
+                        if (horas == null) return 'Escribe cuántas horas';
+                        if (horas <= 0 || horas > 24) {
+                          return 'Entre 1 y 24 horas';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: AppSpacing.x6),
+                    Consumer<HourlyRateProvider>(
+                      builder: (final context, final provider, final child) =>
+                          PagatePrimaryButton(
+                        label: 'Calcular mi valor hora',
+                        isLoading: provider.isSaving,
+                        onPressed: _calcular,
+                      ),
+                    ),
+
+                    const SizedBox(height: AppSpacing.x4),
+                    const _Explicacion(),
+                  ],
+                ),
+              ),
+
+              // Contrato C-3: debajo de la meta, el hecho. Lo que le quedó
+              // por hora este mes, con las comisiones del medio de pago ya
+              // descontadas.
+              //
+              // Con su `Padding`: la sección no trae margen lateral propio
+              // —antes lo heredaba del `EdgeInsets.all(24)` que envolvía la
+              // pantalla entera— y en emulator-5554 la cifra y su etiqueta
+              // salían pegadas al borde izquierdo de la pantalla.
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+                child: NetHourlyValueSection(),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
+}
 
-  Widget _buildHeader() => Column(
+/// Aviso visible si el valor hora guardado no se pudo leer, o si el guardado
+/// falló.
+///
+/// Antes eran dos avisos distintos: el de lectura, una caja roja a mano con
+/// `error.withValues(alpha: 0.1)`, y el de escritura, un `SnackBar` que se
+/// iba. Los dos pasan al estado de error del sistema.
+class _AvisoDeError extends StatelessWidget {
+  const _AvisoDeError();
+
+  @override
+  Widget build(final BuildContext context) =>
+      Consumer<HourlyRateProvider>(builder: (
+        final context,
+        final provider,
+        final child,
+      ) {
+        final mensaje = provider.error ?? provider.saveError;
+        if (mensaje == null) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.x6),
+          child: PagateErrorState(
+            title: provider.error != null
+                ? 'No pudimos leer tu valor hora'
+                : 'No se pudo guardar',
+            message: mensaje,
+            onRetry: provider.error != null ? provider.retry : null,
+          ),
+        );
+      });
+}
+
+/// Qué es el valor hora y qué no es.
+///
+/// La última frase no sobra: sin ella la cifra se lee como un precio
+/// recomendado, y la app mide, no asesora.
+class _Explicacion extends StatelessWidget {
+  const _Explicacion();
+
+  @override
+  Widget build(final BuildContext context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.x3),
+        decoration: BoxDecoration(
+          color: AppPalette.sunken,
+          borderRadius: AppRadius.r8Border,
+        ),
+        child: Text(
+          'Es tu meta dividida por las horas que trabajas: la referencia con '
+          'la que puedes comparar lo que cobras. No es un precio '
+          'recomendado.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppPalette.textSecondary,
+              ),
+        ),
+      );
+}
+
+/// Hoja que muestra el valor hora recién calculado.
+class _HojaDeResultado extends StatelessWidget {
+  const _HojaDeResultado({required this.valorHora});
+
+  final double valorHora;
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PagateSheet(
+      title: 'Tu valor hora objetivo',
+      primaryAction: PagatePrimaryButton(
+        label: 'Entendido',
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              gradient: AppColors.brandGradient,
-              borderRadius: AppRadius.smBorder,
-            ),
-            child: const Icon(
-              Icons.schedule,
-              color: AppColors.textOnBrand,
-              size: AppIconSize.xl,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
+          // La cifra dominante de la hoja: alineada a la izquierda, en
+          // figuras tabulares y sin abreviar.
           Text(
-            '¿Cuánto quieres ganar?',
-            style: Theme.of(context).textTheme.headlineLarge,
+            formatCurrency(valorHora, currency: kFallbackCurrency),
+            style: theme.textTheme.displayMedium,
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.x2),
           Text(
-            'Dinos tu meta y las horas que trabajas, y calculamos cuánto tendría '
-            'que valer tu hora para llegar a ella.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondaryDark,
-                ),
+            'Por cada hora que trabajes. Lo vuelves a ver en Configuración, '
+            'en "Valor de tu hora".',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
           ),
         ],
-      );
-
-  Widget _buildInputCard() => GlassCard(
-        child: Column(
-          children: [
-            PremiumTextField(
-              label: 'Sueldo mensual deseado',
-              hint: 'Ej: 1000000',
-              controller: _salaryController,
-              keyboardType: TextInputType.number,
-              prefix: '\$ ',
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (final value) {
-                if (value == null || value.isEmpty) {
-                  return 'Ingresa tu meta de sueldo';
-                }
-                final number = double.tryParse(value);
-                if (number == null || number <= 0) {
-                  return 'Debe ser un número positivo';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            PremiumTextField(
-              label: 'Días de trabajo al mes',
-              hint: 'Ej: 20',
-              controller: _daysController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (final value) {
-                if (value == null || value.isEmpty) {
-                  return 'Ingresa los días que trabajas';
-                }
-                final number = int.tryParse(value);
-                if (number == null || number <= 0 || number > 31) {
-                  return 'Debe ser entre 1 y 31 días';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            PremiumTextField(
-              label: 'Horas por día',
-              hint: 'Ej: 8',
-              controller: _hoursController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
-              validator: (final value) {
-                if (value == null || value.isEmpty) {
-                  return 'Ingresa las horas diarias';
-                }
-                final number = double.tryParse(value);
-                if (number == null || number <= 0 || number > 24) {
-                  return 'Debe ser entre 0 y 24 horas';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
-      );
-
-  /// Aviso visible si el valor hora guardado no se pudo leer.
-  Widget _buildLoadError() => Consumer<HourlyRateProvider>(
-        builder: (final context, final provider, final child) {
-          final error = provider.error;
-          if (error == null) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: AppRadius.smBorder,
-                border:
-                    Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: AppColors.error,
-                    size: AppIconSize.sm,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      error,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: provider.retry,
-                    child: const Text('Reintentar'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-
-  Widget _buildSubmitButton() => Consumer<HourlyRateProvider>(
-        builder: (final context, final provider, final child) => SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: provider.isSaving ? null : _handleSubmit,
-            child: provider.isSaving
-                ? const SizedBox(
-                    height: AppIconSize.sm,
-                    width: AppIconSize.sm,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Calcular mi valor hora'),
-          ),
-        ),
-      );
-
-  Widget _buildHelper() => Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.info.withValues(alpha: 0.1),
-          borderRadius: AppRadius.smBorder,
-          border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.info_outline,
-              color: AppColors.info,
-              size: AppIconSize.sm,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                'Es tu meta dividida por las horas que trabajas: la referencia con '
-                'la que puedes comparar lo que cobras. No es un precio '
-                'recomendado.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryDark,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      );
+      ),
+    );
+  }
 }
