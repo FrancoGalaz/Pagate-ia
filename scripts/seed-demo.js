@@ -111,13 +111,49 @@ const DEMO_PASSWORD = 'PagateDemo2026';
 
 const HOY = new Date();
 
+/**
+ * Día más alto que usan las listas de movimientos de abajo. Es el horizonte del
+ * «plan» de un mes completo y sirve para comprimirlo (ver [diaEfectivo]).
+ */
+const DIA_PLAN_MAXIMO = 28;
+
+/**
+ * Día real que se le asigna a un movimiento.
+ *
+ * En los meses ya cerrados el día va tal cual. En el **mes en curso** no puede
+ * ir tal cual: solo han pasado los días que han pasado, y un movimiento con
+ * fecha futura no es el registro de nada. Sembrando el día 6 con el plan
+ * completo, la cartola mostraba ventas del día 24 que todavía no habían
+ * ocurrido: eso no puede salir en una captura de la tienda ni verlo un revisor
+ * de Play.
+ *
+ * Así que el plan de [DIA_PLAN_MAXIMO] días se comprime en los días ya vividos
+ * del mes. Con `ceil` para repartirlos en vez de amontonarlos al principio, y
+ * de forma monótona: si un movimiento iba antes que otro, sigue yendo antes.
+ *
+ * Caso límite: sembrando el día 1, el mes entero cae en el día 1. Es poco
+ * vistoso y es lo único correcto: no hay otro día donde ponerlo.
+ */
+function diaEfectivo(mesesAtras, dia) {
+  if (mesesAtras > 0) return dia;
+  const hoy = HOY.getDate();
+  const comprimido = Math.ceil((dia * hoy) / DIA_PLAN_MAXIMO);
+  return Math.max(1, Math.min(hoy, comprimido));
+}
+
 /** Devuelve un Date en el mes indicado (0 = el actual) y el día pedido. */
 function enMes(mesesAtras, dia, hora = 12) {
   const base = new Date(HOY.getFullYear(), HOY.getMonth() - mesesAtras, 1);
+  const diaPedido = diaEfectivo(mesesAtras, dia);
   // Si el día pedido no existe en ese mes (31 en febrero), se recorta al último
   // día real en vez de desbordar al mes siguiente y romper el monthKey.
   const ultimoDia = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-  return new Date(base.getFullYear(), base.getMonth(), Math.min(dia, ultimoDia), hora);
+  return new Date(
+    base.getFullYear(),
+    base.getMonth(),
+    Math.min(diaPedido, ultimoDia),
+    hora,
+  );
 }
 
 /** monthKey 'yyyy-MM' derivado de la fecha, igual que lo hace el cliente. */
@@ -138,12 +174,10 @@ function monthKeyDe(fecha) {
 const PERFIL = {
   name: 'Camila Rojas',
   businessName: 'Greda Austral',
-  // OJO: 'Cerámica' no está en kBusinessTypes
-  // (lib/features/user_profile/domain/entities/user_profile_entity.dart:12-20),
-  // que solo lista oficios metalmecánicos y de construcción. El modelo acepta
-  // cualquier string y la pantalla de perfil lo muestra tal cual, pero el
-  // selector de "editar perfil" no lo mostrará marcado. Queda reportado: el
-  // arreglo es de lib/, que no es este carril.
+  // 'Cerámica' con mayúscula y tilde, igual que en `kBusinessTypes`
+  // (lib/features/user_profile/domain/entities/user_profile_entity.dart). El
+  // selector de "Editar perfil" marca por igualdad exacta, así que cualquier
+  // otra grafia dejaría el rubro de la cuenta demo sin marcar en la pantalla.
   businessType: 'Cerámica',
   currency: 'CLP',
   monthlyGoal: 1200000,
@@ -159,56 +193,139 @@ const PERFIL = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Categorías y campos del contrato C-3
+// ---------------------------------------------------------------------------
+
+/**
+ * Categorías válidas, copiadas de `incomeCategories` y `expenseCategories`
+ * (lib/features/finances/presentation/widgets/transaction_form_sheet.dart).
+ *
+ * Están aquí para que [validarDatos] falle si alguien siembra una categoría que
+ * la app ya no ofrece. Hasta ahora este script usaba las genéricas viejas
+ * ('Venta', 'Materiales', 'Servicios', 'Arriendo', 'Otro'): se siguen leyendo,
+ * porque la categoría es texto libre, pero el gráfico «En qué se te va el mes»
+ * las pinta tal cual y el formulario de edición no las sabe preseleccionar, así
+ * que en una captura de la tienda salían las etiquetas de una versión anterior.
+ */
+const CATEGORIAS_INGRESO = [
+  'Venta en feria',
+  'Venta por Instagram',
+  'Pedido personalizado',
+  'Venta a tienda',
+  'Otro ingreso',
+];
+
+const CATEGORIAS_GASTO = [
+  'Insumos y materiales',
+  'Arriendo del taller',
+  'Gas y electricidad',
+  'Envíos',
+  'Comisión de plataforma',
+  'Herramientas',
+  'Difusión',
+  'Otro gasto',
+];
+
+/**
+ * Valores exactos que acepta `docType` (contrato C-3). Coinciden con
+ * `TransactionDocType.wire` y con `validDocType()` de `firestore.rules`.
+ */
+const DOC_TYPES = ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
+
+/**
+ * Tasa con la que se calcula la comisión de Mercado Pago de la demostración.
+ *
+ * El 3,19 % es la cifra que circula para Chile en 2026 y `docs/FICHA-PLAY.md`
+ * §3 la deja marcada como **NO verificada en la fuente**: la página de costos
+ * de Mercado Pago se renderiza con JavaScript y no devuelve ninguna cifra a un
+ * cliente de texto (vuelto a comprobar el 6 de octubre de 2026: responde 200 y
+ * en el HTML no aparece ningún porcentaje).
+ *
+ * Por eso aquí no se afirma que esa sea la comisión real de nadie: es el número
+ * que la usuaria de la demostración anotó en su venta. Se calcula en el script
+ * en vez de escribirse a mano para que cuadre con el monto y sea reproducible.
+ * La app nunca aplica una tasa por su cuenta: `platformFee` es siempre lo que
+ * teclea el usuario (`transaction_form_sheet.dart`).
+ */
+const TASA_MERCADO_PAGO = 0.0319;
+
+/** Comisión de Mercado Pago sobre un cobro, en pesos redondeados. */
+function comisionMercadoPago(monto) {
+  return Math.round(monto * TASA_MERCADO_PAGO);
+}
+
 /**
  * Movimientos de los últimos tres meses.
- * [mesesAtras, día, tipo, categoría, título, monto, descripción]
+ * `[mesesAtras, día, tipo, categoría, título, monto, descripción, extra?]`
  *
- * Las categorías son las seis de transactionCategories
- * (lib/features/finances/presentation/widgets/transaction_form_sheet.dart:15-22):
- * Venta, Materiales, Herramientas, Servicios, Arriendo y Otro. Usar cualquier
- * otra dejaría movimientos que el formulario de edición no sabría preseleccionar.
+ * `extra` es opcional y solo tiene sentido en los ingresos. Lleva los dos campos
+ * del contrato C-3:
+ *  - `docType`: uno de [DOC_TYPES]. Con qué documento se respaldó el ingreso.
+ *  - `comisionMP`: `true` para que el script calcule la comisión del medio de
+ *    pago sobre el monto y la guarde en `platformFee`.
+ *
+ * Los dos son OPCIONALES en Firestore y a propósito solo se rellenan en el mes
+ * en curso: los meses cerrados quedan SIN el campo. Es el caso real de los
+ * movimientos registrados antes del contrato C-3, y de paso deja sembrada la
+ * prueba de que la app los sigue leyendo (caen en `TransactionDocType.fallback`,
+ * que es 'sin_documento').
+ *
+ * Sin días de la semana en las descripciones: antes decían «Domingo» y «Sábado
+ * en la mañana» sobre fechas que, al anclarse a «hoy», caen en el día que caigan.
  */
 const MOVIMIENTOS = [
   // ---- Mes actual ----
-  [0, 3, 'expense', 'Materiales', 'Arcilla de gres 25 kg', 48000, 'Dos sacos, proveedor Santa Elena'],
-  [0, 4, 'income', 'Venta', 'Set de 6 tazas de gres', 78000, 'Pedido por Instagram, envío a Ñuñoa'],
-  [0, 5, 'expense', 'Arriendo', 'Arriendo taller Independencia', 320000, ''],
-  [0, 7, 'income', 'Venta', 'Pocillos ramen x 8', 96000, 'Cliente habitual, segunda compra'],
-  [0, 9, 'expense', 'Servicios', 'Balón de gas 45 kg', 62000, 'Para la quema de bizcocho'],
-  [0, 11, 'income', 'Venta', 'Taller de torno (4 personas)', 160000, 'Sábado en la mañana, 3 horas'],
-  [0, 14, 'expense', 'Materiales', 'Esmalte transparente 5 L', 72000, ''],
-  [0, 16, 'income', 'Venta', 'Macetero grande esmaltado', 65000, 'Encargo para terraza'],
-  [0, 18, 'expense', 'Servicios', 'Cuenta de luz del taller', 54500, 'Mes con dos quemas'],
-  [0, 21, 'income', 'Venta', 'Feria Barrio Italia', 245000, 'Domingo, buen día de ventas'],
-  [0, 21, 'expense', 'Otro', 'Stand Feria Barrio Italia', 55000, ''],
-  [0, 24, 'expense', 'Materiales', 'Caolín 20 kg', 29000, ''],
+  // Seis de los siete ingresos de este mes llevan `extra`: es lo que hace
+  // visible el valor hora neto, porque dos de ellos tienen comisión de Mercado
+  // Pago y la pantalla puede decir cuánto se quedó el medio de pago en vez de
+  // callarlo. El séptimo, la feria, se deja SIN el campo a propósito: se cobró
+  // en efectivo y no se emitió nada, que es el caso del campo ausente.
+  [0, 3, 'expense', 'Insumos y materiales', 'Arcilla de gres 25 kg', 48000, 'Dos sacos, proveedor Santa Elena'],
+  [0, 4, 'income', 'Venta por Instagram', 'Set de 6 tazas de gres', 78000, 'Pedido por mensaje directo, envío a Ñuñoa', { docType: 'sin_documento' }],
+  [0, 5, 'expense', 'Arriendo del taller', 'Arriendo taller Independencia', 320000, ''],
+  [0, 7, 'income', 'Venta por Instagram', 'Pocillos ramen x 8', 96000, 'Cliente habitual, cobrado con link de pago', { docType: 'boleta_venta', comisionMP: true }],
+  [0, 9, 'expense', 'Gas y electricidad', 'Balón de gas 45 kg', 62000, 'Para la quema de bizcocho'],
+  [0, 11, 'income', 'Otro ingreso', 'Taller de torno (4 personas)', 160000, 'Tres horas en el taller', { docType: 'boleta_honorarios' }],
+  [0, 12, 'income', 'Venta a tienda', 'Pedido tienda Nativa', 186000, '12 tazas y 6 pocillos, cobrado con link de pago', { docType: 'boleta_venta', comisionMP: true }],
+  [0, 14, 'expense', 'Insumos y materiales', 'Esmalte transparente 5 L', 72000, ''],
+  [0, 16, 'income', 'Pedido personalizado', 'Macetero grande esmaltado', 65000, 'Encargo para terraza', { docType: 'sin_documento' }],
+  [0, 18, 'expense', 'Gas y electricidad', 'Cuenta de luz del taller', 54500, 'Mes con dos quemas'],
+  [0, 19, 'income', 'Otro ingreso', 'Clase de esmaltes en escuela de oficios', 150000, 'Pagado por transferencia, sin comisión', { docType: 'boleta_honorarios' }],
+  [0, 21, 'income', 'Venta en feria', 'Feria Barrio Italia', 245000, 'Se vendió casi todo lo que llevé'],
+  [0, 21, 'expense', 'Difusión', 'Stand Feria Barrio Italia', 55000, ''],
+  [0, 24, 'expense', 'Insumos y materiales', 'Caolín 20 kg', 29000, ''],
 
   // ---- Mes anterior ----
-  [1, 2, 'expense', 'Arriendo', 'Arriendo taller Independencia', 320000, ''],
-  [1, 4, 'income', 'Venta', 'Pedido Café Lastarria', 420000, '36 tazas y 12 platos, entrega en dos tandas'],
-  [1, 6, 'expense', 'Materiales', 'Arcilla de gres 25 kg', 96000, 'Cuatro sacos por el pedido del café'],
+  [1, 2, 'expense', 'Arriendo del taller', 'Arriendo taller Independencia', 320000, ''],
+  [1, 4, 'income', 'Venta a tienda', 'Pedido Café Lastarria', 420000, '36 tazas y 12 platos, entrega en dos tandas'],
+  [1, 6, 'expense', 'Insumos y materiales', 'Arcilla de gres 25 kg', 96000, 'Cuatro sacos por el pedido del café'],
   [1, 8, 'expense', 'Herramientas', 'Set de estecas y vaciadores', 34900, ''],
-  [1, 10, 'income', 'Venta', 'Jarrón línea Atacama', 120000, ''],
-  [1, 12, 'expense', 'Servicios', 'Balón de gas 45 kg', 62000, ''],
-  [1, 15, 'income', 'Venta', 'Tienda Ñam (consignación)', 188000, 'Liquidación de las piezas dejadas en marzo'],
-  [1, 17, 'expense', 'Servicios', 'Cuenta de luz del taller', 61200, ''],
-  [1, 19, 'expense', 'Otro', 'Flete de pedido a Valparaíso', 18000, ''],
-  [1, 22, 'income', 'Venta', 'Vajilla por encargo', 310000, 'Matrimonio, 12 puestos'],
-  [1, 24, 'expense', 'Materiales', 'Óxido de cobalto 500 g', 54000, 'Rinde para todo el semestre'],
-  [1, 27, 'expense', 'Otro', 'Bolsas y papel de embalaje', 21500, ''],
-  [1, 28, 'income', 'Venta', 'Plato llano 26 cm x 6', 101400, ''],
+  [1, 10, 'income', 'Venta por Instagram', 'Jarrón línea Atacama', 120000, ''],
+  [1, 12, 'expense', 'Gas y electricidad', 'Balón de gas 45 kg', 62000, ''],
+  [1, 15, 'income', 'Venta a tienda', 'Tienda Ñam (consignación)', 188000, 'Liquidación de las piezas dejadas hace dos meses'],
+  [1, 17, 'expense', 'Gas y electricidad', 'Cuenta de luz del taller', 61200, ''],
+  [1, 19, 'expense', 'Envíos', 'Flete de pedido a Valparaíso', 18000, ''],
+  [1, 22, 'income', 'Pedido personalizado', 'Vajilla por encargo', 310000, 'Matrimonio, 12 puestos'],
+  [1, 24, 'expense', 'Insumos y materiales', 'Óxido de cobalto 500 g', 54000, 'Rinde para todo el semestre'],
+  [1, 27, 'expense', 'Envíos', 'Bolsas y papel de embalaje', 21500, ''],
+  [1, 28, 'income', 'Venta por Instagram', 'Plato llano 26 cm x 6', 101400, ''],
 
   // ---- Hace dos meses ----
-  [2, 3, 'expense', 'Arriendo', 'Arriendo taller Independencia', 320000, ''],
+  // El mes de la resistencia del horno (89.000) y de la mantención del torno
+  // (45.000): cierra en positivo, pero por poco. Es lo que de verdad le pasa a
+  // un taller, y verlo es justo para lo que sirve la app.
+  [2, 3, 'expense', 'Arriendo del taller', 'Arriendo taller Independencia', 320000, ''],
   [2, 5, 'expense', 'Herramientas', 'Repuesto de resistencia del horno', 89000, 'Se cortó la resistencia del fondo'],
-  [2, 6, 'income', 'Venta', 'Feria Persa Bío Bío', 135000, ''],
-  [2, 9, 'expense', 'Materiales', 'Engobe blanco 10 kg', 38000, ''],
-  [2, 12, 'income', 'Venta', 'Set 6 tazas y bandeja', 89900, 'Regalo corporativo'],
-  [2, 14, 'expense', 'Servicios', 'Cuenta de luz del taller', 48700, ''],
+  [2, 6, 'income', 'Venta en feria', 'Feria Persa Bío Bío', 135000, ''],
+  [2, 9, 'expense', 'Insumos y materiales', 'Engobe blanco 10 kg', 38000, ''],
+  [2, 12, 'income', 'Pedido personalizado', 'Set 6 tazas y bandeja', 89900, 'Regalo corporativo'],
+  [2, 14, 'expense', 'Gas y electricidad', 'Cuenta de luz del taller', 48700, ''],
   [2, 16, 'expense', 'Herramientas', 'Mantención del torno', 45000, 'Cambio de correa y rodamientos'],
-  [2, 19, 'income', 'Venta', 'Maceteros x 4 (vivero)', 115600, ''],
-  [2, 23, 'expense', 'Servicios', 'Balón de gas 45 kg', 62000, ''],
-  [2, 26, 'income', 'Venta', 'Taller de esmaltes (6 personas)', 210000, ''],
+  [2, 19, 'income', 'Venta a tienda', 'Maceteros x 4 (vivero)', 115600, ''],
+  [2, 21, 'income', 'Venta a tienda', 'Tienda Pueblo Nuevo (consignación)', 145000, 'Liquidación de piezas dejadas en consignación'],
+  [2, 23, 'expense', 'Gas y electricidad', 'Balón de gas 45 kg', 62000, ''],
+  [2, 26, 'income', 'Otro ingreso', 'Taller de esmaltes (6 personas)', 210000, ''],
 ];
 
 /**
@@ -236,13 +353,144 @@ const INVENTARIO = [
   ['caja-30', 'Caja de cartón 30x30', 'material', 690, 40, 60, 'unidad', 'Embalajes Maipú', null],
 ];
 
-/** Gastos fijos mensuales. [id, nombre, monto] */
+/**
+ * Gastos fijos mensuales. `[id, nombre, monto]`
+ *
+ * Son la REFERENCIA de lo que se paga todos los meses, y por eso no pueden
+ * repetir un movimiento que ya está en la cartola.
+ *
+ * Lo que estaba mal: el arriendo del taller aparecía en los dos sitios, como
+ * transacción de 320.000 cada mes y otra vez como gasto fijo de 320.000. En la
+ * pantalla de Inicio las dos cifras salen una debajo de la otra ('Gastos' y
+ * 'Gastos fijos', `home_tab.dart`), así que quien sumara pagaba el arriendo dos
+ * veces. En una captura de la tienda eso es un dato que no cuadra.
+ *
+ * Se quedó donde se ve de verdad: en la cartola, con su fecha, y contado en el
+ * balance del mes, que es la cifra grande de la pantalla. Aquí quedan solo los
+ * cargos recurrentes que la usuaria NO anota uno por uno porque se pagan por
+ * descuento automático. [validarDatos] vigila que no vuelvan a solaparse.
+ */
 const GASTOS_FIJOS = [
-  ['arriendo-taller', 'Arriendo taller', 320000],
   ['internet-telefono', 'Internet y teléfono', 29990],
   ['contadora', 'Contadora (mensual)', 45000],
   ['seguro-taller', 'Seguro del taller', 28500],
 ];
+
+// ---------------------------------------------------------------------------
+// Comprobaciones previas
+// ---------------------------------------------------------------------------
+
+/** Totales por mes derivados de [MOVIMIENTOS]. Se usan dos veces: aquí y al
+ * escribir los agregados, siempre con la misma fórmula. */
+function totalesPorMes() {
+  const totales = new Map();
+  for (const [mesesAtras, dia, tipo, , , monto, , extra] of MOVIMIENTOS) {
+    const monthKey = monthKeyDe(enMes(mesesAtras, dia));
+    const acumulado = totales.get(monthKey) || {
+      totalIncome: 0,
+      totalExpenses: 0,
+      transactionCount: 0,
+      comisiones: 0,
+    };
+    if (tipo === 'income') acumulado.totalIncome += monto;
+    else acumulado.totalExpenses += monto;
+    if (extra && extra.comisionMP) {
+      acumulado.comisiones += comisionMercadoPago(monto);
+    }
+    acumulado.transactionCount += 1;
+    totales.set(monthKey, acumulado);
+  }
+  return totales;
+}
+
+/**
+ * Comprueba los datos ANTES de escribir nada.
+ *
+ * Hay tres cosas que estos datos tienen que cumplir siempre: que los gastos
+ * fijos no dupliquen transacciones, que los campos del contrato C-3 sean
+ * válidos y que ningún mes cierre en rojo. Comprobarlas a ojo una vez no sirve,
+ * porque las listas de arriba se van a seguir editando y lo que sale de aquí
+ * acaba en una captura de la tienda; así que el script las exige en cada
+ * ejecución y aborta antes de tocar Firestore.
+ */
+function validarDatos() {
+  const errores = [];
+
+  // 1. Ningún gasto fijo puede repetir un gasto que ya está en la cartola. Se
+  //    mira por nombre contenido en el título y también por monto exacto: el
+  //    arriendo duplicado coincidía en las dos cosas.
+  const gastosDelMes = MOVIMIENTOS.filter(
+    ([meses, , tipo]) => meses === 0 && tipo === 'expense',
+  );
+  for (const [, nombre, monto] of GASTOS_FIJOS) {
+    const choque = gastosDelMes.find(
+      ([, , , , titulo, montoTx]) =>
+        montoTx === monto ||
+        titulo.toLowerCase().includes(nombre.toLowerCase()),
+    );
+    if (choque) {
+      errores.push(
+        `El gasto fijo "${nombre}" (${monto}) duplica la transacción ` +
+          `"${choque[4]}" (${choque[5]}). Los gastos fijos son la referencia ` +
+          'mensual: no pueden volver a contar un movimiento real del mes.',
+      );
+    }
+  }
+
+  // 2. Categorías, tipos y campos del contrato C-3.
+  MOVIMIENTOS.forEach(([, , tipo, categoria, titulo, monto, , extra], indice) => {
+    const validas = tipo === 'income' ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO;
+    if (!validas.includes(categoria)) {
+      errores.push(
+        `Movimiento ${indice} ("${titulo}"): la categoría "${categoria}" no ` +
+          'está entre las que ofrece la app.',
+      );
+    }
+    if (!extra) return;
+    if (tipo !== 'income') {
+      errores.push(
+        `Movimiento ${indice} ("${titulo}"): docType y platformFee solo ` +
+          'tienen sentido en un ingreso.',
+      );
+    }
+    if (extra.docType && !DOC_TYPES.includes(extra.docType)) {
+      errores.push(
+        `Movimiento ${indice} ("${titulo}"): docType "${extra.docType}" no ` +
+          'es uno de los tres valores del contrato C-3.',
+      );
+    }
+    if (extra.comisionMP) {
+      const comision = comisionMercadoPago(monto);
+      // Mismo tope que `validPlatformFee()` en firestore.rules.
+      if (!(comision > 0 && comision <= monto)) {
+        errores.push(
+          `Movimiento ${indice} ("${titulo}"): la comisión ${comision} no ` +
+            `cabe en el monto ${monto}.`,
+        );
+      }
+    }
+  });
+
+  // 3. Ningún mes puede cerrar en rojo. Es dato de una ficha de tienda: un mes
+  //    negativo en el selector es lo primero que se ve y no es lo que el
+  //    producto quiere mostrar.
+  for (const [monthKey, t] of totalesPorMes()) {
+    const saldo = t.totalIncome - t.totalExpenses;
+    if (saldo <= 0) {
+      errores.push(
+        `El mes ${monthKey} cierra con saldo ${saldo}. La cuenta de ` +
+          'demostración no puede sembrar un mes en rojo.',
+      );
+    }
+  }
+
+  if (errores.length > 0) {
+    throw new Error(
+      'Los datos de demostración no son coherentes:\n  - ' +
+        errores.join('\n  - '),
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Siembra
@@ -287,6 +535,9 @@ async function limpiarSubcoleccion(nombre) {
 }
 
 async function sembrar() {
+  // Antes de tocar Firestore: si los datos no cuadran, no se siembra nada.
+  validarDatos();
+
   const estadoAuth = await crearUsuarioAuth();
   console.log(`Auth: usuario ${DEMO_EMAIL} ${estadoAuth} (uid ${DEMO_UID})`);
 
@@ -311,16 +562,19 @@ async function sembrar() {
   }
 
   const lote = db.batch();
-  const totalesPorMes = new Map();
+  const totalesDelPeriodo = totalesPorMes();
 
   // ---- Transacciones ----
   MOVIMIENTOS.forEach(
-    ([mesesAtras, dia, tipo, categoria, titulo, monto, descripcion], indice) => {
+    (
+      [mesesAtras, dia, tipo, categoria, titulo, monto, descripcion, extra],
+      indice,
+    ) => {
       const fecha = enMes(mesesAtras, dia);
       const monthKey = monthKeyDe(fecha);
       // Id estable y ordenable, para que reejecutar no duplique movimientos.
       const id = `demo-${String(indice).padStart(3, '0')}`;
-      lote.set(db.doc(`users/${DEMO_UID}/transactions/${id}`), {
+      const documento = {
         title: titulo,
         description: descripcion,
         amount: monto,
@@ -330,14 +584,18 @@ async function sembrar() {
         monthKey,
         createdAt: Timestamp.fromDate(fecha),
         updatedAt: Timestamp.fromDate(fecha),
-      });
+      };
 
-      const acumulado = totalesPorMes.get(monthKey) ||
-        { totalIncome: 0, totalExpenses: 0, transactionCount: 0 };
-      if (tipo === 'income') acumulado.totalIncome += monto;
-      else acumulado.totalExpenses += monto;
-      acumulado.transactionCount += 1;
-      totalesPorMes.set(monthKey, acumulado);
+      // Contrato C-3: los dos campos son OPCIONALES y solo se escriben cuando
+      // el movimiento los trae. Nunca `null`: `firestore.rules` no lo acepta a
+      // propósito, para que «sin documento» tenga una sola representación
+      // (el valor 'sin_documento' o el campo ausente, que se lee igual).
+      if (extra && extra.docType) documento.docType = extra.docType;
+      if (extra && extra.comisionMP) {
+        documento.platformFee = comisionMercadoPago(monto);
+      }
+
+      lote.set(db.doc(`users/${DEMO_UID}/transactions/${id}`), documento);
     },
   );
 
@@ -376,9 +634,14 @@ async function sembrar() {
   // este script actúa como backend: si el emulador de Functions está arriba, el
   // trigger se dispara igual y llega al mismo resultado, así que las dos
   // escrituras convergen en vez de pelearse.
-  for (const [monthKey, totales] of totalesPorMes) {
+  for (const [monthKey, totales] of totalesDelPeriodo) {
     lote.set(db.doc(`users/${DEMO_UID}/months/${monthKey}`), {
-      ...totales,
+      // `comisiones` NO se escribe: `months/*` tiene exactamente tres campos
+      // (functions/src/months.ts) y el trigger, que también recalcula estos
+      // documentos, dejaría el extra fuera en la siguiente escritura.
+      totalIncome: totales.totalIncome,
+      totalExpenses: totales.totalExpenses,
+      transactionCount: totales.transactionCount,
       updatedAt: ahora,
     });
   }
@@ -389,14 +652,26 @@ async function sembrar() {
   const bajoMinimo = INVENTARIO.filter(([, , , , stock, minimo]) => stock <= minimo);
   console.log(`Transacciones: ${MOVIMIENTOS.length}`);
   console.log(`Inventario: ${INVENTARIO.length} ítems (${bajoMinimo.length} en alerta de stock)`);
-  console.log(`Gastos fijos: ${GASTOS_FIJOS.length}`);
+  const totalFijos = GASTOS_FIJOS.reduce((suma, [, , monto]) => suma + monto, 0);
+  console.log(
+    `Gastos fijos: ${GASTOS_FIJOS.length} ` +
+      `(${totalFijos.toLocaleString('es-CL')} CLP al mes, sin duplicar ` +
+      'ninguna transacción de la cartola)',
+  );
+  const conDocType = MOVIMIENTOS.filter(([, , , , , , , e]) => e && e.docType);
+  const conComision = MOVIMIENTOS.filter(([, , , , , , , e]) => e && e.comisionMP);
+  console.log(
+    `Contrato C-3: ${conDocType.length} ingresos con docType, ` +
+      `${conComision.length} con comisión del medio de pago`,
+  );
   console.log('');
-  for (const [monthKey, t] of [...totalesPorMes].sort()) {
+  for (const [monthKey, t] of [...totalesDelPeriodo].sort()) {
     const saldo = t.totalIncome - t.totalExpenses;
     console.log(
       `  ${monthKey}  ingresos ${t.totalIncome.toLocaleString('es-CL')}` +
         `  gastos ${t.totalExpenses.toLocaleString('es-CL')}` +
         `  saldo ${saldo.toLocaleString('es-CL')}` +
+        `  comisiones ${t.comisiones.toLocaleString('es-CL')}` +
         `  (${t.transactionCount} movimientos)`,
     );
   }
