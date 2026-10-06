@@ -1,3 +1,15 @@
+/**
+ * Callable `chat`: el asistente financiero.
+ *
+ * Orden del flujo y por qué: se reserva cuota ANTES de llamar al modelo (si no,
+ * se podrían lanzar llamadas en paralelo sin tope) y se deshace todo lo escrito
+ * si el modelo falla (si no, un fallo de OpenRouter le cobraba cuota al usuario
+ * y dejaba un mensaje suelto con `messageCount` desincronizado).
+ *
+ * Las cuotas, el tope global y el detalle de qué cuesta cada llamada están en
+ * `quota.ts`.
+ */
+
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import {
@@ -9,7 +21,7 @@ import {
   type DocumentReference,
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
-import { ENFORCE_APP_CHECK, OPENROUTER_API_KEY, OPENROUTER_MODEL, REGION } from './config';
+import { ENFORCE_APP_CHECK, OPENROUTER_API_KEY, OPENROUTER_MODEL, REGION, callableCors } from './config';
 import { askOpenRouter, type ChatMessage } from './openrouter';
 import {
   buildSystemPrompt,
@@ -19,11 +31,22 @@ import {
   type ProfileContext,
   type TransactionContext,
 } from './prompt';
+import { dayKeyOf, planOf, refundChatQuota, reserveChatQuota } from './quota';
 
 export const MAX_MESSAGE_CHARS = 2000;
-export const HISTORY_LIMIT = 20;
+
+/**
+ * Mensajes de la conversación que se reenvían al modelo en cada turno.
+ *
+ * Era 20. El historial viaja completo en cada llamada, así que este número
+ * multiplica los tokens de entrada de toda la conversación: con 20, el mensaje
+ * número 20 pagaba otra vez por los 19 anteriores. Con 6 el asistente conserva
+ * el hilo inmediato (tres intercambios) y el coste por mensaje deja de crecer
+ * con la longitud de la conversación.
+ */
+export const HISTORY_LIMIT = 6;
+
 export const RECENT_TRANSACTIONS_LIMIT = 10;
-export const DAILY_QUOTA: Record<Plan, number> = { free: 30, pro: 300 };
 const OPENROUTER_TIMEOUT_MS = 30_000;
 const CONVERSATION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const TITLE_MAX = 60;
@@ -38,10 +61,9 @@ export interface ChatResponse {
   reply: string;
 }
 
-/** Clave del día en UTC ('yyyy-MM-dd'). */
-export function dayKeyOf(date: Date = new Date()): string {
-  return date.toISOString().slice(0, 10);
-}
+// Reexportado para no romper a quien ya lo importaba desde aquí; la
+// implementación vive en quota.ts, que es donde está la zona horaria.
+export { dayKeyOf };
 
 function parseInput(data: unknown): { message: string; conversationId?: string } {
   if (typeof data !== 'object' || data === null) {
@@ -69,10 +91,6 @@ function parseInput(data: unknown): { message: string; conversationId?: string }
   return { message: trimmed };
 }
 
-function planOf(profile: DocumentData | undefined): Plan {
-  return profile?.plan === 'pro' ? 'pro' : 'free';
-}
-
 function toProfileContext(data: DocumentData | undefined): ProfileContext | null {
   if (!data) return null;
   const rate = data.hourlyRate;
@@ -82,7 +100,7 @@ function toProfileContext(data: DocumentData | undefined): ProfileContext | null
     businessType: typeof data.businessType === 'string' ? data.businessType : undefined,
     currency: typeof data.currency === 'string' ? data.currency : undefined,
     monthlyGoal: typeof data.monthlyGoal === 'number' ? data.monthlyGoal : undefined,
-    plan: planOf(data),
+    plan: planOf(data) as Plan,
     hourlyRate:
       typeof rate === 'object' && rate !== null
         ? {
@@ -141,8 +159,7 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
     memory: '256MiB',
     // Tope de gasto: evita escalado descontrolado ante abuso o picos.
     maxInstances: 5,
-    // Orígenes web permitidos: hosting de producción y desarrollo local contra emuladores.
-    cors: ['https://pagate-17211.web.app', 'https://pagate-17211.firebaseapp.com', /^http:\/\/localhost(:\d+)?$/],
+    cors: callableCors(),
   },
   async (request) => {
     // 1. Autenticación y App Check.
@@ -157,7 +174,6 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
 
     const db = getFirestore();
     const userRef = db.doc(`users/${uid}`);
-    const usageRef = db.doc(`users/${uid}/meta/usage`);
     const conversations = userRef.collection('conversations');
 
     // Si se indicó conversación, debe existir (antes de consumir cuota).
@@ -172,33 +188,15 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
       convRef = conversations.doc();
     }
 
-    // 2. Cuota diaria en transacción.
-    const dayKey = dayKeyOf();
-    const profileData = await db.runTransaction(async (tx) => {
-      const [userSnap, usageSnap] = await Promise.all([tx.get(userRef), tx.get(usageRef)]);
-      const profile = userSnap.data();
-      const plan = planOf(profile);
-      const usage = usageSnap.data();
-      const used =
-        usage?.dayKey === dayKey && typeof usage.chatCountDay === 'number' && usage.chatCountDay > 0
-          ? usage.chatCountDay
-          : 0;
-      const limit = DAILY_QUOTA[plan];
-      if (used >= limit) {
-        throw new HttpsError(
-          'resource-exhausted',
-          `Alcanzaste el límite diario de ${limit} mensajes del plan ${plan}. Vuelve mañana.`,
-        );
-      }
-      tx.set(usageRef, { dayKey, chatCountDay: used + 1 });
-      return profile;
-    });
+    // 2. Cuota: de por vida en el plan free, diaria en pro, más el tope global.
+    const reservation = await reserveChatQuota(db, uid);
 
     // 3 y 4. Crear conversación si hace falta y guardar el mensaje del usuario.
     const messages = convRef.collection('messages');
     const userMsgRef = messages.doc();
+    const createdConversation = !conversationId;
     const batchIn = db.batch();
-    if (!conversationId) {
+    if (createdConversation) {
       batchIn.set(convRef, {
         title: titleFrom(message),
         createdAt: FieldValue.serverTimestamp(),
@@ -208,6 +206,21 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
     }
     batchIn.set(userMsgRef, { role: 'user', text: message, createdAt: FieldValue.serverTimestamp() });
     await batchIn.commit();
+
+    // Deshace lo escrito en este turno. Se usa cuando el fallo no es imputable
+    // al usuario: la conversación queda como estaba y la cuota se devuelve, así
+    // que reintentar no le cuesta un mensaje.
+    const rollback = async (reason: string) => {
+      try {
+        const batch = db.batch();
+        batch.delete(userMsgRef);
+        if (createdConversation) batch.delete(convRef);
+        await batch.commit();
+        await refundChatQuota(db, uid, reservation.dayKey);
+      } catch (err) {
+        logger.error('chat.rollback.error', { uid, reason, error: String(err) });
+      }
+    };
 
     // 5. Contexto para el system prompt + historial.
     const [monthSnap, txSnap, productCount, materialCount, historySnap] = await Promise.all([
@@ -223,7 +236,7 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
       materials: materialCount.data().count,
     };
     const systemPrompt = buildSystemPrompt({
-      profile: toProfileContext(profileData),
+      profile: toProfileContext(reservation.profile),
       latestMonth: toMonthContext(monthSnap.docs[0]),
       recentTransactions: txSnap.docs.map(toTransactionContext),
       inventory,
@@ -239,16 +252,31 @@ export const chat = onCall<ChatRequest, Promise<ChatResponse>>(
     ];
 
     // 6. OpenRouter.
+    const model = OPENROUTER_MODEL.value();
     let reply: string;
     try {
-      reply = await askOpenRouter({
+      const result = await askOpenRouter({
         apiKey: OPENROUTER_API_KEY.value(),
-        model: OPENROUTER_MODEL.value(),
+        model,
         messages: llmMessages,
         timeoutMs: OPENROUTER_TIMEOUT_MS,
       });
+      reply = result.text;
+      // Tokens reales de la llamada: es el único dato con el que el dueño puede
+      // calcular el gasto y montar una alerta. Sin esto el coste es invisible.
+      logger.info('chat.usage', {
+        uid,
+        model,
+        plan: reservation.plan,
+        promptTokens: result.usage?.promptTokens ?? null,
+        completionTokens: result.usage?.completionTokens ?? null,
+        totalTokens: result.usage?.totalTokens ?? null,
+        systemPromptChars: systemPrompt.length,
+        historyMessages: history.length,
+      });
     } catch (err) {
       logger.error('OpenRouter falló', { uid, conversationId: convRef.id, error: String(err) });
+      await rollback('openrouter');
       throw new HttpsError('internal', 'No se pudo obtener una respuesta del asistente. Intenta de nuevo.');
     }
 
