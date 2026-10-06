@@ -234,15 +234,6 @@ class _AyudaScreenState extends State<AyudaScreen> {
                             icon: Icons.email_outlined,
                             label: 'soporte@pagate-ia.com',
                           ),
-                          Divider(
-                              height: 1,
-                              color: AppColors.borderDark,
-                              indent: AppSpacing.md,
-                              endIndent: AppSpacing.md),
-                          _ContactRow(
-                            icon: Icons.chat_bubble_outline_rounded,
-                            label: 'Chat en vivo (Pro)',
-                          ),
                         ],
                       ),
                     ),
