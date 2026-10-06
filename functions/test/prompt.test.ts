@@ -7,6 +7,7 @@ import {
   formatMoney,
   sanitizeField,
   type PromptContext,
+  type TransactionContext,
 } from '../src/prompt';
 
 const fullContext: PromptContext = {
@@ -19,9 +20,23 @@ const fullContext: PromptContext = {
     plan: 'pro',
     hourlyRate: { desiredMonthlySalary: 600000, availableHoursPerMonth: 120, hourlyValue: 5000 },
   },
-  latestMonth: { monthKey: '2026-09', totalIncome: 450000, totalExpenses: 120000, transactionCount: 7 },
+  latestMonth: {
+    monthKey: '2026-09',
+    totalIncome: 450000,
+    totalExpenses: 120000,
+    totalPlatformFees: 13450,
+    transactionCount: 7,
+  },
   recentTransactions: [
-    { title: 'Venta taza', amount: 15000, type: 'income', category: 'Ventas', date: new Date('2026-09-15T12:00:00Z') },
+    {
+      title: 'Venta taza',
+      amount: 15000,
+      type: 'income',
+      category: 'Ventas',
+      date: new Date('2026-09-15T12:00:00Z'),
+      docType: 'boleta_venta',
+      platformFee: 479,
+    },
     { title: 'Arcilla', amount: 20000, type: 'expense', category: 'Materiales', date: new Date('2026-09-10T12:00:00Z') },
   ],
   inventory: { products: 12, materials: 5 },
@@ -110,6 +125,239 @@ describe('buildSystemPrompt', () => {
       });
       expect(prompt, `moneda rechazada: ${currency}`).toContain('Expresa los montos en CLP');
     }
+  });
+});
+
+/**
+ * Contrato C-3: el asistente tiene que ver los datos chilenos.
+ *
+ * POR QUE: el contexto se armaba con los montos BRUTOS y nada mas. En Chile la
+ * comision del medio de pago se la queda entera la pasarela, asi que el bruto no
+ * es lo que el negocio recibio, y una boleta de honorarios y una boleta de venta
+ * no son el mismo documento. Con el contexto viejo, el asistente hablaba del
+ * bruto creyendo que era el neto y no podia distinguir los documentos ni cuando
+ * se le preguntaba de frente.
+ *
+ * El limite que estos tests vigilan en la otra direccion: ver los documentos NO
+ * convierte al asistente en asesor tributario.
+ */
+describe('C-3: datos chilenos en el prompt', () => {
+  const base: PromptContext = {
+    profile: { name: 'Camila', currency: 'CLP' },
+    latestMonth: null,
+    recentTransactions: [],
+    inventory: { products: 0, materials: 0 },
+    today: new Date('2026-09-17T15:00:00Z'),
+  };
+
+  function lineaDe(prompt: string, trozo: string): string {
+    const linea = prompt.split('\n').find((l) => l.includes(trozo));
+    expect(linea, `no hay linea con "${trozo}"`).toBeDefined();
+    return linea!;
+  }
+
+  describe('resumen del mes', () => {
+    const mes = (totalPlatformFees?: number): PromptContext => ({
+      ...base,
+      latestMonth: {
+        monthKey: '2026-09',
+        totalIncome: 450000,
+        totalExpenses: 120000,
+        ...(totalPlatformFees === undefined ? {} : { totalPlatformFees }),
+        transactionCount: 7,
+      },
+    });
+
+    it('separa bruto, comisiones y neto, con etiquetas que dicen cual es cual', () => {
+      const prompt = buildSystemPrompt(mes(13450));
+      expect(lineaDe(prompt, 'Ingresos (bruto')).toContain(formatMoney(450000, 'CLP'));
+      expect(lineaDe(prompt, 'Comisiones de medios de pago')).toContain(formatMoney(13450, 'CLP'));
+      // 450.000 - 13.450
+      expect(lineaDe(prompt, 'Ingresos netos de comisiones')).toContain(formatMoney(436550, 'CLP'));
+    });
+
+    it('el balance sigue siendo bruto menos gastos, y lo dice', () => {
+      // No se calcula con el neto a proposito: el grafico de la app muestra
+      // bruto menos gastos. Si el asistente diera otra cifra con el mismo
+      // nombre, nadie podria saber cual de los dos miente.
+      const prompt = buildSystemPrompt(mes(13450));
+      const linea = lineaDe(prompt, 'Balance');
+      expect(linea).toContain(formatMoney(330000, 'CLP'));
+      expect(linea).toMatch(/brutos - gastos/);
+      expect(linea).toMatch(/cifra que muestra la app/i);
+    });
+
+    it('un mes escrito antes del contrato, sin el campo, se lee como 0 comisiones', () => {
+      const prompt = buildSystemPrompt(mes(undefined));
+      expect(lineaDe(prompt, 'Comisiones de medios de pago')).toContain(formatMoney(0, 'CLP'));
+      // Sin comisiones, el neto es el bruto. Es la verdad, no un relleno.
+      expect(lineaDe(prompt, 'Ingresos netos de comisiones')).toContain(formatMoney(450000, 'CLP'));
+    });
+
+    it('una comision imposible no produce un neto negativo', () => {
+      // Por documento las reglas acotan platformFee a [0, amount] y el trigger
+      // acota la suma a [0, totalIncome], pero el Admin SDK no pasa por ninguno
+      // de los dos y de aqui sale directo al contexto del asistente.
+      const prompt = buildSystemPrompt(mes(999999999));
+      expect(lineaDe(prompt, 'Comisiones de medios de pago')).toContain(formatMoney(450000, 'CLP'));
+      expect(lineaDe(prompt, 'Ingresos netos de comisiones')).toContain(formatMoney(0, 'CLP'));
+    });
+
+    it('una comision negativa no infla el neto por encima del bruto', () => {
+      const prompt = buildSystemPrompt(mes(-50000));
+      expect(lineaDe(prompt, 'Comisiones de medios de pago')).toContain(formatMoney(0, 'CLP'));
+      expect(lineaDe(prompt, 'Ingresos netos de comisiones')).toContain(formatMoney(450000, 'CLP'));
+    });
+  });
+
+  describe('transacciones', () => {
+    const conTx = (tx: Partial<TransactionContext>): string =>
+      buildSystemPrompt({
+        ...base,
+        recentTransactions: [
+          {
+            title: 'Venta set de tazas',
+            amount: 45000,
+            type: 'income',
+            category: 'Venta por Instagram',
+            date: new Date('2026-09-15T12:00:00Z'),
+            ...tx,
+          } as TransactionContext,
+        ],
+      });
+
+    it('un ingreso con comision muestra bruto, comision y neto en la misma linea', () => {
+      const linea = lineaDe(conTx({ platformFee: 1436, docType: 'boleta_venta' }), 'Venta set de tazas');
+      expect(linea).toContain(`bruto ${formatMoney(45000, 'CLP')}`);
+      expect(linea).toContain(`comisión ${formatMoney(1436, 'CLP')}`);
+      expect(linea).toContain(`neto ${formatMoney(43564, 'CLP')}`);
+    });
+
+    it('un ingreso sin comision no habla de comisiones ni de neto', () => {
+      const linea = lineaDe(conTx({ docType: 'boleta_venta' }), 'Venta set de tazas');
+      expect(linea).toContain(formatMoney(45000, 'CLP'));
+      expect(linea).not.toMatch(/comisión/i);
+      expect(linea).not.toMatch(/neto/i);
+    });
+
+    it('traduce los tres documentos del contrato a su nombre legible', () => {
+      expect(lineaDe(conTx({ docType: 'boleta_venta' }), 'Venta set')).toContain('doc: boleta de venta');
+      expect(lineaDe(conTx({ docType: 'boleta_honorarios' }), 'Venta set')).toContain(
+        'doc: boleta de honorarios',
+      );
+      expect(lineaDe(conTx({ docType: 'sin_documento' }), 'Venta set')).toContain('doc: sin documento');
+    });
+
+    it('un ingreso sin docType se declara como sin documento, no se calla', () => {
+      // Es el fallback del contrato C-3, y decirlo importa: el asistente tiene
+      // que poder responder cuanto vendio con boleta y cuanto sin ella.
+      expect(lineaDe(conTx({}), 'Venta set')).toContain('doc: sin documento');
+    });
+
+    it('un docType desconocido no se cuela tal cual en el prompt', () => {
+      // El Admin SDK no pasa por las reglas. El mapa de etiquetas es cerrado.
+      const linea = lineaDe(conTx({ docType: 'factura_exenta' as never }), 'Venta set');
+      expect(linea).toContain('doc: sin documento');
+      expect(linea).not.toContain('factura_exenta');
+    });
+
+    it('un gasto no lleva documento ni comision, aunque vengan en el dato', () => {
+      // El contrato los acepta solo en los ingresos: una comision de medio de
+      // pago sobre un gasto no significa nada, y un neto derivado de ella
+      // tampoco.
+      const linea = lineaDe(
+        conTx({ type: 'expense', title: 'Arcilla', platformFee: 5000, docType: 'boleta_venta' }),
+        'Arcilla',
+      );
+      expect(linea).toContain(formatMoney(45000, 'CLP'));
+      expect(linea).not.toMatch(/doc:/);
+      expect(linea).not.toMatch(/comisión/i);
+      expect(linea).not.toMatch(/neto/i);
+    });
+
+    it('una comision mayor que el monto no produce un neto negativo', () => {
+      const linea = lineaDe(conTx({ amount: 10000, platformFee: 99999 }), 'Venta set');
+      expect(linea).toContain(`comisión ${formatMoney(10000, 'CLP')}`);
+      expect(linea).toContain(`neto ${formatMoney(0, 'CLP')}`);
+    });
+
+    it('una comision negativa o no numerica se trata como que no hay comision', () => {
+      for (const platformFee of [-1, Number.NaN, Number.POSITIVE_INFINITY, '500' as never, null as never]) {
+        const linea = lineaDe(conTx({ platformFee }), 'Venta set');
+        expect(linea, `platformFee: ${String(platformFee)}`).not.toMatch(/comisión/i);
+      }
+    });
+  });
+
+  describe('el limite: describe, no asesora', () => {
+    it('prohibe la asesoria tributaria de forma explicita', () => {
+      const prompt = buildSystemPrompt(fullContext);
+      expect(prompt).toMatch(/NO des asesoría tributaria/);
+      expect(prompt).toMatch(/No calcules impuestos, retenciones, IVA ni PPM/);
+      expect(prompt).toMatch(/no digas cuánto\s+declarar/);
+      expect(prompt).toMatch(/no interpretes normas del SII/);
+      expect(prompt).toMatch(/no recomiendes emitir un documento en vez de otro/);
+    });
+
+    it('dice para que esta el tipo de documento: describir y agrupar', () => {
+      const prompt = buildSystemPrompt(fullContext);
+      expect(prompt).toMatch(/DESCRIBIR y AGRUPAR/);
+      expect(prompt).toMatch(/No es una base para asesorar/);
+    });
+
+    it('manda al contador y ofrece lo que si puede hacer', () => {
+      const prompt = buildSystemPrompt(fullContext);
+      expect(prompt).toMatch(/registra y muestra sus números, no asesora/);
+      expect(prompt).toMatch(/ve un contador/i);
+    });
+
+    it('manda usar el neto cuando le pregunten cuanto gano', () => {
+      const prompt = buildSystemPrompt(fullContext);
+      expect(prompt).toMatch(/usa los ingresos NETOS de comisiones/);
+    });
+
+    it('las instrucciones del limite van FUERA del bloque de datos', () => {
+      // Dentro del bloque serian datos inertes, que es justo lo contrario de lo
+      // que tienen que ser.
+      const prompt = buildSystemPrompt(fullContext);
+      const close = prompt.indexOf(DATA_CLOSE, prompt.indexOf(DATA_OPEN, prompt.indexOf(DATA_OPEN) + 1));
+      expect(prompt.indexOf('NO des asesoría tributaria')).toBeGreaterThan(close);
+    });
+  });
+
+  it('los campos nuevos no rompen el tope de tamano del prompt', () => {
+    const relleno = 'x'.repeat(5000);
+    const prompt = buildSystemPrompt({
+      profile: {
+        name: relleno,
+        businessName: relleno,
+        businessType: relleno,
+        currency: 'CLP',
+        plan: 'free',
+        hourlyRate: null,
+      },
+      latestMonth: {
+        monthKey: relleno,
+        totalIncome: 1e12,
+        totalExpenses: 1e12,
+        totalPlatformFees: 1e12,
+        transactionCount: 1e6,
+      },
+      recentTransactions: Array.from({ length: 50 }, () => ({
+        title: relleno,
+        amount: 1e12,
+        type: 'income' as const,
+        category: relleno,
+        date: new Date('2026-09-01T00:00:00Z'),
+        docType: 'boleta_honorarios' as const,
+        platformFee: 1e11,
+      })),
+      inventory: { products: 1e6, materials: 1e6 },
+    });
+    expect(prompt.length).toBeLessThanOrEqual(MAX_PROMPT_CHARS);
+    expect(prompt).toContain(DATA_CLOSE);
+    expect(prompt).toContain('## Instrucciones de respuesta');
+    expect(prompt).toMatch(/NO des asesoría tributaria/);
   });
 });
 

@@ -174,8 +174,19 @@ Límite que no se cruza, y que vale para el cliente, para el backend y para el
 prompt del asistente: la app **registra y muestra**, no **asesora**. No calcula
 impuestos a pagar, no dice cuánto declarar y no da consejo tributario. Lo
 permitido es agrupar lo que el usuario registró de forma que le sirva para
-hablar con su contador. `functions/src/prompt.ts` lo impone también al modelo
-(`No des asesoría legal ni tributaria específica`).
+hablar con su contador.
+
+`functions/src/prompt.ts` se lo impone al modelo, y desde que el asistente VE
+los documentos el bloque es explícito, no una frase de cortesía: no calcular
+impuestos, retenciones, IVA ni PPM; no decir cuánto declarar ni cuándo; no
+interpretar normas del SII; no recomendar emitir un documento en vez de otro; y
+decir claro, cuando se lo pidan, que la app registra y muestra sus números pero
+no asesora, y que eso lo ve un contador. El tipo de documento está en el
+contexto para **describir y agrupar** (cuánto vendió con boleta de venta este
+mes), no para deducir obligaciones. Un número de impuestos equivocado no es un
+error cosmético: es dinero de la persona y una afirmación que la app no puede
+sostener. `functions/test/prompt.test.ts` vigila que esas instrucciones estén
+presentes y **fuera** del bloque de datos, donde serían inertes.
 
 ## Backend (Cloud Functions 2ª gen, TypeScript, Node 22, región `southamerica-west1`)
 
@@ -220,6 +231,24 @@ Flujo:
    El prompt tiene tope duro de 12.000 caracteres (`MAX_PROMPT_CHARS`) y los
    datos del usuario van saneados y dentro de un bloque delimitado, declarado
    como datos y no como instrucciones (defensa contra inyección de prompt).
+
+   **El contexto incluye los campos chilenos de C-3.** El resumen del mes lleva
+   tres renglones separados y etiquetados —ingresos brutos, comisiones de medios
+   de pago e ingresos netos de comisiones— y cada ingreso de la lista lleva su
+   documento (`doc: boleta de venta` / `boleta de honorarios` /
+   `sin documento`) y, si tuvo comisión, su bruto, su comisión y su neto. Antes
+   solo viajaba el bruto, así que el asistente hablaba de lo que el negocio
+   "ganó" con una cifra que el negocio nunca recibió, y no podía distinguir los
+   documentos ni cuando se le preguntaba de frente.
+
+   El **balance** del mes se sigue calculando bruto menos gastos, y la etiqueta
+   lo dice. No se calcula con el neto a propósito: es la cifra que el gráfico de
+   la app muestra en pantalla, y si el asistente diera otra con el mismo nombre
+   nadie podría saber cuál de las dos miente.
+
+   Los valores se acotan otra vez aquí (`docType` contra el conjunto cerrado,
+   comisiones a `[0, monto]`), porque el Admin SDK no pasa por
+   `firestore.rules` y de este punto los datos salen directos al modelo.
 7. Llama a OpenRouter con `OPENROUTER_API_KEY` (secreto) y modelo
    `OPENROUTER_MODEL` (parámetro, default `deepseek/deepseek-v4-flash`).
 8. Guarda la respuesta en `messages` y actualiza `messageCount` y `updatedAt`.
