@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../providers/inventory_provider.dart';
+import '../widgets/item_form_sheet.dart';
 import 'detalle_item_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -47,7 +45,9 @@ import 'detalle_item_screen.dart';
 //   avisar—, no tenía `isLoading` —se podía guardar dos veces el mismo
 //   ítem— y mostraba el error en un aviso flotante que se iba. Ahora es
 //   una [PagateSheet] con `Form`, un mensaje por campo, confirmación de
-//   cierre, botón con spinner y el error DENTRO de la hoja.
+//   cierre, botón con spinner y el error DENTRO de la hoja. Y ya no vive
+//   aquí: pasó a `../widgets/item_form_sheet.dart` porque la comparten la
+//   lista (alta) y la ficha (edición), que están en archivos distintos.
 //
 // · EL FAB conserva su sitio (el paso 7 no toca el layout) pero pierde la
 //   elevación: el sistema no lleva sombra en ningún control. Gana el
@@ -318,247 +318,4 @@ class _FilaDeItem extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─── Hoja de nuevo ítem ────────────────────────────────────────────────
-
-/// Abre el formulario de nuevo producto o material.
-///
-/// Toma el [InventoryProvider] del [context] que recibe y no del contexto de
-/// la hoja: los providers viven por debajo del Navigator raíz.
-Future<void> mostrarHojaDeItem(
-  final BuildContext context,
-  final InventoryItemType tipo,
-) {
-  final provider = context.read<InventoryProvider>();
-  return showPagateSheet<void>(
-    context: context,
-    builder: (final _) => ChangeNotifierProvider<InventoryProvider>.value(
-      value: provider,
-      child: _HojaDeItem(tipo: tipo),
-    ),
-  );
-}
-
-class _HojaDeItem extends StatefulWidget {
-  const _HojaDeItem({required this.tipo});
-
-  final InventoryItemType tipo;
-
-  @override
-  State<_HojaDeItem> createState() => _HojaDeItemState();
-}
-
-class _HojaDeItemState extends State<_HojaDeItem> {
-  final _formKey = GlobalKey<FormState>();
-  final _nombre = TextEditingController();
-  final _precio = TextEditingController();
-  final _stock = TextEditingController(text: '1');
-  final _minimo = TextEditingController(text: '1');
-  late final _unidad = TextEditingController(
-    text: widget.tipo == InventoryItemType.product ? 'piezas' : 'unidades',
-  );
-
-  bool _guardando = false;
-
-  /// Mensaje del último guardado fallido. Se dibuja DENTRO de la hoja: el
-  /// aviso flotante que había lo pintaba el Scaffold de detrás y quedaba
-  /// tapado por la propia hoja.
-  String? _errorGuardado;
-
-  bool get _esProducto => widget.tipo == InventoryItemType.product;
-
-  @override
-  void dispose() {
-    _nombre.dispose();
-    _precio.dispose();
-    _stock.dispose();
-    _minimo.dispose();
-    _unidad.dispose();
-    super.dispose();
-  }
-
-  /// `true` si hay algo escrito que se perdería al cerrar.
-  bool get _tieneCambios =>
-      _nombre.text.trim().isNotEmpty || _precio.text.trim().isNotEmpty;
-
-  /// Confirma el cierre cuando hay datos a medio escribir.
-  Future<bool> _confirmarCierre() async {
-    if (_guardando) return false;
-    if (!_tieneCambios) return true;
-
-    final salir = await showDialog<bool>(
-      context: context,
-      builder: (final dialogo) => AlertDialog(
-        title: const Text('¿Descartar la ficha?'),
-        content: const Text(
-          'Lo que escribiste no se va a guardar.',
-        ),
-        actions: [
-          PagatePrimaryButton.text(
-            label: 'Seguir editando',
-            onPressed: () => Navigator.pop(dialogo, false),
-          ),
-          PagatePrimaryButton.text(
-            label: 'Descartar',
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialogo, true),
-          ),
-        ],
-      ),
-    );
-    return salir ?? false;
-  }
-
-  /// Valida un entero no negativo. Devuelve `null` si es válido.
-  String? _validarEntero(final String? valor, final String queFalta) {
-    final texto = (valor ?? '').trim();
-    if (texto.isEmpty) return 'Escribe $queFalta';
-    final numero = int.tryParse(texto);
-    if (numero == null) return 'Usa solo números enteros';
-    if (numero < 0) return 'No puede ser negativo';
-    return null;
-  }
-
-  Future<void> _guardar() async {
-    if (_guardando) return;
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    // `parseCurrencyInput` y no `double.tryParse`: un precio escrito
-    // "150.000" como lo escribe un chileno se guardaba como 150 pesos.
-    final precio = parseCurrencyInput(_precio.text);
-    if (precio == null) return;
-
-    setState(() {
-      _guardando = true;
-      _errorGuardado = null;
-    });
-
-    final provider = context.read<InventoryProvider>();
-    final navigator = Navigator.of(context);
-    try {
-      await provider.addItem(
-        name: _nombre.text.trim(),
-        type: widget.tipo,
-        price: precio,
-        stock: int.parse(_stock.text.trim()),
-        minStock: int.parse(_minimo.text.trim()),
-        unit: _unidad.text.trim(),
-      );
-      if (!mounted) return;
-      navigator.pop();
-      AppFeedback.showMessage(
-        context,
-        _esProducto ? 'Producto agregado.' : 'Material agregado.',
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _guardando = false;
-        _errorGuardado = InventoryProvider.describeError(
-          e,
-          operation: DataOperation.write,
-          fallback: 'No se pudo guardar la ficha',
-        );
-      });
-    }
-  }
-
-  @override
-  Widget build(final BuildContext context) => PagateSheet(
-        title: _esProducto ? 'Nuevo producto' : 'Nuevo material',
-        onIntentarCerrar: _confirmarCierre,
-        primaryAction: PagatePrimaryButton(
-          label: 'Guardar ficha',
-          isLoading: _guardando,
-          onPressed: _guardar,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PagateTextField(
-                labelText: 'Nombre',
-                controller: _nombre,
-                hintText: _esProducto ? 'Ej: taza de greda' : 'Ej: greda 25 kg',
-                maxLength: 200,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.next,
-                validator: (final v) => (v == null || v.trim().isEmpty)
-                    ? 'Escribe un nombre'
-                    : null,
-              ),
-              const SizedBox(height: AppSpacing.x4),
-
-              PagateTextField.amount(
-                labelText: 'Precio',
-                controller: _precio,
-                hintText: '0',
-                textInputAction: TextInputAction.next,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                ],
-                validator: (final v) {
-                  final precio = parseCurrencyInput(v ?? '');
-                  if (precio == null) return 'Ingresa un precio válido';
-                  if (precio < 0) return 'El precio no puede ser negativo';
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.x4),
-
-              // Stock y mínimo en la misma línea: son el mismo dato medido
-              // de dos formas y se comparan de un vistazo.
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: PagateTextField(
-                      labelText: 'Stock',
-                      controller: _stock,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (final v) =>
-                          _validarEntero(v, 'cuántas unidades tienes'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.x3),
-                  Expanded(
-                    child: PagateTextField(
-                      labelText: 'Mínimo',
-                      controller: _minimo,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (final v) =>
-                          _validarEntero(v, 'el mínimo que quieres mantener'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.x4),
-
-              PagateTextField(
-                labelText: 'Unidad',
-                controller: _unidad,
-                hintText: 'piezas, kg, litros',
-                maxLength: 40,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (final _) => _guardar(),
-                validator: (final v) => (v == null || v.trim().isEmpty)
-                    ? 'Escribe la unidad en la que lo mides'
-                    : null,
-              ),
-
-              if (_errorGuardado != null) ...[
-                const SizedBox(height: AppSpacing.x4),
-                PagateInlineError(message: _errorGuardado),
-              ],
-            ],
-          ),
-        ),
-      );
 }

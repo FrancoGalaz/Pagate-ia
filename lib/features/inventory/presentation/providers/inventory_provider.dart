@@ -101,14 +101,56 @@ class InventoryProvider extends ChangeNotifier {
         stock: stock,
         minStock: minStock,
         unit: unit.trim().isEmpty ? 'unidades' : unit.trim(),
-        supplier: supplier,
-        code: code,
+        supplier: _opcional(supplier),
+        code: _opcional(code),
       ),
     );
   }
 
-  Future<void> updateItem(final InventoryItemEntity item) =>
-      _repository.updateItem(item);
+  /// Guarda los cambios de una ficha que ya existe.
+  ///
+  /// Valida lo MISMO que [addItem] y por la misma razón: hasta que la ficha
+  /// se pudo editar, este método no tenía ni un llamador en la interfaz, así
+  /// que sus datos nunca pasaban por una comprobación. Ahora entra por aquí
+  /// todo lo que el usuario corrige a mano.
+  Future<void> updateItem(final InventoryItemEntity item) async {
+    if (item.id.isEmpty) {
+      throw ArgumentError('No se puede actualizar una ficha sin id');
+    }
+    final safeName = item.name.trim();
+    if (safeName.isEmpty) throw ArgumentError('El nombre es obligatorio');
+    if (!item.price.isFinite || item.price < 0) {
+      throw ArgumentError('El precio no puede ser negativo');
+    }
+    if (item.stock < 0 || item.minStock < 0) {
+      throw ArgumentError('El stock no puede ser negativo');
+    }
+    await _repository.updateItem(
+      InventoryItemEntity(
+        id: item.id,
+        name: safeName,
+        type: item.type,
+        price: item.price,
+        stock: item.stock,
+        minStock: item.minStock,
+        unit: item.unit.trim().isEmpty ? 'unidades' : item.unit.trim(),
+        supplier: _opcional(item.supplier),
+        code: _opcional(item.code),
+      ),
+    );
+  }
+
+  /// Normaliza un campo opcional: recorta los espacios y convierte lo vacío
+  /// en `null`.
+  ///
+  /// Que sea `null` y no `''` importa en pantalla: la ficha dibuja la línea
+  /// "Proveedor" con `supplier != null` y el código con `code != null`, así
+  /// que una cadena vacía pintaría una fila con la etiqueta y nada al lado,
+  /// y un "Código" seguido de nada.
+  static String? _opcional(final String? valor) {
+    final texto = valor?.trim() ?? '';
+    return texto.isEmpty ? null : texto;
+  }
 
   Future<void> updateStock({
     required final String itemId,

@@ -10,6 +10,7 @@ import '../../../../core/widgets/widgets.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../providers/inventory_provider.dart';
+import '../widgets/item_form_sheet.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // DETALLE DE UNA FICHA DE INVENTARIO
@@ -67,9 +68,16 @@ class DetalleItemScreen extends StatelessWidget {
   /// confirma un cambio y sigue mostrando el valor viejo es peor que una que
   /// no confirma nada.
   ///
+  /// Se busca en `allItems` y NO en `items`: `items` viene filtrado por lo
+  /// que el usuario dejó escrito en el buscador, y desde que la ficha se
+  /// puede editar eso reabre el mismo defecto. Se busca "GR-25", se abre la
+  /// ficha, se le corrige el código y la ficha desaparece de la lista
+  /// filtrada: la pantalla volvería a quedarse con los valores viejos justo
+  /// después de confirmar el cambio.
+  ///
   /// Principio 5 de docs/ARQUITECTURA.md: las lecturas son streams.
   InventoryItemEntity _vigente(final BuildContext context) {
-    final items = context.watch<InventoryProvider>().items;
+    final items = context.watch<InventoryProvider>().allItems;
     for (final candidato in items) {
       if (candidato.id == item.id) return candidato;
     }
@@ -173,6 +181,24 @@ class DetalleItemScreen extends StatelessWidget {
                   PagatePrimaryButton(
                     label: 'Actualizar stock',
                     onPressed: () => mostrarHojaDeStock(context, item),
+                  ),
+                  const SizedBox(height: AppSpacing.x3),
+
+                  // Editar la ficha completa: nombre, precio, stock mínimo,
+                  // unidad, proveedor y código. Es la acción que faltaba.
+                  // `updateItem` existía en el datasource, en el repositorio
+                  // y en el provider, y las reglas la permitían, pero no
+                  // tenía ni un llamador en la interfaz: desde aquí solo se
+                  // podía corregir el stock o borrar la ficha, así que un
+                  // nombre mal escrito obligaba a borrar y volver a crear.
+                  //
+                  // Va en la variante secundaria, no en la principal:
+                  // corregir el stock es lo que se hace a diario; editar la
+                  // ficha, de vez en cuando.
+                  PagatePrimaryButton.secondary(
+                    label: 'Editar ficha',
+                    leadingIcon: Icons.edit_outlined,
+                    onPressed: () => mostrarHojaDeEdicionDeItem(context, item),
                   ),
                   const SizedBox(height: AppSpacing.x3),
 
