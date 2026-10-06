@@ -18,7 +18,10 @@ const List<String> kSupportedCurrencies = ['CLP', 'USD'];
 /// mayúsculas): `businessType` se guarda como texto libre, así que cambiarle
 /// el nombre dejaría huérfano el rubro de los perfiles ya creados.
 const List<String> kBusinessTypes = [
-  'Cerámica y greda',
+  // 'Cerámica' tal cual, sin adornos: es el rubro con el que ya está
+  // sembrada la cuenta de demostración (scripts/seed-demo.js), y el selector
+  // de Editar perfil marca por igualdad exacta.
+  'Cerámica',
   'Tejido y telar',
   'Joyería',
   'Cuero',
