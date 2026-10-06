@@ -15,6 +15,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import ContextoChile from './components/ContextoChile';
 import Features from './components/Features';
 import HowItWorks from './components/HowItWorks';
 import Roadmap from './components/Roadmap';
@@ -51,6 +52,9 @@ function App() {
       <Navbar />
       <main>
         <Hero />
+        {/* Va justo después del Hero: es el «por qué ahora» que motiva todo lo
+            que viene debajo. Ver la cabecera de ContextoChile.tsx. */}
+        <ContextoChile />
         <Features />
         <HowItWorks />
         <Roadmap />

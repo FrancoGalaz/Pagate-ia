@@ -68,8 +68,9 @@ export default function Hero() {
             </h1>
 
             <p className="hero-subtitle mt-8 text-xl lg:text-2xl text-text-secondary leading-relaxed max-w-lg">
-              Pagate calcula cuánto vale realmente tu hora, controla tu inventario
-              y organiza tus finanzas para que tomes decisiones con claridad.
+              Págate-IA calcula cuánto tiene que valer tu hora, te ordena lo que
+              entra y lo que sale, y lleva tu inventario. Hecha en Chile, para
+              quien vende lo que hace con sus manos.
             </p>
 
             <div className="hero-buttons mt-12 flex flex-wrap items-center gap-4">
@@ -115,7 +116,7 @@ export default function Hero() {
                       <span className="text-white text-sm font-bold">P</span>
                     </div>
                     <div>
-                      <p className="text-sm font-bold">Pagate</p>
+                      <p className="text-sm font-bold">Págate-IA</p>
                       <p className="text-[11px] text-text-muted">Resumen mensual</p>
                     </div>
                     <div className="ml-auto px-3 py-1 rounded-full bg-success/10 text-success text-[10px] font-bold">

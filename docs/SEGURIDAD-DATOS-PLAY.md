@@ -227,10 +227,17 @@ workflow solo dispara en `main`.
 
 ### 4.1 Marcadores que el dueño tiene que reemplazar
 
+> **El inventario operativo —con número de línea, qué decidir y qué ve el
+> visitante mientras falte— está en `docs/FICHA-PLAY.md §8`.** Esta sección queda
+> como el contexto de por qué el formulario de Seguridad de los datos depende de
+> ellos; la lista de referencia es la de allí.
+
 Viven todos en `landing/src/content/legal-meta.ts`, en un solo sitio a propósito.
-Las tres páginas legales los muestran tal cual, entre corchetes. **Una política
-de privacidad publicada con corchetes visibles es motivo de rechazo**, así que
-esto es lo primero que hay que cerrar.
+**Ya no se imprimen entre corchetes**: cada página tiene dos redacciones y elige
+la que corresponde al estado del dato (`esMarcador()` en `legal-meta.ts`), porque
+una política publicada con corchetes visibles es motivo de rechazo. Lo que eso
+cierra es el rechazo por plantilla sin revisar; **no** rellena el dato, y sin los
+cinco la política identifica al responsable por descripción y no por nombre.
 
 | Constante | Marcador | Qué hay que decidir |
 |---|---|---|
@@ -244,6 +251,14 @@ Sobre el correo: `ayuda_screen.dart:235` muestra hoy `soporte@pagate-ia.com`, y
 el dominio `pagate-ia.com` no aparece en ningún sitio del repo ni lo controla el
 dueño. **No lo reutilices.** Lo más barato es el correo de la cuenta de
 desarrollador de Google Play.
+
+**Consecuencia para este formulario.** Play pide, en *Seguridad de los datos →
+Eliminación de cuenta*, una URL pública con el procedimiento de borrado. Esa URL
+existe y describe el canal, pero mientras `CONTACT.privacy` siga sin rellenar la
+página **no renderiza el botón `mailto:`** —un `mailto:[CORREO…]` es un enlace
+roto— y deriva al correo de contacto del desarrollador que Play publica en la
+ficha. Funciona, pero **el camino bueno es rellenar el buzón**: así la solicitud
+llega a una dirección que el dueño puede filtrar y archivar.
 
 ### 4.2 Lo que bloquea enviar el formulario con estas respuestas
 

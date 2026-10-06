@@ -10,11 +10,18 @@
 import LegalLayout, { LegalList, LegalSection } from './LegalLayout';
 import {
   APP_NAME,
-  CONTACT,
+  BUZON,
+  CANAL_ALTERNATIVO,
   LEGAL_ROUTES,
+  RESPONSABLE_IDENTIFICADO,
+  RESPONSABLE_SIN_IDENTIFICAR,
   RESPONSIBLE,
   siteUrl,
 } from '../content/legal-meta';
+
+// Ver la nota de legal-meta.ts: mientras el buzón sea un marcador se nombra el
+// canal que sí existe, en vez de imprimir corchetes.
+const CONTACTO_SOPORTE = BUZON.soporte ?? CANAL_ALTERNATIVO;
 
 export default function TerminosPage() {
   return (
@@ -23,11 +30,19 @@ export default function TerminosPage() {
       intro={`Estas son las condiciones bajo las que puedes usar ${APP_NAME}. Al crear una cuenta las aceptas, así que vale la pena leerlas: son cortas y están escritas para entenderse.`}
     >
       <LegalSection id="quienes" title="1. Quién presta el servicio">
-        <p>
-          {APP_NAME} es un servicio prestado por {RESPONSIBLE.legalName}, RUT{' '}
-          {RESPONSIBLE.taxId}, con domicilio en {RESPONSIBLE.address},{' '}
-          {RESPONSIBLE.country}. Puedes contactarnos en {CONTACT.support}.
-        </p>
+        {RESPONSABLE_IDENTIFICADO ? (
+          <p>
+            {APP_NAME} es un servicio prestado por {RESPONSIBLE.legalName}, RUT{' '}
+            {RESPONSIBLE.taxId}, con domicilio en {RESPONSIBLE.address},{' '}
+            {RESPONSIBLE.country}. Puedes contactarnos en {CONTACTO_SOPORTE}.
+          </p>
+        ) : (
+          <p>
+            {APP_NAME} es un servicio prestado por {RESPONSABLE_SIN_IDENTIFICAR}. Su
+            nombre completo, RUT y domicilio se publican en esta misma página en cuanto
+            estén definidos. Puedes contactarnos en {CONTACTO_SOPORTE}.
+          </p>
+        )}
       </LegalSection>
 
       <LegalSection id="que-es" title="2. Qué es Págate-IA">
@@ -189,7 +204,7 @@ export default function TerminosPage() {
 
       <LegalSection id="contacto" title="13. Contacto">
         <p>
-          Dudas sobre estos términos: <strong>{CONTACT.support}</strong>
+          Dudas sobre estos términos: <strong>{CONTACTO_SOPORTE}</strong>
         </p>
       </LegalSection>
     </LegalLayout>

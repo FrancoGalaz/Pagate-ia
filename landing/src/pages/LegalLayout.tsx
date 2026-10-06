@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import PagateLogo from '../components/PagateLogo';
 import {
   APP_NAME,
+  DATOS_PENDIENTES,
   LEGAL_ROUTES,
   LEGAL_VERSION,
   siteUrl,
@@ -59,6 +60,8 @@ export default function LegalLayout({ title, intro, children }: LegalLayoutProps
           Versión {LEGAL_VERSION.version} · Última actualización:{' '}
           {LEGAL_VERSION.updatedAt}
         </p>
+
+        <AvisoDatosPendientes />
 
         {/* `prose` no está disponible (no hay @tailwindcss/typography), así que
             el ritmo vertical del documento se fija aquí una sola vez. */}
@@ -120,5 +123,34 @@ export function LegalList({ items }: { items: ReactNode[] }) {
         <li key={i}>{item}</li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Aviso de que faltan datos de identificación del responsable.
+ *
+ * Existe porque la alternativa era imprimir los marcadores entre corchetes, y
+ * una política legal con corchetes a la vista es motivo de rechazo en Google
+ * Play. Esta es la versión honesta: el visitante lee una frase en castellano
+ * que dice qué falta, en lugar de un resto de plantilla.
+ *
+ * Se renderiza solo mientras falte algo: cuando el dueño rellene
+ * `legal-meta.ts`, [DATOS_PENDIENTES] queda vacío y el aviso desaparece sin
+ * tocar este archivo.
+ */
+function AvisoDatosPendientes() {
+  if (DATOS_PENDIENTES.length === 0) return null;
+
+  return (
+    <aside
+      role="note"
+      className="mt-6 rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm text-text-secondary"
+    >
+      <strong className="text-text-primary">Datos pendientes de publicación.</strong>{' '}
+      Todavía no están publicados en esta página los siguientes datos de
+      identificación del responsable de {APP_NAME}: {DATOS_PENDIENTES.join(', ')}. El
+      resto del documento es definitivo y describe el funcionamiento real de la
+      aplicación.
+    </aside>
   );
 }

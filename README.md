@@ -80,10 +80,19 @@ Automático: el workflow `.github/workflows/deploy-web.yml` corre con `workflow_
 `/privacidad/`, `/terminos/` y `/eliminar-cuenta/`, cada una con su propio punto de entrada declarado en
 `landing/vite.config.ts`. Esas tres URLs son obligatorias para Google Play y van declaradas en la ficha, así
 que no se pueden mover sin actualizar Play Console. Los datos del responsable (razón social, RUT, domicilio y
-correos) viven en `landing/src/content/legal-meta.ts` **con marcadores entre corchetes sin rellenar**: ver
-`docs/SEGURIDAD-DATOS-PLAY.md` §4.1.
+correos) viven en `landing/src/content/legal-meta.ts` **con marcadores entre corchetes sin rellenar**, aunque
+las páginas ya **no los muestran**: eligen otra redacción cuando el dato falta, y el botón `mailto:` de la
+página de eliminación de cuenta no se renderiza mientras no haya buzón. El inventario de lo que hay que
+rellenar, con línea y constante, está en **`docs/FICHA-PLAY.md` §8**.
 
-`landing-page/` lo regenera el workflow `.github/workflows/landing-pages.yml` en cada push a `main` que toque `landing/` (lint + test + build y commit automático de `landing-page/`). La URL de la función `waitlist` viene de `landing/.env.production` (o de la variable de repositorio `VITE_WAITLIST_URL`). Para regenerarlo a mano: `npm --prefix landing run build` y copiar `landing/dist/` sobre `landing-page/` (borrando antes los assets viejos).
+`landing-page/` lo regenera el workflow `.github/workflows/landing-pages.yml` en cada push a `main` que toque `landing/` (lint + test + build y commit automático de `landing-page/`). La URL de la función `waitlist` viene de `landing/.env.production` (o de la variable de repositorio `VITE_WAITLIST_URL`). **Como el workflow solo dispara en `main` y el trabajo vive en ramas, hay que regenerarlo a mano con los mismos pasos que hace el workflow:**
+
+```bash
+npm --prefix landing run lint && npm --prefix landing test && npm --prefix landing run build
+rm -rf landing-page && mkdir landing-page && cp -r landing/dist/. landing-page/
+```
+
+**No editar nunca un archivo de `landing-page/` a mano.** Si el sitio público y `landing/src/` dejan de coincidir, lo que la gente lee es el build viejo: eso ya ocurrió, y el sitio publicado siguió mostrando métricas y testimonios inventados semanas después de haberlos borrado del código.
 
 ### Checklist de configuración en consola (solo el dueño del proyecto)
 
@@ -105,14 +114,16 @@ Estas tareas requieren acceso a la consola de Firebase / Google Cloud y no puede
 7. **Dominio de la landing** en el CORS de `waitlist` (`functions/src`) si cambia de `francogalaz.github.io`.
 8. **Datos del responsable para los textos legales.** Rellenar los cinco marcadores de
    `landing/src/content/legal-meta.ts` (razón social o nombre, RUT, domicilio, correo de privacidad y correo de
-   soporte). Una política de privacidad publicada con corchetes visibles es motivo de rechazo en Play. El
-   inventario está en `docs/SEGURIDAD-DATOS-PLAY.md` §4.1.
+   soporte). Las páginas ya no muestran corchetes, pero sin estos datos la política identifica al responsable
+   por descripción y no por nombre. El inventario, con número de línea, está en **`docs/FICHA-PLAY.md` §8**.
 9. **Correo de soporte real.** El `soporte@pagate-ia.com` que muestra la app usa un dominio que no se controla.
    Tiene que ser el mismo correo en la app, en los textos legales y en la ficha de Play.
 10. **Tipo de cuenta de desarrollador.** Si la cuenta de Play es personal y se creó después del 13 de noviembre
-    de 2023, hace falta una prueba cerrada con 12 probadores durante 14 días antes de poder publicar en abierto
-    ([documentación](https://support.google.com/googleplay/android-developer/answer/14151465)). Comprobarlo antes
-    de comprometer una fecha.
+    de 2023, hace falta una prueba cerrada con **un mínimo de 12 probadores inscritos de forma continua durante
+    al menos 14 días** antes de poder publicar en producción, y después hay que **solicitar** el acceso
+    ([documentación oficial](https://support.google.com/googleplay/android-developer/answer/14151465),
+    transcrita en `docs/FICHA-PLAY.md` §7). Los 14 días son de calendario y los más recientes: si en algún
+    momento bajas de 12 probadores, la cuenta empieza otra vez. Comprobarlo antes de comprometer una fecha.
 11. **Política de datos en la cuenta de OpenRouter.** Fijar la más restrictiva (sin registro, sin entrenamiento).
     Hasta que exista además un acuerdo de tratamiento, el envío al asistente se declara en Play como
     *compartido con terceros*; el razonamiento está en `docs/SEGURIDAD-DATOS-PLAY.md` §0.2.

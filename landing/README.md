@@ -7,6 +7,19 @@ fijado en `base` de `vite.config.ts`. El build que se sirve vive en
 `landing-page/` en la raíz del repo y **lo regenera el workflow
 `.github/workflows/landing-pages.yml`, no se edita a mano**.
 
+Ese workflow solo dispara en `main`, así que mientras el trabajo viva en una rama
+hay que regenerar el build a mano, que es lo mismo que hace el workflow:
+
+```bash
+npm --prefix landing run build
+rm -rf landing-page && mkdir landing-page && cp -r landing/dist/. landing-page/
+```
+
+**Nunca editar un archivo de `landing-page/` directamente:** el siguiente build
+lo pisa, y hasta entonces el sitio público y el código fuente dicen cosas
+distintas. Eso ya pasó una vez: la landing publicada siguió mostrando métricas y
+testimonios inventados semanas después de que se eliminaran de `src/`.
+
 ## Comandos
 
 ```bash
@@ -60,9 +73,18 @@ Console, así que **no se pueden mover ni renombrar sin actualizar la ficha**.
 
 Los datos del responsable (razón social, RUT, domicilio y correos de contacto)
 están centralizados en `src/content/legal-meta.ts` y hoy son **marcadores entre
-corchetes sin rellenar**. Una política publicada con corchetes visibles es motivo
-de rechazo: el inventario de lo que falta está en
-`../docs/SEGURIDAD-DATOS-PLAY.md` §4.1.
+corchetes sin rellenar**. Lo que el visitante ve, en cambio, **no lleva
+corchetes**: `esMarcador()` los detecta y cada página elige entre dos
+redacciones, porque una política publicada con `[RAZÓN SOCIAL…]` a la vista es
+motivo de rechazo en Google Play. Además:
+
+- `BUZON.privacidad` vale `null` mientras el correo sea un marcador, y entonces
+  la página de eliminación de cuenta **no renderiza el botón `mailto:`**.
+- Las tres páginas muestran bajo el título un aviso que enumera qué datos faltan,
+  y ese aviso **desaparece solo** cuando se rellenan los cinco.
+
+**El inventario de lo que el dueño tiene que rellenar, con línea y constante,
+está en `../docs/FICHA-PLAY.md` §8.**
 
 Si cambia el modelo de datos de la app, hay que actualizar el inventario de la
 sección 2 de `src/pages/PrivacidadPage.tsx`. El formulario de Seguridad de los
@@ -77,9 +99,24 @@ datos de Play tiene que coincidir con lo que dice esa página.
   negación de ser asesoría y de procesar pagos, el plazo de borrado y que no
   queda ningún enlace muerto.
 - `src/honestidad.test.ts` — lee el código fuente y falla si reaparecen las
-  métricas y los testimonios inventados que se eliminaron, un `href="#"` o una
-  animación en bucle infinito. Ignora los comentarios a propósito, porque varios
-  archivos explican en su cabecera qué se quitó y por qué.
+  métricas y los testimonios inventados que se eliminaron, las tres pestañas de
+  funciones que la app no tiene (seguimiento de horas, metas de ahorro,
+  productividad), un `href="#"`, un marcador entre corchetes en lo que se
+  renderiza, un `mailto:` construido con un dato sin rellenar o una animación en
+  bucle infinito. Ignora los comentarios a propósito, porque varios archivos
+  explican en su cabecera qué se quitó y por qué.
+- `src/components/portada.test.tsx` (jsdom) — renderiza de verdad las dos
+  secciones reescritas de la portada: comprueba que montan sin reventar, que la
+  sección chilena muestra las dos mitades del mensaje («Lo que hace» y «Lo que no
+  hace») y que las funcionalidades son exactamente cuatro, con el aviso de IA en
+  la del asistente. Stubea `window.matchMedia`, que jsdom no implementa y
+  ScrollTrigger necesita.
+- `src/components/contexto-chile.test.ts` — vigila el límite legal de la sección
+  «Por qué ahora»: que siga negando declarar impuestos, emitir boletas,
+  conectarse al banco y aconsejar sobre el SII; que no prometa funciones que no
+  existen; que no aparezca ningún verbo de asesoría ni lenguaje alarmista; y que
+  el umbral de transferencias siga siendo el verificado. Las fuentes están en
+  `../docs/FICHA-PLAY.md` §3.
 
 Los tests corren bajo `tsconfig.test.json`, un proyecto aparte: `honestidad.test.ts`
 necesita `node:fs` y los tipos de Node no deben entrar en el código del navegador.
