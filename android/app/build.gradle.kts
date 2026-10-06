@@ -119,11 +119,30 @@ android {
             // R8 llevaba corriendo sobre este proyecto sin una sola regla
             // propia, apoyado únicamente en las que traen los AAR de Firebase.
             //
-            // Efecto medido en el tamaño: ninguno apreciable. El APK de release
-            // pesa 57,1 MB antes y después, porque 54,7 MB son bibliotecas
-            // nativas (.so de las tres ABI) que R8 no toca; el dex entero son
-            // 3,6 MB. Quien reduce esto de verdad es el AAB, que Play reparte
-            // por ABI.
+            // Tamaño medido, en MB de 10^6 (la unidad que usa Play Console; la
+            // línea «Built app-release.apk (57,7MB)» de la consola de Flutter
+            // son MiB de 2^20 y por eso da otro número para los mismos bytes).
+            // Medido sobre build/app/outputs/flutter-apk/app-release.apk de
+            // este árbol, sumando las entradas del zip por prefijo:
+            //
+            //                       con R8 (lo de ahora)   con isMinifyEnabled=false
+            //   APK completo              60,50 MB                65,02 MB
+            //   classes.dex                3,77 MB                16,44 MB
+            //   lib/**.so                 58,01 MB                58,01 MB
+            //
+            // Dos lecturas, las dos verificadas:
+            // - R8 SÍ sirve: recorta el dex un 77 % y el APK 4,5 MB.
+            // - Pero el APK sigue pesando 60 MB porque 58 de esos MB son las
+            //   bibliotecas nativas de las tres ABI (arm64 19,46 + armv7 17,54
+            //   + x86_64 21,01), que R8 no toca. Quien reduce eso de verdad es
+            //   el AAB: Play entrega a cada teléfono una sola ABI.
+            //
+            // Lo que NO cambia el tamaño es añadir estas dos líneas, porque R8
+            // ya estaba activo por el plugin de Flutter; están para fijarlo de
+            // forma explícita, no para ahorrar bytes.
+            //
+            // Reproducir:
+            //   python -c "import zipfile,os; z=zipfile.ZipFile(r'build/app/outputs/flutter-apk/app-release.apk'); print(os.path.getsize(z.filename), sum(i.file_size for i in z.infolist() if i.filename.startswith('lib/')), sum(i.file_size for i in z.infolist() if i.filename.endswith('.dex')))"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -24,7 +24,13 @@ Son decisiones de producto y de marketing, no de código. Quedan para el dueño:
 | Gráfico de función | 1024×500 PNG o JPEG | Es una pieza de marca con texto; no se inventa desde el repositorio. |
 | Capturas de teléfono | Mínimo 2. Lado corto ≥ 320 px, lado largo ≤ 3840 px | Tomarlas con la cuenta de demostración sembrada (`scripts/seed-demo.js`), que es justamente para esto. |
 | Descripción corta y larga | 80 y 4000 caracteres | |
-| URL de política de privacidad | Obligatoria si la app pide cuenta | Hoy no existe; está anotado en la auditoría. |
+| URL de política de privacidad | Obligatoria si la app pide cuenta | La página **ya está escrita** (`landing/privacidad/index.html`, junto con `landing/terminos/` y `landing/eliminar-cuenta/`), pero la build publicada en `landing-page/` todavía no la contiene, así que aún no hay URL que pegar en Play Console. Falta republicar la landing. |
+
+El **nombre de la app** en la ficha tiene que escribirse igual que el del
+lanzador: `Págate-IA`, con tilde. La fuente es
+`android/app/src/main/res/values/strings.xml` (`app_name`), y ahí está el porqué.
+Comprobado sobre el APK de release con `aapt2 dump badging`, que devuelve
+`application-label:'Págate-IA'`.
 
 ## Si cambia el icono
 
