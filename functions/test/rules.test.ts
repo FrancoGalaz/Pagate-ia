@@ -34,6 +34,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   type Firestore,
 } from 'firebase/firestore';
 
@@ -800,6 +801,70 @@ describe('users/{uid}/inventory y fixedExpenses', () => {
     await assertFails(addDoc(col, { ...validInventoryItem(), stock: -1 }));
     await assertFails(addDoc(col, { ...validInventoryItem(), type: 'service' }));
     await assertFails(addDoc(col, { ...validInventoryItem(), userId: ALICE }));
+  });
+
+  /**
+   * LO QUE ESCRIBE EL LECTOR DE BOLETAS.
+   *
+   * `firestore.rules` NO cambia para el lector: `validInventoryItem` ya acepta
+   * `code` y `supplier`. Pero hasta ahora eran código muerto, porque el
+   * formulario manual no los pedía, y "ya está permitido" dicho de memoria no
+   * es una verificación. El lector es el primer sitio que los rellena de
+   * verdad, así que la forma exacta que escribe queda fijada aquí.
+   */
+  it('acepta un ítem con code y supplier rellenos, que es lo que escribe el lector', async () => {
+    await assertSucceeds(
+      addDoc(collection(aliceDb(), 'users', ALICE, 'inventory'), {
+        name: 'Arcilla gres 25 kg',
+        type: 'material',
+        price: 18990,
+        stock: 2,
+        minStock: 1,
+        unit: 'sacos',
+        supplier: 'Ferreteria El Gres Ltda',
+        code: 'ARC-25',
+        ...stamps(),
+      }),
+    );
+  });
+
+  it('guarda una boleta entera en un solo lote: o entra todo o no entra nada', async () => {
+    // Media boleta guardada es peor que ninguna, porque el usuario no sabe cuál
+    // mitad le falta. Cada escritura del lote se evalúa por separado contra las
+    // reglas, así que esto comprueba que las tres pasan juntas.
+    // Una sola instancia de Firestore: `aliceDb()` crea un contexto nuevo en
+    // cada llamada, y un lote no acepta referencias de otra instancia.
+    const db = aliceDb();
+    const col = collection(db, 'users', ALICE, 'inventory');
+    const batch = writeBatch(db);
+    for (const name of ['Arcilla gres', 'Esmalte transparente', 'Oxido de cobre']) {
+      batch.set(doc(col), { ...validInventoryItem(), name, supplier: 'Ferreteria El Gres Ltda' });
+    }
+    await assertSucceeds(batch.commit());
+    expect((await getDocs(query(col, limit(10)))).size).toBe(3);
+  });
+
+  it('sumar stock a un ítem que ya existe es un update parcial válido', async () => {
+    await seed((db) => setDoc(doc(db, 'users', ALICE, 'inventory', 'i1'), validInventoryItem()));
+
+    // El lector suma la cantidad de la boleta al stock guardado. No toca el
+    // precio: el precio guardado de un producto es a cuánto lo VENDE el
+    // usuario, y sobrescribirlo con un precio de compra le rompería sus propias
+    // cuentas en silencio.
+    await assertSucceeds(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'inventory', 'i1'), {
+        stock: 12,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('una cantidad fraccionaria NO se puede guardar como stock', async () => {
+    // `isCount` exige `v is int`. Por eso el cliente redondea hacia arriba y se
+    // lo dice al usuario en la ficha, en vez de mandar el decimal y confiar.
+    await assertFails(
+      addDoc(collection(aliceDb(), 'users', ALICE, 'inventory'), { ...validInventoryItem(), stock: 2.5 }),
+    );
   });
 
   it('crea gasto fijo válido y rechaza amount <= 0', async () => {
