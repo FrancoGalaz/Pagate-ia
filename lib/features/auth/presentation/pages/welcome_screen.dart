@@ -136,31 +136,16 @@ class WelcomeScreen extends StatelessWidget {
                                 ),
                               ),
 
-                              // Floating card: Ganancia
-                              const Positioned(
-                                right: 10,
-                                top: 100,
-                                child: _FloatingStatsCard(
-                                  icon: Icons.trending_up,
-                                  iconColor: AppColors.textOnBrand,
-                                  iconBackground: AppColors.brand,
-                                  label: 'GANANCIA',
-                                  value: '+24%',
-                                ),
-                              ),
-
-                              // Floating card: Stock
-                              const Positioned(
-                                left: 0,
-                                bottom: 80,
-                                child: _FloatingStatsCard(
-                                  icon: Icons.inventory_2_outlined,
-                                  iconColor: AppColors.accent,
-                                  iconBackground: AppColors.accentLight,
-                                  label: 'STOCK',
-                                  value: 'Optimizado',
-                                ),
-                              ),
+                              // AQUI IBAN DOS TARJETAS FLOTANTES Y SE
+                              // BORRARON A PROPOSITO: una decia
+                              // "GANANCIA +24%" y la otra "STOCK Optimizado".
+                              // Ninguna de las dos salia de Firestore: eran
+                              // literales escritos en el widget, con la forma
+                              // de un dato real del negocio, en la primera
+                              // pantalla que ve alguien que todavia no tiene
+                              // cuenta. Ningun pixel de la app afirma algo que
+                              // Firestore no diga (docs/DISENO-v2.md,
+                              // principio 7).
                             ],
                           ),
                         ),
@@ -309,74 +294,4 @@ class WelcomeScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Internal stat card for the welcome hero illustration.
-class _FloatingStatsCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-  final String label;
-  final String value;
-
-  const _FloatingStatsCard({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(final BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.sm,
-      vertical: AppSpacing.xs,
-    ),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: AppRadius.mdBorder,
-      boxShadow: AppShadows.md,
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.xxs + 2),
-          decoration: BoxDecoration(
-            color: iconBackground,
-            borderRadius: AppRadius.xsBorder,
-          ),
-          child: Icon(icon, color: iconColor, size: AppIconSize.xs),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 10,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(color: AppColors.textPrimary),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
 }
