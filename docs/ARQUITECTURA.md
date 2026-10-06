@@ -349,6 +349,15 @@ Detalles que no son negociables:
   ventas con comisión. En consulta propia el comportamiento es el correcto.
   `functions/test/months.test.ts` tiene el test que lo caza
   («mezcla ingresos con y sin comision sin perder ninguno»).
+- Cada agregación de suma necesita su **índice compuesto** con el campo sumado
+  al final. `firestore.indexes.json` ya traía
+  `(type, monthKey, amount)` para `sum('amount')`; la suma de comisiones añade
+  `(type, monthKey, platformFee)`. El emulador no exige índices, así que esto
+  **no lo detecta ningún test**: sin la entrada, el recálculo del mes puede
+  fallar en producción con `FAILED_PRECONDITION`. Los dos caminos de despliegue
+  ya lo cubren, porque los dos usan `--only ...,firestore,...`, que sube reglas
+  **e** índices: `scripts/deploy-web.sh` y
+  `.github/workflows/deploy-web.yml`.
 - Las sumas pasan por un filtro de finitud y `totalPlatformFees` se acota a
   `[0, totalIncome]`. Por documento las reglas ya garantizan
   `0 <= platformFee <= amount`, pero el Admin SDK (sembrado, migraciones) no pasa
