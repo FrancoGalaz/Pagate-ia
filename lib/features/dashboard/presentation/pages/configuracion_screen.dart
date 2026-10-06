@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/app_links.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/url_opener.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
@@ -165,6 +169,50 @@ class ConfiguracionScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  // LOS TEXTOS LEGALES, ALCANZABLES DESDE LA APP.
+                  //
+                  // Antes no existía esta sección y la pantalla de registro
+                  // decía que los términos se podían revisar desde
+                  // Configuración: no había nada que revisar. Ahora los tres
+                  // enlaces abren de verdad en el navegador del sistema, y si
+                  // la landing aún no está publicada se avisa y se copia el
+                  // enlace en vez de dejar un 404 en pantalla.
+                  _Section(
+                    title: 'Legal',
+                    children: [
+                      _ItemRow(
+                        icon: Icons.description_outlined,
+                        label: 'Términos de uso',
+                        subtitle: 'Se abre en el navegador',
+                        onTap: () => unawaited(
+                          abrirEnlaceExterno(context, kUrlTerminos),
+                        ),
+                      ),
+                      const _Divider(),
+                      _ItemRow(
+                        icon: Icons.privacy_tip_outlined,
+                        label: 'Política de privacidad',
+                        subtitle: 'Se abre en el navegador',
+                        onTap: () => unawaited(
+                          abrirEnlaceExterno(context, kUrlPrivacidad),
+                        ),
+                      ),
+                      const _Divider(),
+                      // Distinta de "Eliminar cuenta" de más abajo: esa
+                      // borra los datos desde la app; esta es la página
+                      // pública que exige la ficha de Play, consultable sin
+                      // instalar nada.
+                      _ItemRow(
+                        icon: Icons.open_in_new_rounded,
+                        label: 'Cómo borrar tu cuenta',
+                        subtitle: 'Instrucciones publicadas en la web',
+                        onTap: () => unawaited(
+                          abrirEnlaceExterno(context, kUrlBorradoCuenta),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
                   // Requisito de Google Play: la app tiene que ofrecer el
                   // borrado de cuenta desde dentro, no solo desde una URL.
                   // Va en su propia seccion y al final, separada de los
@@ -210,7 +258,7 @@ class ConfiguracionScreen extends StatelessWidget {
     final auth = context.read<FirebaseAuthService>();
     final email = auth.email;
     if (email == null || email.isEmpty) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'No hay un correo asociado a esta cuenta.',
       );
@@ -225,7 +273,7 @@ class ConfiguracionScreen extends StatelessWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     }
   }
 }
@@ -293,6 +341,11 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
+        // `opaque`: sin esto el `GestureDetector` usa `deferToChild` y solo
+        // responden los píxeles pintados, así que tocar el hueco entre la
+        // etiqueta y el chevron no hacía nada. Comprobado en el emulador:
+        // un toque en el centro de "Términos de uso" no abría el enlace.
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(

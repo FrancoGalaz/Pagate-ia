@@ -25,6 +25,12 @@ dependencies:
   cloud_functions: ^5.6.2
   firebase_app_check: ^0.3.2+10
 
+  # Abrir los textos legales en el navegador del sistema. Sin esto, la linea
+  # legal de Bienvenida solo copiaba la URL al portapapeles: el usuario
+  # aceptaba unos terminos que no podia leer, que es material de rechazo en
+  # la revision de Google Play.
+  url_launcher: ^6.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

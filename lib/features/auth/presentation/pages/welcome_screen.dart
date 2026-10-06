@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/constants/app_links.dart';
+import '../../../../core/utils/url_opener.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../onboarding/presentation/pages/identity_step_screen.dart';
 import 'login_screen.dart';
@@ -56,14 +58,8 @@ import 'login_screen.dart';
 // a la izquierda en toda la pantalla.
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Direcciones reales de los textos legales, publicadas en la landing.
-///
-/// Están aquí y no en un archivo de configuración porque son las dos únicas
-/// de la app y porque tienen que poder leerse junto al texto que las cita.
-const String kUrlTerminos =
-    'https://francogalaz.github.io/Pagate-ia/landing-page/terminos/';
-const String kUrlPrivacidad =
-    'https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/';
+// Las direcciones de los textos legales viven en
+// `core/constants/app_links.dart`: ahora las usan dos pantallas.
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -279,18 +275,17 @@ class _EnlaceSesion extends StatelessWidget {
 
 /// Línea legal con los dos enlaces reales.
 ///
-/// LIMITACIÓN CONOCIDA Y DECLARADA: abrir una URL externa necesita
-/// `url_launcher`, que no está en `pubspec.yaml`, y añadir una dependencia
-/// queda fuera de este carril. Mientras tanto el enlace COPIA la dirección
-/// al portapapeles y la muestra entera, que es una acción real y
-/// verificable.
+/// LOS ENLACES ABREN DE VERDAD. Antes solo copiaban la dirección al
+/// portapapeles porque `url_launcher` no estaba en `pubspec.yaml`: la línea
+/// afirmaba que el usuario aceptaba unos términos y no había forma de
+/// leerlos desde el teléfono. Si la landing todavía no está publicada,
+/// `abrirEnlaceExterno` lo dice y copia el enlace, en lugar de expulsar al
+/// usuario a un 404.
 ///
-/// Lo que había antes sí era un afordancia falsa: la línea afirmaba que el
-/// usuario aceptaba unos términos y el botón de al lado respondía "puedes
-/// revisarlos desde configuración", donde no existe ninguna sección de
-/// términos ni de privacidad. Y en el registro los dos enlaces estaban
-/// pintados en color de marca pero eran `TextSpan` SIN `recognizer`: no
-/// respondían al toque.
+/// Antes de eso la línea respondía "puedes revisarlos desde configuración",
+/// donde no existía ninguna sección de términos; ahora existe. Y en el
+/// registro los dos enlaces estaban pintados en color de marca pero eran
+/// `TextSpan` SIN `recognizer`: no respondían al toque.
 class _LineaLegal extends StatefulWidget {
   const _LineaLegal();
 
@@ -305,8 +300,8 @@ class _LineaLegalState extends State<_LineaLegal> {
   @override
   void initState() {
     super.initState();
-    _terminos.onTap = () => _copiar(kUrlTerminos);
-    _privacidad.onTap = () => _copiar(kUrlPrivacidad);
+    _terminos.onTap = () => unawaited(_abrir(kUrlTerminos));
+    _privacidad.onTap = () => unawaited(_abrir(kUrlPrivacidad));
   }
 
   @override
@@ -316,10 +311,9 @@ class _LineaLegalState extends State<_LineaLegal> {
     super.dispose();
   }
 
-  Future<void> _copiar(final String url) async {
-    await Clipboard.setData(ClipboardData(text: url));
+  Future<void> _abrir(final String url) async {
     if (!mounted) return;
-    AppFeedback.showMessage(context, 'Enlace copiado: $url');
+    await abrirEnlaceExterno(context, url);
   }
 
   @override
