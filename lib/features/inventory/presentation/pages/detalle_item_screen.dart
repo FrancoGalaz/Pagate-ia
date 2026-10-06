@@ -56,7 +56,7 @@ class DetalleItemScreen extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Detalle del Item',
+                        'Detalle del ítem',
                         style: AppText.weight(
                           Theme.of(context).textTheme.titleLarge!,
                           700,
@@ -206,7 +206,7 @@ class DetalleItemScreen extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xxxl),
 
                       PagatePrimaryButton(
-                        label: 'Actualizar Stock',
+                        label: 'Actualizar stock',
                         leadingIcon: Icons.edit_rounded,
                         onPressed: () => _showUpdateStockDialog(context),
                       ),
@@ -357,7 +357,7 @@ class DetalleItemScreen extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    AppFeedback.showMessage(context, 'Item eliminado.');
+    AppFeedback.showMessage(context, 'Ítem eliminado.');
     Navigator.pop(context);
   }
 }

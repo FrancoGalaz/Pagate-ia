@@ -36,7 +36,7 @@ class PerfilTab extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      profile?.avatarInitials ?? 'IA',
+                      profile?.avatarInitials ?? '',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -48,7 +48,7 @@ class PerfilTab extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  profile?.name ?? 'Tu Nombre',
+                  profile?.name ?? '',
                   style: AppText.weight(
                     Theme.of(context).textTheme.headlineSmall!,
                     800,
@@ -56,7 +56,7 @@ class PerfilTab extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  profile?.businessName ?? 'Mi Negocio',
+                  profile?.businessName ?? '',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryDark,
                       ),
@@ -157,7 +157,7 @@ class PerfilTab extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xs),
                 _MenuItem(
                   icon: Icons.help_outline_rounded,
-                  label: 'Ayuda e Ideas',
+                  label: 'Ayuda',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -167,10 +167,10 @@ class PerfilTab extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xs),
                 _MenuItem(
                   icon: Icons.star_outline_rounded,
-                  label: 'Calificar la App',
+                  label: 'Calificar la app',
                   onTap: () => AppFeedback.showMessage(
                     context,
-                    'Gracias por tu apoyo. Pronto abriremos la calificación.',
+                    'Todavía no está disponible.',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -179,13 +179,13 @@ class PerfilTab extends StatelessWidget {
                   label: 'Compartir Págate-IA',
                   onTap: () => AppFeedback.showMessage(
                     context,
-                    'Comparte el proyecto con tu equipo desde esta opción.',
+                    'Todavía no está disponible.',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 _MenuItem(
                   icon: Icons.logout_rounded,
-                  label: 'Cerrar Sesión',
+                  label: 'Cerrar sesión',
                   isDestructive: true,
                   // El AuthGate vuelve a Welcome al cerrar la sesión.
                   onTap: () => context.read<FirebaseAuthService>().signOut(),
@@ -196,7 +196,7 @@ class PerfilTab extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.xxl),
           Text(
-            'Págate-IA v1.0.0 • MVP',
+            'Págate-IA 1.0.0',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textTertiaryDark,
                 ),

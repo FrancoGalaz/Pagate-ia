@@ -109,7 +109,7 @@ class ConfiguracionScreen extends StatelessWidget {
                       const _Divider(),
                       _ItemRow(
                         icon: Icons.timer_outlined,
-                        label: 'Valor Hora',
+                        label: 'Valor hora',
                         subtitle: hourlyRate != null
                             ? '${formatCurrency(
                                 hourlyRate.hourlyValue,
@@ -143,20 +143,20 @@ class ConfiguracionScreen extends StatelessWidget {
                       _ItemRow(
                         icon: Icons.notifications_outlined,
                         label: 'Alertas de stock bajo',
-                        subtitle: 'Próximamente',
+                        subtitle: 'Todavía no disponible',
                         onTap: () => AppFeedback.showMessage(
                           context,
-                          'Próximamente disponible.',
+                          'Todavía no está disponible.',
                         ),
                       ),
                       const _Divider(),
                       _ItemRow(
                         icon: Icons.bar_chart_rounded,
                         label: 'Resumen semanal',
-                        subtitle: 'Próximamente',
+                        subtitle: 'Todavía no disponible',
                         onTap: () => AppFeedback.showMessage(
                           context,
-                          'Próximamente disponible.',
+                          'Todavía no está disponible.',
                         ),
                       ),
                     ],

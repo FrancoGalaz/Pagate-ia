@@ -303,7 +303,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               const SizedBox(height: AppSpacing.xs),
               PagateTextField(
                 controller: _titleController,
-                hintText: isIncome ? 'Ej: Venta de mesa' : 'Ej: Madera pino',
+                hintText: isIncome ? 'Ej: venta en la feria' : 'Ej: greda 25 kg',
                 prefixIcon: Icons.edit_outlined,
                 maxLength: 200,
                 validator: (final v) => (v == null || v.trim().isEmpty)

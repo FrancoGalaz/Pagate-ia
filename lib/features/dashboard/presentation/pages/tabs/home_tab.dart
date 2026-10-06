@@ -74,7 +74,7 @@ class _HomeHeader extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                profile?.avatarInitials ?? 'IA',
+                profile?.avatarInitials ?? '',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -90,14 +90,17 @@ class _HomeHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hola, ${profile?.name.split(' ').first ?? 'Artesano'} 👋',
+                  // Sin perfil cargado no se saluda a un nombre inventado.
+                  profile == null
+                      ? 'Hola'
+                      : 'Hola, ${profile.name.split(' ').first}',
                   style: AppText.weight(
                     Theme.of(context).textTheme.titleMedium!,
                     700,
                   ).copyWith(color: AppColors.textPrimaryDark),
                 ),
                 Text(
-                  profile?.businessName ?? 'Mi Negocio',
+                  profile?.businessName ?? '',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondaryDark,
                       ),
@@ -169,7 +172,7 @@ class _BalanceCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Balance del Mes',
+                  'Balance del mes',
                   style: AppText.weight(
                     Theme.of(context).textTheme.labelMedium!,
                     600,
@@ -330,7 +333,7 @@ class _QuickActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Acciones Rápidas',
+              'Acciones rápidas',
               style: AppText.weight(
                 Theme.of(context).textTheme.titleMedium!,
                 700,
@@ -418,7 +421,7 @@ class _ChartsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Métricas Financieras',
+            'Métricas financieras',
             style: AppText.weight(
               Theme.of(context).textTheme.titleMedium!,
               700,
@@ -452,7 +455,7 @@ class _RecentActivity extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Actividad Reciente',
+            'Actividad reciente',
             style: AppText.weight(
               Theme.of(context).textTheme.titleMedium!,
               700,
@@ -488,14 +491,14 @@ class _RecentActivity extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Aún no hay actividad registrada',
+                    'Todavía no registras movimientos',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondaryDark,
                         ),
                   ),
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    'Registra tu primera venta o gasto en Finanzas',
+                    'Anota tu primera venta o tu primer gasto en Finanzas.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondaryDark,
                         ),

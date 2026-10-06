@@ -102,14 +102,15 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
                   children: [
                     // Greeting
                     Text(
-                      '¡Hola, artesano! 👋',
+                      'Crea tu cuenta',
                       style: textTheme.headlineMedium?.copyWith(
                         color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Comencemos configurando tu identidad para que puedas recibir pagos globalmente.',
+                      'Con esto creas tu cuenta. Después configuras tu taller y tu meta '
+                      'del mes.',
                       style: textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -158,7 +159,7 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
 
                     // Regional settings
                     Text(
-                      'Configuración Regional',
+                      'Moneda y país',
                       style: AppText.weight(
                         textTheme.titleMedium!,
                         700,

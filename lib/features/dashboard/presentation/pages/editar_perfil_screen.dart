@@ -311,7 +311,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                         ),
                       )
                     : Text(
-                        'Guardar Cambios',
+                        'Guardar cambios',
                         style: AppText.weight(theme.textTheme.titleSmall!, 700),
                       ),
               ),

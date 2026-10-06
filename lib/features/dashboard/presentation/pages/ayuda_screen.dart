@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../../core/theme/app_text.dart';
 
@@ -18,17 +17,32 @@ class _AyudaScreenState extends State<AyudaScreen> {
     {
       'question': '¿Cómo registro un nuevo ingreso?',
       'answer':
-          'Ve a Inicio y toca el botón "Venta" en las acciones rápidas. Ingresa el monto, concepto y cliente. El ingreso se registrará automáticamente en tu resumen del mes.',
+          'En Inicio toca "Venta", o el botón de registrar en Finanzas. '
+          'Escribe el título, el monto, la categoría y la fecha. Si fue un '
+          'ingreso puedes anotar además con qué documento lo respaldaste y '
+          'la comisión que te descontó el medio de pago.',
     },
     {
       'question': '¿Cómo funciona la meta mensual?',
       'answer':
-          'La meta mensual es el objetivo de ingresos que estableces para tu negocio. Puedes configurarla en la sección de Finanzas. La app te mostrará tu progreso en tiempo real.',
+          'Es el objetivo de ingresos del mes. Lo defines en tu perfil, en '
+          '"Meta de ingresos", y la app te muestra cuánto te falta.',
     },
     {
       'question': '¿Cómo agrego productos al inventario?',
       'answer':
-          'En la sección Inventario, toca el botón + en la esquina inferior derecha. Completa los datos del producto o material y guarda.',
+          'En Inventario, toca el botón + de la esquina inferior derecha. '
+          'Completa los datos del producto o del material y guarda.',
+    },
+    {
+      'question': '¿Para qué sirven el documento y la comisión de un ingreso?',
+      'answer':
+          'Para que después sepas de dónde viene cada peso. El documento '
+          'anota si emitiste boleta de venta, boleta de honorarios o nada, y '
+          'la comisión es lo que se quedó el medio de pago. Con eso el valor '
+          'de tu hora se calcula sobre lo que de verdad recibiste. La app '
+          'solo registra y ordena estos datos para que puedas revisarlos con '
+          'tu contador: no calcula impuestos ni te dice cuánto declarar.',
     },
     {
       'question': '¿Qué significa el stock en rojo?',
@@ -55,7 +69,7 @@ class _AyudaScreenState extends State<AyudaScreen> {
                     const PagateBackButton(),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'Ayuda e Ideas',
+                      'Ayuda',
                       style: AppText.weight(
                         Theme.of(context).textTheme.headlineSmall!,
                         800,
@@ -69,45 +83,6 @@ class _AyudaScreenState extends State<AyudaScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.screenHorizontal),
                   children: [
-                    // IA suggestion card
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.brandGradient,
-                        borderRadius: AppRadius.xxlBorder,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.smart_toy_outlined,
-                              color: Colors.white, size: AppIconSize.lg),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Sugerencia del día',
-                                  style: AppText.weight(
-                                    Theme.of(context).textTheme.labelMedium!,
-                                    600,
-                                  ).copyWith(color: Colors.white70),
-                                ),
-                                const SizedBox(height: AppSpacing.xxs),
-                                Text(
-                                  'Reduce tus gastos fijos en 10% para ganar \$830 extra este mes.',
-                                  style: AppText.weight(
-                                    Theme.of(context).textTheme.bodyMedium!,
-                                    600,
-                                  ).copyWith(color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
 
                     Text(
                       'PREGUNTAS FRECUENTES',
@@ -205,83 +180,10 @@ class _AyudaScreenState extends State<AyudaScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: AppSpacing.xl),
-
-                    Text(
-                      'CONTACTO',
-                      style: AppText.weight(
-                        Theme.of(context).textTheme.labelSmall!,
-                        700,
-                      ).copyWith(
-                        color: AppColors.textSecondaryDark,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceDark,
-                        borderRadius: AppRadius.xxlBorder,
-                        border: Border.all(color: AppColors.borderDark),
-                      ),
-                      child: const Column(
-                        children: [
-                          _ContactRow(
-                            icon: Icons.email_outlined,
-                            label: 'soporte@pagate-ia.com',
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: AppSpacing.xxl),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(final BuildContext context) => GestureDetector(
-        onTap: () => AppFeedback.showMessage(
-          context,
-          'Te pondremos en contacto con soporte desde "$label".',
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.md,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.smBorder,
-                ),
-                child: Icon(icon, color: AppColors.brand, size: 18),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: AppText.weight(
-                    Theme.of(context).textTheme.bodyMedium!,
-                    600,
-                  ).copyWith(color: AppColors.textPrimaryDark),
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textSecondaryDark, size: 20),
             ],
           ),
         ),

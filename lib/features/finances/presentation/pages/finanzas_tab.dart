@@ -403,7 +403,7 @@ class _FixedExpensesSection extends StatelessWidget {
               controller: nameController,
               autofocus: true,
               style: const TextStyle(color: AppColors.textPrimaryDark),
-              decoration: const InputDecoration(hintText: 'Nombre (ej: Local)'),
+              decoration: const InputDecoration(hintText: 'Nombre (ej: arriendo del taller)'),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
@@ -506,8 +506,8 @@ class _FixedExpensesSection extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Text(
-                    'Sin gastos fijos. Agrega arriendo, servicios u otros '
-                    'costos que pagas todos los meses.',
+                    'Sin gastos fijos. Agrega el arriendo del taller, la luz '
+                    'o el internet: lo que pagas todos los meses.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondaryDark,
                         ),

@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _onAppleSignIn() {
     AppFeedback.showMessage(
       context,
-      'Apple Sign-In estará disponible próximamente.',
+      'El ingreso con Apple todavía no está disponible.',
     );
   }
 
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Controla tu taller, maximiza tus ganancias',
+                  'Las cuentas de tu taller, al día',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryDark,
                       ),
@@ -207,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: AppSpacing.md),
                 PagatePrimaryButton(
-                  label: 'Iniciar Sesión',
+                  label: 'Iniciar sesión',
                   isLoading: _isLoading,
                   onPressed: _onLogin,
                 ),

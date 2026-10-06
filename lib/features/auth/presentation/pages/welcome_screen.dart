@@ -181,7 +181,7 @@ class WelcomeScreen extends StatelessWidget {
 
                         // Subtitle
                         Text(
-                          'La primera herramienta financiera\ndiseñada por y para artesanos.',
+                          'Lleva las cuentas de tu taller: ventas, gastos,\ninsumos y cuánto vale tu hora.',
                           style: textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -231,7 +231,7 @@ class WelcomeScreen extends StatelessWidget {
                         icon: Icons.apple,
                         onPressed: () => AppFeedback.showMessage(
                           context,
-                          'Apple Sign-In estará disponible próximamente.',
+                          'El ingreso con Apple todavía no está disponible.',
                         ),
                       ),
 
@@ -254,10 +254,10 @@ class WelcomeScreen extends StatelessWidget {
                             ),
                             children: [
                               const TextSpan(
-                                text: '¿Ya eres parte de la comunidad? ',
+                                text: '¿Ya tienes cuenta? ',
                               ),
                               TextSpan(
-                                text: 'Inicia Sesión',
+                                text: 'Iniciar sesión',
                                 style: AppText.weight(
                                   textTheme.bodyMedium!,
                                   700,
@@ -283,7 +283,7 @@ class WelcomeScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () => AppFeedback.showMessage(
                           context,
-                          'Puedes revisar los términos desde configuración.',
+                          'Todavía no se pueden abrir los términos desde la app.',
                         ),
                         child: const Text('Ver términos'),
                       ),

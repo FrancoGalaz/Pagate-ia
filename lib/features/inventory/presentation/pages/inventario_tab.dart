@@ -138,7 +138,7 @@ class InventarioTab extends StatelessWidget {
                     sheetContext,
                     InventoryProvider.describeError(
                       e,
-                      fallback: 'No se pudo guardar el item',
+                      fallback: 'No se pudo guardar el ítem',
                     ),
                   );
                   return;
@@ -147,7 +147,7 @@ class InventarioTab extends StatelessWidget {
                 if (!sheetContext.mounted) return;
                 Navigator.pop(sheetContext);
                 if (!context.mounted) return;
-                AppFeedback.showMessage(context, 'Item agregado correctamente.');
+                AppFeedback.showMessage(context, 'Ítem agregado.');
               },
             ),
           ],
@@ -347,7 +347,7 @@ class _ItemList extends StatelessWidget {
             Text(
               isSearching
                   ? 'Sin resultados para tu búsqueda'
-                  : 'No hay items registrados',
+                  : 'Todavía no registras productos ni materiales',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textSecondaryDark,
                   ),

@@ -124,7 +124,7 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Solo tarda 2 minutos. Puedes editar esto después.',
+                  'Puedes cambiar todo esto después.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondaryDark,
                       ),
@@ -204,7 +204,7 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
                 const SizedBox(height: AppSpacing.xxxl),
 
                 PagatePrimaryButton(
-                  label: 'Empezar a ganar más',
+                  label: 'Guardar y empezar',
                   trailingIcon: Icons.arrow_forward_rounded,
                   isLoading: _isSaving,
                   onPressed: _onContinue,
