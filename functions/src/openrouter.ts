@@ -1,6 +1,13 @@
 /**
  * Cliente mínimo de OpenRouter (API compatible con OpenAI chat/completions).
  * Usa `fetch` nativo de Node 22; sin dependencias externas.
+ *
+ * Además del texto devuelve el bloque `usage` que manda la API (tokens de
+ * entrada y de salida). Sin él no hay forma de saber lo que cuesta cada
+ * llamada: el precio depende del modelo configurado en `OPENROUTER_MODEL` y
+ * solo OpenRouter lo conoce, así que lo que hacemos aquí es dejar los tokens
+ * reales registrados para que el dueño pueda multiplicarlos por la tarifa de su
+ * modelo y, si quiere, montar una alerta en Cloud Logging.
  */
 
 export type ChatRole = 'system' | 'user' | 'assistant';
@@ -20,6 +27,19 @@ export interface OpenRouterOptions {
   maxTokens?: number;
 }
 
+/** Tokens consumidos por la llamada, tal como los reporta OpenRouter. */
+export interface OpenRouterUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface OpenRouterResult {
+  text: string;
+  /** `null` si el modelo no reportó `usage`. */
+  usage: OpenRouterUsage | null;
+}
+
 export class OpenRouterError extends Error {
   constructor(
     message: string,
@@ -33,12 +53,26 @@ export class OpenRouterError extends Error {
 interface OpenRouterResponse {
   choices?: Array<{ message?: { content?: string | null } }>;
   error?: { message?: string };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-export async function askOpenRouter(opts: OpenRouterOptions): Promise<string> {
+function int(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+export function parseUsage(raw: OpenRouterResponse['usage']): OpenRouterUsage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const promptTokens = int(raw.prompt_tokens);
+  const completionTokens = int(raw.completion_tokens);
+  const totalTokens = int(raw.total_tokens) || promptTokens + completionTokens;
+  if (promptTokens === 0 && completionTokens === 0 && totalTokens === 0) return null;
+  return { promptTokens, completionTokens, totalTokens };
+}
+
+export async function askOpenRouter(opts: OpenRouterOptions): Promise<OpenRouterResult> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -74,7 +108,18 @@ export async function askOpenRouter(opts: OpenRouterOptions): Promise<string> {
       throw new OpenRouterError(`HTTP ${res.status}: ${body.slice(0, 300)}`, res.status);
     }
 
-    const json = (await res.json()) as OpenRouterResponse;
+    // `res.json()` puede fallar si la respuesta no es JSON válido (proxy caído,
+    // HTML de error). Se envuelve para no propagar un error ajeno al dominio.
+    let json: OpenRouterResponse;
+    try {
+      json = (await res.json()) as OpenRouterResponse;
+    } catch (err) {
+      throw new OpenRouterError(
+        `Respuesta no es JSON válido: ${err instanceof Error ? err.message : String(err)}`,
+        res.status,
+      );
+    }
+
     if (json.error?.message) {
       throw new OpenRouterError(json.error.message, res.status);
     }
@@ -82,7 +127,7 @@ export async function askOpenRouter(opts: OpenRouterOptions): Promise<string> {
     if (typeof content !== 'string' || content.trim().length === 0) {
       throw new OpenRouterError('El modelo devolvió una respuesta vacía', res.status);
     }
-    return content.trim();
+    return { text: content.trim(), usage: parseUsage(json.usage) };
   } finally {
     clearTimeout(timer);
   }

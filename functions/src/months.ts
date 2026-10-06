@@ -1,18 +1,55 @@
+/**
+ * Agregados mensuales: `users/{uid}/months/{yyyy-MM}`.
+ *
+ * El cliente nunca escribe estos documentos; los calcula el trigger
+ * `onTransactionWritten` a partir de las transacciones del mes.
+ */
+
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
-import { AggregateField, FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { AggregateField, FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { REGION } from './config';
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 
+export interface MonthTotals {
+  totalIncome: number;
+  totalExpenses: number;
+  transactionCount: number;
+}
+
 /**
  * Recalcula `users/{uid}/months/{monthKey}` a partir de las transacciones del
- * mes. Idempotente: siempre escribe el estado derivado completo. Si el mes
- * queda sin transacciones, deja los totales en 0 (no borra el documento).
+ * mes. Idempotente: siempre deriva el estado completo, nunca acumula.
+ *
+ * Lectura y escritura van DENTRO de una transacción (S-03). Antes se leían las
+ * agregaciones con `Promise.all` y se escribía después con un `set()` suelto:
+ * con dos escrituras seguidas sobre el mismo mes (el caso normal: dos gastos
+ * uno detrás de otro), las dos invocaciones del trigger se solapaban y la que
+ * había leído el estado más viejo podía commitear la última, dejando los totales
+ * mal de forma permanente, porque nada vuelve a recalcular ese mes hasta la
+ * siguiente escritura en él.
+ *
+ * `Transaction.get()` acepta una consulta de agregación en firebase-admin 14.4.0
+ * (`@google-cloud/firestore` 9.2.0) y el emulador la resuelve: verificado antes
+ * de elegir este enfoque en lugar de incrementos por delta. La agregación dentro
+ * de la transacción además toma un bloqueo pesimista sobre los documentos que
+ * coinciden, que es justo lo que hace falta para que dos recálculos del mismo
+ * mes se serialicen.
+ *
+ * Si el mes queda sin transacciones, el documento se BORRA en vez de quedarse en
+ * ceros: un mes en cero hacía que `chat.ts` eligiera como "último mes" un
+ * documento vacío y le contara al asistente que el negocio no facturó nada.
+ *
+ * @returns los totales escritos, o `null` si el mes se borró por quedar vacío.
  */
-export async function recalcMonth(uid: string, monthKey: string): Promise<void> {
-  const db = getFirestore();
+export async function recalcMonth(
+  uid: string,
+  monthKey: string,
+  db: Firestore = getFirestore(),
+): Promise<MonthTotals | null> {
   const transactions = db.collection(`users/${uid}/transactions`);
+  const monthRef = db.doc(`users/${uid}/months/${monthKey}`);
 
   const aggregateFor = (type: 'income' | 'expense') =>
     transactions
@@ -21,18 +58,29 @@ export async function recalcMonth(uid: string, monthKey: string): Promise<void> 
       .aggregate({
         total: AggregateField.sum('amount'),
         count: AggregateField.count(),
-      })
-      .get();
+      });
 
-  const [income, expense] = await Promise.all([aggregateFor('income'), aggregateFor('expense')]);
-  const incomeData = income.data();
-  const expenseData = expense.data();
+  return db.runTransaction(async (tx) => {
+    const [income, expense] = await Promise.all([
+      tx.get(aggregateFor('income')),
+      tx.get(aggregateFor('expense')),
+    ]);
+    const incomeData = income.data();
+    const expenseData = expense.data();
 
-  await db.doc(`users/${uid}/months/${monthKey}`).set({
-    totalIncome: Number(incomeData.total ?? 0),
-    totalExpenses: Number(expenseData.total ?? 0),
-    transactionCount: Number(incomeData.count ?? 0) + Number(expenseData.count ?? 0),
-    updatedAt: FieldValue.serverTimestamp(),
+    const totals: MonthTotals = {
+      totalIncome: Number(incomeData.total ?? 0),
+      totalExpenses: Number(expenseData.total ?? 0),
+      transactionCount: Number(incomeData.count ?? 0) + Number(expenseData.count ?? 0),
+    };
+
+    if (totals.transactionCount === 0) {
+      tx.delete(monthRef);
+      return null;
+    }
+
+    tx.set(monthRef, { ...totals, updatedAt: FieldValue.serverTimestamp() });
+    return totals;
   });
 }
 
@@ -48,6 +96,11 @@ export const onTransactionWritten = onDocumentWritten(
     memory: '256MiB',
     // Tope de gasto: limita el escalado del trigger ante ráfagas de escrituras.
     maxInstances: 10,
+    // Sin reintento, un fallo transitorio (contención de la transacción, cold
+    // start que se pasa de plazo, error de red en la agregación) perdía el
+    // evento y dejaba el mes mal para siempre. `recalcMonth` es idempotente,
+    // así que reintentar es seguro.
+    retry: true,
   },
   async (event) => {
     const uid = event.params.uid;
@@ -68,7 +121,12 @@ export const onTransactionWritten = onDocumentWritten(
       return;
     }
 
-    await Promise.all([...keys].map((key) => recalcMonth(uid, key)));
+    // En serie, no en paralelo: dos recálculos simultáneos del mismo usuario
+    // compiten por los mismos documentos y provocan reintentos de transacción
+    // sin ganar nada (son dos meses como máximo).
+    for (const key of keys) {
+      await recalcMonth(uid, key);
+    }
     logger.info('Meses recalculados', { uid, months: [...keys] });
   },
 );

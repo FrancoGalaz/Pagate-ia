@@ -14,8 +14,8 @@
     "serve": "npm run build && npx firebase-tools emulators:start --only functions,firestore,auth",
     "deploy": "npx firebase-tools deploy --only functions",
     "logs": "npx firebase-tools functions:log",
-    "test": "npx firebase-tools emulators:exec --only firestore --project demo-pagate \"vitest run\"",
-    "test:unit": "vitest run test/prompt.test.ts"
+    "test": "npx firebase-tools emulators:exec --config ../firebase.test.json --only firestore --project demo-pagate \"vitest run\"",
+    "test:unit": "vitest run test/prompt.test.ts test/waitlist.test.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.4.0",

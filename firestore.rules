@@ -6,6 +6,26 @@
 //   y la waitlist los escribe únicamente el backend (Admin SDK, que no pasa
 //   por estas reglas). Desde el cliente son solo lectura o sin acceso.
 // - Denegar por defecto: todo lo que no coincide con un match explícito se rechaza.
+//
+// Endurecimiento S-02 (auditoría 2026-09-29):
+// 1. `createdAt` es inmutable en update: antes el cliente podía reescribirlo y
+//    falsear la antigüedad de cualquier registro.
+// 2. `updatedAt` tiene que valer exactamente `request.time`, o sea venir de un
+//    `FieldValue.serverTimestamp()`. Antes bastaba que fuera un timestamp
+//    cualquiera, así que el reloj del teléfono (o un valor inventado) decidía el
+//    orden de los datos; `conversations` se ordena por ese campo.
+// 3. Topes numéricos SUPERIORES. Sin ellos, `Infinity` pasaba la validación
+//    (`v is number` es cierto para infinito) y contaminaba para siempre los
+//    agregados de `months`, que son sumas.
+// 4. `read` separado en `get` y `list`, con `list` acotado a 200 documentos.
+//    Una colección sin tope se puede pedir entera, y el dueño paga por lectura.
+//    OJO: `request.query.limit` vale `null` en una consulta sin `.limit()`
+//    explícito, y comparar null con un número es un error de ejecución que
+//    deniega la operación. Por eso se comprueba `is int` primero, y por eso el
+//    cliente TIENE que poner `.limit()` en todas sus consultas de colección.
+// 5. `delete` de users/{uid} denegado: borraba el documento y dejaba huérfanas
+//    todas las subcolecciones. Ahora el borrado de cuenta pasa por el callable
+//    `deleteAccount`, que borra el árbol completo y la credencial de Auth.
 
 rules_version = '2';
 
@@ -34,24 +54,47 @@ service cloud.firestore {
       return !(field in d) || d[field] == null || isStr(d[field], max);
     }
 
-    function isNonNegNumber(v) {
-      return v is number && v >= 0;
+    // Topes numéricos. 1e12 para dinero: mil millones de pesos por los pelos no
+    // llega, y cualquier cosa por encima es un error de entrada o un ataque.
+    // 1e9 para unidades de stock. Infinity y NaN quedan fuera por comparación.
+    function isMoney(v) {
+      return v is number && v >= 0 && v <= 1000000000000;
     }
 
-    function isPositiveNumber(v) {
-      return v is number && v > 0;
+    function isPositiveMoney(v) {
+      return v is number && v > 0 && v <= 1000000000000;
     }
 
-    function isNonNegInt(v) {
-      return v is int && v >= 0;
+    function isCount(v) {
+      return v is int && v >= 0 && v <= 1000000000;
     }
 
     function isTs(v) {
       return v is timestamp;
     }
 
-    function hasTimestamps(d) {
-      return isTs(d.createdAt) && isTs(d.updatedAt);
+    // `updatedAt` solo puede venir del servidor.
+    function updatedAtIsServerTime(d) {
+      return isTs(d.updatedAt) && d.updatedAt == request.time;
+    }
+
+    // En create, `createdAt` también se ata a la hora del servidor: así nadie
+    // antedata un registro.
+    function validTimestampsOnCreate(d) {
+      return isTs(d.createdAt) && d.createdAt == request.time && updatedAtIsServerTime(d);
+    }
+
+    // En update, `createdAt` tiene que seguir siendo el que ya estaba. El caso
+    // `!('createdAt' in prev)` cubre documentos antiguos que no lo tenían.
+    function validTimestampsOnUpdate(d, prev) {
+      return isTs(d.createdAt)
+        && (!('createdAt' in prev) || d.createdAt == prev.createdAt)
+        && updatedAtIsServerTime(d);
+    }
+
+    // Tope de documentos por consulta de colección.
+    function isLimitedList() {
+      return request.query.limit is int && request.query.limit > 0 && request.query.limit <= 200;
     }
 
     // ---------- users/{uid} ----------
@@ -59,9 +102,9 @@ service cloud.firestore {
     function validHourlyRate(r) {
       return r is map
         && r.keys().hasOnly(['desiredMonthlySalary', 'availableHoursPerMonth', 'hourlyValue'])
-        && (!('desiredMonthlySalary' in r) || isNonNegNumber(r.desiredMonthlySalary))
-        && (!('availableHoursPerMonth' in r) || isNonNegNumber(r.availableHoursPerMonth))
-        && (!('hourlyValue' in r) || isNonNegNumber(r.hourlyValue));
+        && (!('desiredMonthlySalary' in r) || isMoney(r.desiredMonthlySalary))
+        && (!('availableHoursPerMonth' in r) || isMoney(r.availableHoursPerMonth))
+        && (!('hourlyValue' in r) || isMoney(r.hourlyValue));
     }
 
     function validProfile(d) {
@@ -74,11 +117,10 @@ service cloud.firestore {
         && (!('businessName' in d) || isStr(d.businessName, 200))
         && (!('businessType' in d) || isStr(d.businessType, 200))
         && d.currency in ['CLP', 'USD']
-        && (!('monthlyGoal' in d) || isNonNegNumber(d.monthlyGoal))
+        && (!('monthlyGoal' in d) || isMoney(d.monthlyGoal))
         && (!('avatarInitials' in d) || isStr(d.avatarInitials, 10))
         && (!('hourlyRate' in d) || d.hourlyRate == null || validHourlyRate(d.hourlyRate))
-        && (!('plan' in d) || d.plan in ['free', 'pro'])
-        && hasTimestamps(d);
+        && (!('plan' in d) || d.plan in ['free', 'pro']);
     }
 
     // `plan` solo lo escribe el backend: en create no puede venir; en update
@@ -92,10 +134,24 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && validProfile(incoming()) && planUntouchedOnCreate(incoming());
-      allow update: if isOwner(uid) && validProfile(incoming()) && planUntouchedOnUpdate(incoming(), resource.data);
-      allow delete: if isOwner(uid);
+      // Solo lectura de documento. No se permite consultar la colección /users.
+      allow get: if isOwner(uid);
+      allow list: if false;
+
+      allow create: if isOwner(uid)
+        && validProfile(incoming())
+        && validTimestampsOnCreate(incoming())
+        && planUntouchedOnCreate(incoming());
+      allow update: if isOwner(uid)
+        && validProfile(incoming())
+        && validTimestampsOnUpdate(incoming(), resource.data)
+        && planUntouchedOnUpdate(incoming(), resource.data);
+
+      // El borrado de cuenta pasa por el callable `deleteAccount`: borrar solo
+      // este documento dejaría inventory, transactions, fixedExpenses, months,
+      // conversations y meta colgando sin dueño y sin forma de volver a
+      // alcanzarlos.
+      allow delete: if false;
 
       // ---------- inventory ----------
 
@@ -107,18 +163,21 @@ service cloud.firestore {
           && d.keys().hasAll(['name', 'type', 'price', 'stock', 'minStock', 'unit', 'createdAt', 'updatedAt'])
           && isNonEmptyStr(d.name, 200)
           && d.type in ['product', 'material']
-          && isNonNegNumber(d.price)
-          && isNonNegInt(d.stock)
-          && isNonNegInt(d.minStock)
+          && isMoney(d.price)
+          && isCount(d.stock)
+          && isCount(d.minStock)
           && isStr(d.unit, 200)
           && isNullableStr(d, 'supplier', 200)
-          && isNullableStr(d, 'code', 200)
-          && hasTimestamps(d);
+          && isNullableStr(d, 'code', 200);
       }
 
       match /inventory/{itemId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid) && validInventoryItem(incoming());
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validInventoryItem(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validInventoryItem(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
       }
 
       // ---------- transactions ----------
@@ -131,18 +190,25 @@ service cloud.firestore {
           && d.keys().hasAll(['title', 'amount', 'type', 'category', 'date', 'monthKey', 'createdAt', 'updatedAt'])
           && isNonEmptyStr(d.title, 200)
           && (!('description' in d) || isStr(d.description, 2000))
-          && isPositiveNumber(d.amount)
+          && isPositiveMoney(d.amount)
           && d.type in ['income', 'expense']
           && isStr(d.category, 200)
           && isTs(d.date)
           && d.monthKey is string
-          && d.monthKey.matches('^[0-9]{4}-[0-9]{2}$')
-          && hasTimestamps(d);
+          // El mes acotado a 01-12. El regex anterior (`[0-9]{2}`) aceptaba
+          // meses 00 y 13-99, con los que el cliente podía fabricar hasta
+          // 10.000 documentos distintos en months/ y la app los mostraba como
+          // meses reales.
+          && d.monthKey.matches('^[0-9]{4}-(0[1-9]|1[0-2])$');
       }
 
       match /transactions/{txId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid) && validTransaction(incoming());
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validTransaction(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validTransaction(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
       }
 
       // ---------- fixedExpenses ----------
@@ -151,34 +217,41 @@ service cloud.firestore {
         return d.keys().hasOnly(['name', 'amount', 'createdAt', 'updatedAt'])
           && d.keys().hasAll(['name', 'amount', 'createdAt', 'updatedAt'])
           && isNonEmptyStr(d.name, 200)
-          && isPositiveNumber(d.amount)
-          && hasTimestamps(d);
+          && isPositiveMoney(d.amount);
       }
 
       match /fixedExpenses/{expenseId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid) && validFixedExpense(incoming());
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validFixedExpense(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validFixedExpense(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
       }
 
       // ---------- Solo lectura (escribe el backend) ----------
 
       match /months/{monthKey} {
-        allow read: if isOwner(uid);
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
         allow write: if false;
       }
 
       match /conversations/{convId} {
-        allow read: if isOwner(uid);
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
         allow write: if false;
 
         match /messages/{msgId} {
-          allow read: if isOwner(uid);
+          allow get: if isOwner(uid);
+          allow list: if isOwner(uid) && isLimitedList();
           allow write: if false;
         }
       }
 
       match /meta/{docId} {
-        allow read: if isOwner(uid);
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
         allow write: if false;
       }
     }
@@ -190,6 +263,10 @@ service cloud.firestore {
     }
 
     // ---------- Todo lo demás: denegado ----------
+    //
+    // Incluye system/aiConfig y system/aiUsage/days/{dayKey} (configuración y
+    // contador global del asistente): los escribe y los lee solo el backend con
+    // el Admin SDK, que no pasa por estas reglas.
 
     match /{document=**} {
       allow read, write: if false;
