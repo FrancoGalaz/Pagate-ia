@@ -24,7 +24,7 @@ class BootstrapErrorApp extends StatelessWidget {
   Widget build(final BuildContext context) => MaterialApp(
         title: 'Págate-IA',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme,
         home: _BootstrapErrorView(error: error, onRetry: onRetry),
       );
 }

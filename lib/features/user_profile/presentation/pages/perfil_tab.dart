@@ -28,7 +28,7 @@ class PerfilTab extends StatelessWidget {
                 Container(
                   width: 88,
                   height: 88,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     gradient: AppColors.brandGradient,
                     shape: BoxShape.circle,
                     boxShadow: AppShadows.brandStrong,

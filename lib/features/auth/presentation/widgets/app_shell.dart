@@ -23,9 +23,11 @@ class AppShell extends StatelessWidget {
         key: ValueKey('app-$sessionKey'),
         title: 'Págate-IA',
         debugShowCheckedModeBanner: false,
+        // Tema claro único (docs/DISENO-v2.md). `themeMode` se deja
+        // explícito para que la app no siga al sistema si alguien vuelve a
+        // declarar un `darkTheme`.
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.dark,
+        themeMode: ThemeMode.light,
         home: home,
       );
 }

@@ -14,7 +14,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.darkTheme, home: const WelcomeScreen()),
+      MaterialApp(theme: AppTheme.lightTheme, home: const WelcomeScreen()),
     );
     await tester.pump();
 

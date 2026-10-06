@@ -13,7 +13,7 @@ void main() {
     var taps = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme,
         home: Scaffold(
           body: Center(
             child: PagatePrimaryButton(
@@ -36,7 +36,7 @@ void main() {
     var taps = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme,
         home: Scaffold(
           body: PagatePrimaryButton(
             label: 'Guardar',

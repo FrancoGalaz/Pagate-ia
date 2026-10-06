@@ -7,110 +7,184 @@ import 'package:flutter/material.dart';
 // Naming convention: semantic purpose, NOT visual appearance.
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Unified color palette for Pagate.
+/// Tokens de color que consumen las pantallas.
 ///
-/// Based on the Brand Manual:
-/// 1. Verde Esmeralda #006B5F — confianza, estabilidad, orden
-/// 2. Coral Cálido #FF735C — cercanía, creatividad, energía
-/// 3. Azul Noche #16213E — soporte, legibilidad, solidez
-/// 4. Gris Niebla #F3F4F6 — fondos, superficies, equilibrio
-/// 5. Gris Texto #6B7280 — texto secundario, información
+/// EL INTERRUPTOR (paso 3 del plan de migración de docs/DISENO-v2.md). Esta
+/// clase ya no define colores propios: cada token apunta a [AppPalette], la
+/// paleta del tema claro único. Con eso, y sin tocar una sola pantalla, las
+/// 251 referencias a los ocho tokens `*Dark` siguen compilando y toda la app
+/// pasa a claro, sin sombras, sin degradados y con contraste AA.
 ///
-/// Organized by semantic role so that every screen consumes the same
-/// tokens regardless of whether the app is in light or dark mode.
+/// Por qué ALIAS y no borrado: si los tokens oscuros se eliminan en vez de
+/// aliasarse, 21 archivos dejan de compilar a la vez y la única salida es un
+/// commit gigante imposible de revisar. El `@Deprecated` de los ocho
+/// `*Dark` convierte cada uso superviviente en un aviso del analizador, así
+/// que la lista de pantallas pendientes es consultable en cualquier momento.
+///
+/// Los alias MIENTEN a propósito durante los pasos 3 a 8:
+/// `AppColors.textPrimaryDark` devuelve un gris casi negro pensado para ir
+/// sobre blanco. Es el precio de no romper la app, y por eso **el paso 9 no
+/// es opcional**: cuando se borren estos alias, `flutter analyze` fallará con
+/// error en cualquier referencia que quede, y cada error señalará exactamente
+/// una pantalla que el paso 6 o 7 se saltó.
 class AppColors {
-  AppColors._(); // Prevent instantiation
+  AppColors._();
 
-  // ─── Brand Identity ───────────────────────────────────────────────
-  static const Color brand = Color(0xFF006B5F);
-  static const Color brandLight = Color(0xFFE6F2F0);
-  static const Color brandDark = Color(0xFF005A50);
-  static const Color brandSubtle = Color(0xFFF0F7F6);
+  // ─── Marca ────────────────────────────────────────────
+  static const Color brand = AppPalette.brand;
 
+  /// Renombrado a `AppPalette.brandSurface`; mismo valor.
+  static const Color brandLight = AppPalette.brandSurface;
+
+  /// Renombrado a `AppPalette.brandPressed`; mismo valor.
+  static const Color brandDark = AppPalette.brandPressed;
+
+  /// Sin token propio en v2 (tenía 0 usos). Cae en la superficie de marca.
+  static const Color brandSubtle = AppPalette.brandSurface;
+
+  // El coral no tiene trabajo semántico en una app de dinero y da 2,67
+  // sobre blanco, así que no cumple AA como texto: v2 no lo incluye. Se
+  // conserva el valor porque lo único que lo usa es la tarjeta decorativa
+  // "STOCK" de la bienvenida, que el paso 6.1 borra junto con su cifra
+  // inventada. Cambiarlo aquí solo repintaría algo que va a desaparecer.
   static const Color accent = Color(0xFFFF735C);
   static const Color accentLight = Color(0xFFFFF0ED);
   static const Color accentDark = Color(0xFFE85D47);
 
-  // ─── Semantic / Feedback ──────────────────────────────────────────
-  static const Color success = Color(0xFF10B981);
-  static const Color successLight = Color(0xFFD1FAE5);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFEF3C7);
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorLight = Color(0xFFFEE2E2);
+  // ─── Estado y dinero ────────────────────────────────────
+  /// Era #10B981 (2,54 sobre blanco, fallaba AA). Ahora el verde dinero.
+  static const Color success = AppPalette.moneyIn;
+  static const Color successLight = AppPalette.moneyInSurface;
+
+  /// Era #F59E0B (2,15 sobre blanco).
+  static const Color warning = AppPalette.warning;
+  static const Color warningLight = AppPalette.warningSurface;
+
+  /// Era #EF4444 (3,76 como texto, fallaba AA). Ahora #A32019 (7,56).
+  static const Color error = AppPalette.danger;
+  static const Color errorLight = AppPalette.dangerSurface;
+
+  // v2 no tiene token `info`: el azul no existe en la paleta. Se conserva el
+  // valor para no cambiar de color un bloque sin decidir su rol; el único
+  // consumidor es `hourly_rate_setup_page`, que entra en el paso 7. OJO:
+  // #3B82F6 da 3,68 sobre blanco y no cumple AA como texto normal.
   static const Color info = Color(0xFF3B82F6);
   static const Color infoLight = Color(0xFFDBEAFE);
 
-  // ─── Backgrounds (Light theme) ────────────────────────────────────
-  static const Color background = Color(0xFFF3F4F6);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSecondary = Color(0xFFF8FAFC);
-  static const Color surfaceTertiary = Color(0xFFF1F5F9);
+  // ─── Superficies ──────────────────────────────────────
+  static const Color background = AppPalette.canvas;
+  static const Color surface = AppPalette.surface;
+  static const Color surfaceSecondary = AppPalette.sunken;
+  static const Color surfaceTertiary = AppPalette.sunken;
 
-  // ─── Backgrounds (Dark theme) ─────────────────────────────────────
-  static const Color backgroundDark = Color(0xFF16213E);
-  static const Color surfaceDark = Color(0xFF1F283E);
-  static const Color surfaceDarkElevated = Color(0xFF2A3550);
-  static const Color surfaceDarkSecondary = Color(0xFF3A4A6B);
-  static const Color borderDark = Color(0xFF3A4A6B);
+  // ─── Texto ────────────────────────────────────────────
+  static const Color textPrimary = AppPalette.textPrimary;
+  static const Color textSecondary = AppPalette.textSecondary;
 
-  // ─── Text (Light theme) ───────────────────────────────────────────
-  static const Color textPrimary = Color(0xFF16213E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textTertiary = Color(0xFF9CA3AF);
-  static const Color textDisabled = Color(0xFFCBD5E1);
-  static const Color textOnBrand = Color(0xFFFFFFFF);
-  static const Color textLink = Color(0xFF006B5F);
+  /// Era #9CA3AF (2,54 sobre blanco): un fallo de AA repetido en 17 sitios.
+  static const Color textTertiary = AppPalette.textMuted;
 
-  // ─── Text (Dark theme) ────────────────────────────────────────────
-  static const Color textPrimaryDark = Color(0xFFF1F5F9);
-  static const Color textSecondaryDark = Color(0xFF9CA3AF);
-  static const Color textTertiaryDark = Color(0xFF64748B);
+  static const Color textDisabled = AppPalette.textDisabled;
+  static const Color textOnBrand = AppPalette.textOnBrand;
+  static const Color textLink = AppPalette.brand;
 
-  // ─── Borders & Dividers ───────────────────────────────────────────
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color borderLight = Color(0xFFF3F4F6);
-  static const Color borderFocus = Color(0xFF006B5F);
-  static const Color borderError = Color(0xFFEF4444);
+  // ─── Bordes y divisores ─────────────────────────────────
+  static const Color border = AppPalette.border;
+  static const Color borderLight = AppPalette.hairline;
+  static const Color borderFocus = AppPalette.borderFocus;
+  static const Color borderError = AppPalette.danger;
 
-  // ─── Glassmorphism (Dark theme overlays) ──────────────────────────
-  static const Color glass = Color(0x1AFFFFFF);
-  static const Color glassStrong = Color(0x33FFFFFF);
+  // ─── Alias del tema oscuro ──────────────────────────────
+  // Los ocho tokens que pintaban el tema oscuro. Conservan su nombre y
+  // apuntan al token claro equivalente, así que un `Container` que antes era
+  // azul noche con texto claro ahora es blanco con texto tinta. Ese es todo
+  // el truco del interruptor.
 
-  // ─── Shadows ──────────────────────────────────────────────────────
-  static const Color shadowLight = Color(0x0A000000);
-  static const Color shadowMedium = Color(0x14000000);
-  static const Color shadowBrand = Color(0x40006B5F);
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.background. Se borra en el paso 9.',
+  )
+  static const Color backgroundDark = background;
 
-  // ─── Gradient Presets ─────────────────────────────────────────────
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.surface. Se borra en el paso 9.',
+  )
+  static const Color surfaceDark = surface;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.surface. Se borra en el paso 9.',
+  )
+  static const Color surfaceDarkElevated = surface;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.surfaceSecondary. '
+    'Se borra en el paso 9.',
+  )
+  static const Color surfaceDarkSecondary = surfaceSecondary;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.border. Se borra en el paso 9.',
+  )
+  static const Color borderDark = border;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.textPrimary. '
+    'Se borra en el paso 9.',
+  )
+  static const Color textPrimaryDark = textPrimary;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.textSecondary. '
+    'Se borra en el paso 9.',
+  )
+  static const Color textSecondaryDark = textSecondary;
+
+  @Deprecated(
+    'Tema único claro. Migrar a AppColors.textTertiary. '
+    'Se borra en el paso 9.',
+  )
+  static const Color textTertiaryDark = textTertiary;
+
+  // ─── Glassmorphism, ahora plano ───────────────────────────
+  // Eran blanco translucido al 10% y al 20% sobre superficies oscuras: sobre
+  // un lienzo claro no se ven. Pasan a las dos líneas planas del sistema.
+  static const Color glass = AppPalette.hairline;
+  static const Color glassStrong = AppPalette.border;
+
+  // ─── Colores de sombra ──────────────────────────────────
+  // Los tres tenían 0 usos directos; vivían dentro de [AppShadows]. El
+  // sistema tiene una sola tinta de sombra y está en [AppElevation].
+  static const Color shadowLight = Color(0x1A101828);
+  static const Color shadowMedium = Color(0x1A101828);
+  static const Color shadowBrand = Color(0x1A101828);
+
+  // ─── Degradados, ahora planos ────────────────────────────
+  // Se conservan como `LinearGradient` de un solo color para que los 15
+  // `gradient:` de las pantallas sigan compilando mientras los pasos 6 y 7
+  // los sustituyen por `color:`. Visualmente ya son un relleno plano.
+
+  /// Relleno plano de marca. Blanco encima: 6,43.
   static const LinearGradient brandGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF006B5F), Color(0xFF005A50)],
+    colors: [AppPalette.brand, AppPalette.brand],
   );
 
+  /// Era el azul noche del héroe oscuro (0 usos). Ahora el lienzo claro.
   static const LinearGradient heroGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF1F283E), Color(0xFF16213E)],
+    colors: [AppPalette.canvas, AppPalette.canvas],
   );
 
-  static LinearGradient fadeToBackground = LinearGradient(
+  /// Desvanecido hacia el fondo de la app. 0 usos.
+  static final LinearGradient fadeToBackground = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      background.withValues(alpha: 0.0),
-      background,
-    ],
+    colors: [background.withValues(alpha: 0.0), background],
   );
 
-  static LinearGradient fadeToWhite = LinearGradient(
+  /// Desvanecido hacia blanco del pie de la hoja de registro. El paso 6.2 lo
+  /// borra: el pie del sistema no lleva desvanecido.
+  static final LinearGradient fadeToWhite = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      surface.withValues(alpha: 0.0),
-      surface,
-    ],
+    colors: [surface.withValues(alpha: 0.0), surface],
   );
 }
 
@@ -336,8 +410,15 @@ class AppRadius {
   static const double md = 16.0;
   static const double lg = 20.0;
   static const double xl = 24.0;
-  static const double xxl = 32.0;
-  static const double pill = 100.0;
+  /// Era 32. Pasa al radio por defecto del sistema: `xxlBorder` estaba
+  /// cableado en los cinco borders del `inputDecorationTheme`, así que esta
+  /// línea quita de golpe los campos de radio 32 de toda la app.
+  static const double xxl = r12;
+
+  /// Era 100. Pasa al radio por defecto: `pillBorder` lo usaban el botón
+  /// elevado y el delineado del tema, es decir el botón principal de cada
+  /// pantalla. Los botones pastilla son la firma visual que hay que borrar.
+  static const double pill = r12;
 
   // ─── Escala v2: cinco valores, ninguno por encima de 16 ──────────
   // docs/DISENO-v2.md, "Radios". Los botones pastilla de 56 dp y los campos
@@ -446,59 +527,28 @@ class AppSizes {
   static const double borderThick = 2.0;
 }
 
-/// Pre-built shadow presets.
+/// Presets de sombra, todos vacíos.
+///
+/// El sistema visual separa con una línea de 1 px o con fondo visible, nunca
+/// con sombra: solo llevan sombra la hoja modal, el menú desplegable y el
+/// snackbar, y esas tres viven en [AppElevation].
+///
+/// Se dejan los siete nombres —y las listas vacías— para que los 14 sitios
+/// que los pasan a un `boxShadow:` sigan compilando mientras los pasos 6 y 7
+/// borran la propiedad. Los dos que más daño hacían: `brandStrong` (el glow
+/// verde al 40% bajo la tarjeta de balance de Inicio) y `brand` (el glow bajo
+/// el CTA de toda la app, cuyo `Container` envolvente existía solo para
+/// llevarlo).
 class AppShadows {
   AppShadows._();
 
   static const List<BoxShadow> none = [];
-
-  static const List<BoxShadow> sm = [
-    BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 4,
-      offset: Offset(0, 2),
-    ),
-  ];
-
-  static const List<BoxShadow> md = [
-    BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 10,
-      offset: Offset(0, 4),
-    ),
-  ];
-
-  static const List<BoxShadow> lg = [
-    BoxShadow(
-      color: Color(0x14000000),
-      blurRadius: 20,
-      offset: Offset(0, 10),
-    ),
-  ];
-
-  static const List<BoxShadow> xl = [
-    BoxShadow(
-      color: Color(0x14000000),
-      blurRadius: 40,
-      offset: Offset(0, 20),
-    ),
-  ];
-
-  static List<BoxShadow> brand = [
-    BoxShadow(
-      color: AppColors.brand.withValues(alpha: 0.25),
-      blurRadius: 16,
-      offset: const Offset(0, 6),
-    ),
-  ];
-
-  static List<BoxShadow> brandStrong = [
-    BoxShadow(
-      color: AppColors.brand.withValues(alpha: 0.40),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
-    ),
-  ];
+  static const List<BoxShadow> sm = [];
+  static const List<BoxShadow> md = [];
+  static const List<BoxShadow> lg = [];
+  static const List<BoxShadow> xl = [];
+  static const List<BoxShadow> brand = [];
+  static const List<BoxShadow> brandStrong = [];
 }
 
 /// Las tres —y únicas tres— sombras del sistema.
