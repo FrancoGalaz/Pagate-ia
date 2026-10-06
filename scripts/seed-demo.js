@@ -237,10 +237,10 @@ const DOC_TYPES = ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
  * Tasa con la que se calcula la comisión de Mercado Pago de la demostración.
  *
  * El 3,19 % es la cifra que circula para Chile en 2026 y `docs/FICHA-PLAY.md`
- * §3 la deja marcada como **NO verificada en la fuente**: la página de costos
- * de Mercado Pago se renderiza con JavaScript y no devuelve ninguna cifra a un
- * cliente de texto (vuelto a comprobar el 6 de octubre de 2026: responde 200 y
- * en el HTML no aparece ningún porcentaje).
+ * §3 la deja marcada como **NO verificada en la fuente**: la página de costos de
+ * Mercado Pago está detrás de la sesión (vuelto a comprobar el 6 de octubre de
+ * 2026: responde 302 y redirige a `mercadopago.cl/login/identification`, así que
+ * la tarifa solo la puede leer alguien con cuenta).
  *
  * Por eso aquí no se afirma que esa sea la comisión real de nadie: es el número
  * que la usuaria de la demostración anotó en su venta. Se calcula en el script
