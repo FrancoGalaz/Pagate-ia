@@ -75,8 +75,17 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  /// Comisión del medio de pago. Solo se pide en un ingreso.
+  final _feeController = TextEditingController();
+
   late TransactionType _type = widget.initialType;
   late String _category = _defaultCategory(widget.initialType);
+
+  /// Documento del ingreso (contrato C-3). En un gasto no se pregunta y
+  /// mantiene el valor por defecto, que es el que se asume cuando el campo
+  /// no está en Firestore.
+  TransactionDocType _docType = TransactionDocType.fallback;
+
   DateTime _date = DateTime.now();
   bool _saving = false;
 
@@ -88,6 +97,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     _titleController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
+    _feeController.dispose();
     super.dispose();
   }
 
@@ -99,6 +109,11 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     setState(() {
       _type = type;
       _category = _defaultCategory(type);
+      // Los dos campos del contrato C-3 describen un ingreso. Si el usuario
+      // escribió una comisión y luego cambió a Gasto, se limpia: guardar una
+      // comisión en un gasto sería un dato falso.
+      _docType = TransactionDocType.fallback;
+      _feeController.clear();
     });
   }
 
@@ -124,6 +139,32 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   /// ninguna validación lo detectara.
   static double? _parseAmount(final String raw) => parseCurrencyInput(raw);
 
+  /// Comisión escrita, o 0 si el campo está vacío o no corresponde.
+  ///
+  /// El campo es opcional: vacío significa "no me descontaron nada", que es
+  /// lo que pasa al cobrar en efectivo o por transferencia.
+  double get _platformFee {
+    if (_type != TransactionType.income) return 0;
+    final raw = _feeController.text.trim();
+    if (raw.isEmpty) return 0;
+    return _parseAmount(raw) ?? 0;
+  }
+
+  /// Valida la comisión contra el monto escrito en el mismo formulario.
+  String? _validateFee(final String? value) {
+    if (_type != TransactionType.income) return null;
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return null;
+    final fee = _parseAmount(raw);
+    if (fee == null) return 'Ingresa una comisión válida';
+    if (fee < 0) return 'La comisión no puede ser negativa';
+    final amount = _parseAmount(_amountController.text);
+    if (amount != null && fee > amount) {
+      return 'La comisión no puede ser mayor que el monto';
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (_saving) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -142,6 +183,10 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
         category: _category,
         date: _date,
         description: _descriptionController.text,
+        docType: _type == TransactionType.income
+            ? _docType
+            : TransactionDocType.fallback,
+        platformFee: _platformFee,
       );
       if (!mounted) return;
       navigator.pop();
@@ -256,6 +301,54 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 },
               ),
               const SizedBox(height: AppSpacing.md),
+
+              // ─── Contrato C-3: documento y comisión, solo en un ingreso ──
+              // En un gasto estos dos campos no significan nada, así que no
+              // se dibujan en lugar de dibujarse deshabilitados.
+              if (isIncome) ...[
+                const PagateLabel('Documento', isUppercase: true),
+                const SizedBox(height: AppSpacing.xs),
+                PagateChipSelector(
+                  options: TransactionDocType.values
+                      .map((final t) => t.label)
+                      .toList(),
+                  selected: {_docType.label},
+                  onToggle: (final label) => setState(() {
+                    _docType = TransactionDocType.values.firstWhere(
+                      (final t) => t.label == label,
+                      orElse: () => TransactionDocType.fallback,
+                    );
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.md),
+
+                const PagateLabel(
+                  'Comisión del medio de pago (opcional)',
+                  isUppercase: true,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                PagateTextField(
+                  controller: _feeController,
+                  hintText: '0',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  validator: _validateFee,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Lo que te descuenta el medio de pago: Mercado Pago, '
+                  'Khipu, Transbank. Si te pagaron por transferencia o en '
+                  'efectivo, déjalo en 0.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
 
               const PagateLabel('Categoría', isUppercase: true),
               const SizedBox(height: AppSpacing.xs),
