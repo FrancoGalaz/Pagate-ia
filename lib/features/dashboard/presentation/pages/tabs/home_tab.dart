@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/constants/app_constants.dart';
+import '../../../../../core/utils/currency_formatter.dart';
+import '../../../../../core/utils/month_labels.dart';
 import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
@@ -193,7 +195,7 @@ class _BalanceCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              hasData ? '\$${_fmt(balance)}' : '\$0',
+              formatCurrency(hasData ? balance : 0, currency: kFallbackCurrency),
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -220,7 +222,8 @@ class _BalanceCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xxs),
               Text(
-                'Meta: \$${_fmt(goal)}  •  ${(progress * 100).toStringAsFixed(0)}% completado',
+                'Meta: ${formatCurrency(goal, currency: kFallbackCurrency)}'
+                '  •  ${(progress * 100).toStringAsFixed(0)}% completado',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.white70,
                     ),
@@ -240,8 +243,6 @@ class _BalanceCard extends StatelessWidget {
     );
   }
 
-  String _fmt(final double v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}K' : v.toStringAsFixed(0);
 }
 
 class _MiniStat extends StatelessWidget {
@@ -274,7 +275,7 @@ class _MiniStat extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${amount >= 1000 ? '${(amount / 1000).toStringAsFixed(1)}K' : amount.toStringAsFixed(0)}',
+                formatCurrency(amount, currency: kFallbackCurrency),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -578,7 +579,7 @@ class _TransactionRow extends StatelessWidget {
                           ),
                     ),
                     Text(
-                      _formatDate(transaction.date),
+                      formatDayMonthYear(transaction.date),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondaryDark,
                           ),
@@ -587,7 +588,10 @@ class _TransactionRow extends StatelessWidget {
                 ),
               ),
               Text(
-                '${isIncome ? '+' : '-'}\$${_fmt(transaction.amount)}',
+                formatSigned(
+                  isIncome ? transaction.amount : -transaction.amount,
+                  currency: kFallbackCurrency,
+                ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: color,
                       fontWeight: FontWeight.w700,
@@ -607,14 +611,4 @@ class _TransactionRow extends StatelessWidget {
     );
   }
 
-  String _fmt(double v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}K' : v.toStringAsFixed(0);
-
-  String _formatDate(DateTime date) {
-    final months = [
-      '', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
-    ];
-    return '${date.day} ${months[date.month]}, ${date.year}';
-  }
 }

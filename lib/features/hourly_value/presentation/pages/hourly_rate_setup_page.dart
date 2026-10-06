@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../bloc/hourly_rate_provider.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/premium_text_field.dart';
@@ -128,7 +129,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
                 borderRadius: AppRadius.smBorder,
               ),
               child: Text(
-                '\$${hourlyValue.toStringAsFixed(0)}',
+                formatCurrency(hourlyValue, currency: kFallbackCurrency),
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

@@ -4,6 +4,7 @@ import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
@@ -94,9 +95,10 @@ class ConfiguracionScreen extends StatelessWidget {
                       _ItemRow(
                         icon: Icons.flag_outlined,
                         label: 'Meta de ingresos',
-                        subtitle: profile != null
-                            ? '\$${profile.monthlyGoal.toStringAsFixed(0)} mensuales'
-                            : '\$0 mensuales',
+                        subtitle: '${formatCurrency(
+                          profile?.monthlyGoal ?? 0,
+                          currency: kFallbackCurrency,
+                        )} mensuales',
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -108,7 +110,10 @@ class ConfiguracionScreen extends StatelessWidget {
                         icon: Icons.timer_outlined,
                         label: 'Valor Hora',
                         subtitle: hourlyRate != null
-                            ? '\$${hourlyRate.hourlyValue.toStringAsFixed(0)}/h'
+                            ? '${formatCurrency(
+                                hourlyRate.hourlyValue,
+                                currency: kFallbackCurrency,
+                              )}/h'
                             : 'Calcular desde sueldo objetivo',
                         onTap: () => Navigator.push(
                           context,

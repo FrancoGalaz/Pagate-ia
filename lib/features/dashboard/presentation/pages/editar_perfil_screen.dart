@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
@@ -57,8 +58,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
   Future<void> _onSave() async {
     final name = _nameController.text.trim();
     final businessName = _businessController.text.trim();
-    final rawGoal = _goalController.text.replaceAll(',', '.').trim();
-    final goal = double.tryParse(rawGoal);
+    // Mismo defecto que en el onboarding: "800.000" se guardaba como 800.
+    final goal = parseCurrencyInput(_goalController.text);
 
     if (name.isEmpty || businessName.isEmpty) {
       AppFeedback.showMessage(

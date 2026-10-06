@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/pagate_back_button.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../domain/entities/inventory_item_entity.dart';
@@ -186,8 +187,10 @@ class DetalleItemScreen extends StatelessWidget {
                           ),
                           _DetailRow(
                             label: 'Precio',
-                            value:
-                                '\$${item.price.toStringAsFixed(2)}',
+                            value: formatCurrency(
+                              item.price,
+                              currency: kFallbackCurrency,
+                            ),
                           ),
                           _DetailRow(
                             label: 'Stock actual',

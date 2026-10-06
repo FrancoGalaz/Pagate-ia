@@ -2,6 +2,8 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../utils/currency_formatter.dart';
+import '../utils/month_labels.dart';
 import '../../features/finances/domain/entities/finances_summary_entity.dart';
 import '../../features/finances/domain/entities/finances_transaction_entity.dart';
 import '../../features/finances/domain/entities/fixed_expense_entity.dart';
@@ -18,19 +20,21 @@ class PdfReportService {
   static const PdfColor _bg = PdfColor.fromInt(0xFFF3F4F6);
   static const PdfColor _border = PdfColor.fromInt(0xFFE5E7EB);
 
-  /// Formatea un número como moneda: $1.234.567
-  static String _fmt(double value) {
-    final negative = value < 0;
-    final intPart = value.abs().toStringAsFixed(0);
-    final formatted = StringBuffer();
-    for (var i = 0; i < intPart.length; i++) {
-      if (i > 0 && (intPart.length - i) % 3 == 0) {
-        formatted.write('.');
-      }
-      formatted.write(intPart[i]);
-    }
-    return '${negative ? '-' : ''}\$$formatted';
-  }
+  /// Formatea un monto para el informe.
+  ///
+  /// Los dígitos salen del formateador único de la app
+  /// (`core/utils/currency_formatter.dart`), pero el signo negativo se
+  /// escribe con el guion ASCII en vez de con U+2212 como en pantalla: la
+  /// fuente del PDF se descarga en tiempo de ejecución desde Google Fonts y
+  /// no está verificado que su subconjunto incluya el signo menos
+  /// tipográfico; un glifo ausente saldría como una caja en el informe que el
+  /// usuario manda a su contador. Queda unificado cuando el PDF cargue
+  /// Manrope desde los assets.
+  static String _fmt(final double value) =>
+      formatCurrency(value.abs(), currency: kFallbackCurrency);
+
+  /// Monto negativo del informe: `-$35.000`.
+  static String _fmtNegative(final double value) => '-${_fmt(value)}';
 
   /// Genera el reporte de un mes. La meta mensual vive en el perfil y los
   /// gastos fijos en su propia colección, por eso llegan por separado.
@@ -312,7 +316,7 @@ class PdfReportService {
               children: [
                 _tableCell(e.name, regularFont, _textPrimary),
                 _tableCell(
-                  '-${_fmt(e.amount)}',
+                  _fmtNegative(e.amount),
                   boldFont,
                   _error,
                   align: pw.Alignment.centerRight,
@@ -324,7 +328,7 @@ class PdfReportService {
           children: [
             _tableCell('Total mensual', boldFont, _textPrimary),
             _tableCell(
-              '-${_fmt(total)}',
+              _fmtNegative(total),
               boldFont,
               _error,
               align: pw.Alignment.centerRight,
@@ -371,7 +375,7 @@ class PdfReportService {
                 _textSecondary,
               ),
               _tableCell(
-                isIncome ? _fmt(t.amount) : '-${_fmt(t.amount)}',
+                isIncome ? _fmt(t.amount) : _fmtNegative(t.amount),
                 boldFont,
                 isIncome ? _success : _error,
                 align: pw.Alignment.centerRight,
@@ -405,11 +409,5 @@ class PdfReportService {
     );
   }
 
-  static String _formatDate(DateTime date) {
-    const months = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-    ];
-    return '${date.day} de ${months[date.month - 1]} de ${date.year}';
-  }
+  static String _formatDate(final DateTime date) => formatLongDate(date);
 }

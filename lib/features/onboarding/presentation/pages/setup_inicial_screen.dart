@@ -5,6 +5,7 @@ import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/pagate_chip_selector.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_section_card.dart';
@@ -55,8 +56,10 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
   Future<void> _onContinue() async {
     final name = _nameController.text.trim();
     final businessName = _businessController.text.trim();
-    final rawGoal = _goalController.text.replaceAll(',', '.').trim();
-    final goal = double.tryParse(rawGoal);
+    // Antes: replaceAll(',', '.') + double.tryParse, con lo que una meta de
+    // "800.000" entraba al perfil como 800 pesos y la barra de progreso de
+    // Inicio marcaba 100% con la primera venta.
+    final goal = parseCurrencyInput(_goalController.text);
 
     if (name.isEmpty || businessName.isEmpty) {
       AppFeedback.showMessage(

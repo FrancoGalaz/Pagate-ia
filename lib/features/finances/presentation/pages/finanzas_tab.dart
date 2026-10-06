@@ -4,24 +4,14 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/pdf_report_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/pagate_error_state.dart';
 import '../../domain/entities/finances_summary_entity.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../../domain/entities/fixed_expense_entity.dart';
 import '../providers/finances_provider.dart';
 import '../widgets/transaction_form_sheet.dart';
-
-/// Formatea un monto como `$1.234` (sin decimales, separador de miles).
-String _money(final double value) {
-  final negative = value < 0;
-  final digits = value.abs().round().toString();
-  final buffer = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
-    buffer.write(digits[i]);
-  }
-  return '${negative ? '-' : ''}\$$buffer';
-}
 
 class FinanzasTab extends StatelessWidget {
   const FinanzasTab({super.key});
@@ -314,7 +304,7 @@ class _StatRow extends StatelessWidget {
             ),
           ),
           Text(
-            _money(value),
+            formatCurrency(value, currency: kFallbackCurrency),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: isBold ? color : AppColors.textPrimaryDark,
                   fontWeight: FontWeight.w700,
@@ -374,7 +364,7 @@ class _GoalProgress extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(
               monthlyGoal > 0
-                  ? 'Objetivo: ${_money(monthlyGoal)}'
+                  ? 'Objetivo: ${formatCurrency(monthlyGoal, currency: kFallbackCurrency)}'
                   : 'Define tu meta mensual en tu perfil',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondaryDark,
@@ -436,8 +426,9 @@ class _FixedExpensesSection extends StatelessWidget {
     );
 
     final name = nameController.text;
-    final amount =
-        double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+    // Antes: double.tryParse(texto.replaceAll(',', '.')), que convertía
+    // "50.000" en 50 y guardaba un gasto fijo mil veces menor.
+    final amount = parseCurrencyInput(amountController.text);
     nameController.dispose();
     amountController.dispose();
     if (saved != true || !context.mounted) return;
@@ -554,7 +545,7 @@ class _FixedExpensesSection extends StatelessWidget {
                                 ),
                           ),
                           Text(
-                            '-${_money(total)}',
+                            formatSigned(-total, currency: kFallbackCurrency),
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium
@@ -613,7 +604,7 @@ class _FixedExpenseRow extends StatelessWidget {
               ),
             ),
             Text(
-              '-${_money(expense.amount)}',
+              formatSigned(-expense.amount, currency: kFallbackCurrency),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.error,
                     fontWeight: FontWeight.w700,
@@ -779,18 +770,13 @@ class _TransactionTile extends StatelessWidget {
   const _TransactionTile({required this.transaction});
   final FinancesTransactionEntity transaction;
 
-  static const _months = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-  ];
-
   @override
   Widget build(final BuildContext context) {
     final isIncome = transaction.isIncome;
     final color = isIncome ? AppColors.success : AppColors.error;
     final d = transaction.date;
     final subtitle = [
-      '${d.day} ${_months[d.month - 1]}',
+      formatDayMonth(d),
       if (transaction.category.isNotEmpty) transaction.category,
     ].join('  •  ');
 
@@ -842,7 +828,10 @@ class _TransactionTile extends StatelessWidget {
             ),
           ),
           Text(
-            '${isIncome ? '+' : '-'}${_money(transaction.amount)}',
+            formatSigned(
+              isIncome ? transaction.amount : -transaction.amount,
+              currency: kFallbackCurrency,
+            ),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w700,

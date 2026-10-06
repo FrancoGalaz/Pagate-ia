@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
 import '../../../dashboard/presentation/pages/ayuda_screen.dart';
@@ -112,8 +113,10 @@ class PerfilTab extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       label: 'Meta',
-                      value:
-                          '\$${profile?.monthlyGoal.toStringAsFixed(0) ?? '0'}',
+                      value: formatCurrency(
+                        profile?.monthlyGoal ?? 0,
+                        currency: kFallbackCurrency,
+                      ),
                     ),
                   ),
                   Container(

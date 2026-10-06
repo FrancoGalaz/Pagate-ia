@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/month_labels.dart';
 import '../../../finances/domain/entities/finances_summary_entity.dart';
 import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
@@ -45,7 +47,8 @@ class MonthlyBarChart extends StatelessWidget {
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         final m = months.length > groupIndex ? months[groupIndex] : null;
                         return BarTooltipItem(
-                          '${m?.month ?? ''}\n\$${_fmt(rod.toY)}',
+                          '${m?.month ?? ''}\n'
+                          '${formatCurrency(rod.toY, currency: kFallbackCurrency)}',
                           const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -68,7 +71,7 @@ class MonthlyBarChart extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              _shortMonth(months[idx].month),
+                              _axisMonthLabel(months[idx]),
                               style: const TextStyle(
                                 color: AppColors.textSecondaryDark,
                                 fontSize: 10,
@@ -87,7 +90,10 @@ class MonthlyBarChart extends StatelessWidget {
                         getTitlesWidget: (value, meta) {
                           if (value == 0) return const SizedBox.shrink();
                           return Text(
-                            '\$${_fmt(value)}',
+                            formatCompactCurrency(
+                              value,
+                              currency: kFallbackCurrency,
+                            ),
                             style: const TextStyle(
                               color: AppColors.textSecondaryDark,
                               fontSize: 10,
@@ -203,7 +209,8 @@ class NetBalanceLineChart extends StatelessWidget {
                   final idx = spot.spotIndex;
                   final m = idx < months.length ? months[idx] : null;
                   return LineTooltipItem(
-                    '${m?.month ?? ''}\n\$${_fmt(spot.y)}',
+                    '${m?.month ?? ''}\n'
+                    '${formatCurrency(spot.y, currency: kFallbackCurrency)}',
                     const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -226,7 +233,7 @@ class NetBalanceLineChart extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        _shortMonth(months[idx].month),
+                        _axisMonthLabel(months[idx]),
                         style: const TextStyle(
                           color: AppColors.textSecondaryDark,
                           fontSize: 10,
@@ -245,7 +252,10 @@ class NetBalanceLineChart extends StatelessWidget {
                   getTitlesWidget: (value, meta) {
                     if (value == 0) return const SizedBox.shrink();
                     return Text(
-                      '\$${_fmt(value)}',
+                      formatCompactCurrency(
+                        value,
+                        currency: kFallbackCurrency,
+                      ),
                       style: const TextStyle(
                         color: AppColors.textSecondaryDark,
                         fontSize: 10,
@@ -496,16 +506,13 @@ class _EmptyChartMessage extends StatelessWidget {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-String _fmt(double v) =>
-    v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}K' : v.toStringAsFixed(0);
-
-String _shortMonth(String month) {
-  // month is like "Marzo 2025" → "Mar"
-  final parts = month.split(' ');
-  final name = parts.isNotEmpty ? parts[0] : month;
-  if (name.length <= 3) return name;
-  return name.substring(0, 3);
-}
+/// Etiqueta del eje horizontal: `oct 26`.
+///
+/// Antes se obtenía recortando a tres letras la etiqueta larga ("Marzo
+/// 2025" → "Mar"), lo que perdía el año y hacía indistinguibles dos marzos
+/// de años distintos en la misma serie. Ahora sale de la clave `yyyy-MM`.
+String _axisMonthLabel(final FinancesSummaryEntity month) =>
+    shortMonthLabelFromMonthKey(month.monthKey);
 
 const List<Color> _pieColors = [
   Color(0xFF006B5F),

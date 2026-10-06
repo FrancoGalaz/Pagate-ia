@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/pagate_error_state.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../providers/inventory_provider.dart';
@@ -99,8 +100,9 @@ class InventarioTab extends StatelessWidget {
               label: 'Guardar item',
               onPressed: () async {
                 final name = nameController.text.trim();
-                final price =
-                    double.tryParse(priceController.text.replaceAll(',', '.'));
+                // Mismo defecto de parseo que en los montos de Finanzas:
+                // un precio de "150.000" se guardaba como 150.
+                final price = parseCurrencyInput(priceController.text);
                 final stock = int.tryParse(stockController.text.trim());
                 final minStock = int.tryParse(minStockController.text.trim());
                 final unit = unitController.text.trim();
@@ -432,7 +434,8 @@ class _ItemCard extends StatelessWidget {
                           ),
                     ),
                     Text(
-                      '${item.stock} ${item.unit}  •  \$${item.price.toStringAsFixed(2)}',
+                      '${item.stock} ${item.unit}  •  '
+                      '${formatCurrency(item.price, currency: kFallbackCurrency)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondaryDark,
                           ),

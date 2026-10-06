@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/pagate_chip_selector.dart';
 import '../../../../core/widgets/pagate_label.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
@@ -114,12 +116,12 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     setState(() => _date = picked);
   }
 
-  static double? _parseAmount(final String raw) {
-    final normalized = raw.trim().replaceAll(',', '.');
-    final value = double.tryParse(normalized);
-    if (value == null || !value.isFinite) return null;
-    return value;
-  }
+  /// Lee el monto escrito con el formateador único de la app.
+  ///
+  /// Antes normalizaba la coma a punto y llamaba a `double.tryParse`, de modo
+  /// que un movimiento de "150.000" se guardaba como **150 pesos** sin que
+  /// ninguna validación lo detectara.
+  static double? _parseAmount(final String raw) => parseCurrencyInput(raw);
 
   Future<void> _submit() async {
     if (_saving) return;
@@ -298,28 +300,13 @@ class _DateField extends StatelessWidget {
   final DateTime date;
   final VoidCallback onTap;
 
-  static const _months = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
-
   @override
   Widget build(final BuildContext context) {
     final now = DateTime.now();
     final isToday =
         date.year == now.year && date.month == now.month && date.day == now.day;
     final label =
-        '${date.day} ${_months[date.month - 1]} ${date.year}${isToday ? ' (hoy)' : ''}';
+        '${formatDayMonthYear(date)}${isToday ? ' (hoy)' : ''}';
 
     return InkWell(
       onTap: onTap,
