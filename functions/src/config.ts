@@ -16,10 +16,13 @@ export const OPENROUTER_MODEL = defineString('OPENROUTER_MODEL', {
   description: 'Modelo de OpenRouter para el chat',
 });
 
-/** Exigir App Check en `chat`. Se activa cuando App Check esté configurado en consola. */
+/**
+ * Exigir App Check en los callables (`chat` y `deleteAccount`). Se activa cuando
+ * App Check esté configurado en consola.
+ */
 export const ENFORCE_APP_CHECK = defineBoolean('ENFORCE_APP_CHECK', {
   default: false,
-  description: 'Rechazar llamadas a chat sin token válido de App Check',
+  description: 'Rechazar llamadas a chat y deleteAccount sin token válido de App Check',
 });
 
 /**

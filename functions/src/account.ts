@@ -18,7 +18,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
-import { REGION, callableCors } from './config';
+import { ENFORCE_APP_CHECK, REGION, callableCors } from './config';
 
 export interface DeleteAccountResponse {
   ok: true;
@@ -79,6 +79,16 @@ export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Debes iniciar sesión para eliminar tu cuenta.');
+    }
+    // App Check, igual que en `chat`. No es simetría decorativa: este callable es
+    // DESTRUCTIVO e irreversible, así que es el que más interesa que solo se
+    // pueda invocar desde la app de verdad. Sin esta comprobación, `chat` (que
+    // solo gasta cuota) estaba mejor protegido que el borrado de la cuenta.
+    // Se comprueba a mano, no con la opción `enforceAppCheck` del callable,
+    // porque el parámetro `ENFORCE_APP_CHECK` se resuelve en despliegue y así
+    // los dos callables comparten exactamente el mismo interruptor.
+    if (ENFORCE_APP_CHECK.value() && !request.app) {
+      throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
     }
     const uid = request.auth.uid;
 
