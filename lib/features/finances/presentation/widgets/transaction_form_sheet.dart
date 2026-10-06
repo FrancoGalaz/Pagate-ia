@@ -14,15 +14,46 @@ import '../../domain/entities/finances_transaction_entity.dart';
 import '../providers/finances_provider.dart';
 import '../../../../core/theme/app_text.dart';
 
-/// Categorías fijas disponibles al registrar un movimiento.
-const List<String> transactionCategories = [
-  'Venta',
-  'Materiales',
-  'Herramientas',
-  'Servicios',
-  'Arriendo',
-  'Otro',
+// ─── Categorías ──────────────────────────────────────────────────────────
+// Las que usa de verdad un taller chileno, no las genéricas de antes
+// ('Venta', 'Materiales', 'Servicios', 'Arriendo', 'Otro'), que no
+// distinguían vender en una feria de vender por Instagram ni el arriendo del
+// taller de la boleta de la luz.
+//
+// La categoría se guarda como texto libre (así está en firestore.rules y en
+// docs/ARQUITECTURA.md), de modo que los movimientos ya registrados con las
+// categorías viejas se siguen leyendo y mostrando tal cual: lo único que
+// cambia es lo que se ofrece al registrar uno nuevo. No hay migración de
+// datos ni valor que deje de ser válido.
+
+/// Categorías de INGRESO. Son los canales por los que vende un artesano:
+/// la feria, Instagram, el pedido a medida y la tienda que le compra.
+const List<String> incomeCategories = [
+  'Venta en feria',
+  'Venta por Instagram',
+  'Pedido personalizado',
+  'Venta a tienda',
+  'Otro ingreso',
 ];
+
+/// Categorías de GASTO. Incluye 'Comisión de plataforma' como gasto propio,
+/// que es distinto del campo `platformFee` de un ingreso: aquí va el cobro
+/// que llega aparte (por ejemplo la liquidación mensual de un marketplace) y
+/// allá lo que se descontó de una venta concreta.
+const List<String> expenseCategories = [
+  'Insumos y materiales',
+  'Arriendo del taller',
+  'Gas y electricidad',
+  'Envíos',
+  'Comisión de plataforma',
+  'Herramientas',
+  'Difusión',
+  'Otro gasto',
+];
+
+/// Categorías ofrecidas según el tipo de movimiento.
+List<String> categoriesFor(final TransactionType type) =>
+    type == TransactionType.income ? incomeCategories : expenseCategories;
 
 /// Abre el formulario para registrar un ingreso o gasto.
 ///
@@ -90,7 +121,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   bool _saving = false;
 
   static String _defaultCategory(final TransactionType type) =>
-      type == TransactionType.income ? 'Venta' : 'Materiales';
+      categoriesFor(type).first;
 
   @override
   void dispose() {
@@ -353,7 +384,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               const PagateLabel('Categoría', isUppercase: true),
               const SizedBox(height: AppSpacing.xs),
               PagateChipSelector(
-                options: transactionCategories,
+                options: categoriesFor(_type),
                 selected: {_category},
                 onToggle: (final c) => setState(() => _category = c),
               ),

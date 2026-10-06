@@ -205,6 +205,33 @@ void main() {
     expect(guardada.netAmount, 80000);
   });
 
+  testWidgets('las categorías de ingreso son las del oficio chileno', (
+    final tester,
+  ) async {
+    await montar(tester);
+
+    for (final categoria in incomeCategories) {
+      expect(find.text(categoria), findsOneWidget, reason: categoria);
+    }
+    expect(find.text('Venta en feria'), findsOneWidget);
+    expect(find.text('Venta por Instagram'), findsOneWidget);
+    // Las genéricas de antes ya no se ofrecen.
+    expect(find.text('Materiales'), findsNothing);
+    expect(find.text('Servicios'), findsNothing);
+  });
+
+  testWidgets('las categorías de gasto son las de un taller', (
+    final tester,
+  ) async {
+    await montar(tester, tipo: TransactionType.expense);
+
+    for (final categoria in expenseCategories) {
+      expect(find.text(categoria), findsOneWidget, reason: categoria);
+    }
+    // Un gasto no ofrece categorías de ingreso.
+    expect(find.text('Venta en feria'), findsNothing);
+  });
+
   testWidgets('una comisión mayor que el monto no se guarda', (
     final tester,
   ) async {
