@@ -368,15 +368,77 @@ void main() {
     expect(find.text(r'$1.240.000'), findsOneWidget);
     expect(find.text('Gastos'), findsOneWidget);
     expect(find.text(r'−$860.000'), findsOneWidget);
-    expect(find.text('Gastos fijos'), findsOneWidget);
-    expect(find.text(r'−$320.000'), findsOneWidget);
 
-    // Las tres van en tinta: el color del dinero se reserva para las filas
+    // Las dos van en tinta: el color del dinero se reserva para las filas
     // de movimiento, que es donde discrimina.
     expect(
       tester.widget<Text>(find.text(r'−$860.000')).style!.color,
       AppPalette.textPrimary,
     );
+  });
+
+  testWidgets('el bloque de saldo cuadra: solo ingresos y gastos', (
+    final tester,
+  ) async {
+    await _montar(tester, finanzas: _conDatos(), perfil: _perfil);
+
+    // EL DEFECTO QUE ESTE TEST IMPIDE QUE VUELVA: el bloque tenía una
+    // TERCERA fila, "Gastos fijos −$320.000", con el mismo formato que las
+    // otras dos, pero `FinancesSummaryEntity.balance` es
+    // `totalIncome - totalExpenses` y los gastos fijos no entran. Quien
+    // sumaba las tres filas obtenía $60.000 mientras el titular decía
+    // $380.000.
+    final bloque = find.ancestor(
+      of: find.text('Ingresos'),
+      matching: find.byType(PagateSectionCard),
+    );
+    expect(bloque, findsOneWidget);
+    expect(
+      find.descendant(of: bloque, matching: find.byType(PagateDataRow)),
+      findsNWidgets(2),
+      reason: 'ingresos y gastos, y nada más que se reste por su cuenta',
+    );
+
+    // 1.240.000 − 860.000 = 380.000, que es la cifra héroe. Comprobado
+    // leyendo las dos filas, no el código que las pinta.
+    expect(
+      find.descendant(of: bloque, matching: find.text(r'$1.240.000')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bloque, matching: find.text(r'−$860.000')),
+      findsOneWidget,
+    );
+    expect(find.text(r'$380.000'), findsOneWidget);
+  });
+
+  testWidgets('los gastos fijos van aparte, sin signo y con su aviso', (
+    final tester,
+  ) async {
+    await _montar(tester, finanzas: _conDatos(), perfil: _perfil);
+
+    expect(find.text('Gastos fijos'), findsOneWidget);
+    expect(find.text('Comprometido cada mes'), findsOneWidget);
+
+    // SIN signo menos: el menos de una fila significa "ya se restó del
+    // balance", y un gasto fijo no se resta.
+    expect(find.text(r'−$320.000'), findsNothing);
+    expect(find.text(r'$320.000'), findsOneWidget);
+
+    // Y lo dice con palabras, no solo con la maquetación.
+    expect(
+      find.textContaining('No se resta del balance'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('sin gastos fijos la sección no se dibuja', (
+    final tester,
+  ) async {
+    await _montar(tester, finanzas: _FinanzasFalsas(), perfil: _perfil);
+
+    expect(find.text('Gastos fijos'), findsNothing);
+    expect(find.text('Comprometido cada mes'), findsNothing);
   });
 
   testWidgets('un fallo NO se dibuja como un cero', (final tester) async {

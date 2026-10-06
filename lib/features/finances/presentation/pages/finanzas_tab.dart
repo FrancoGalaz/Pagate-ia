@@ -7,6 +7,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/pdf_report_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../dashboard/presentation/widgets/financial_charts.dart';
@@ -119,7 +120,7 @@ class _CabeceraState extends State<_Cabecera> {
       await PdfReportService.share(pdfBytes: pdf, month: summary.month);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, 'No se pudo exportar el informe: $e');
+      AppFeedback.showError(context, 'No se pudo exportar el informe: $e');
     } finally {
       if (mounted) setState(() => _exportando = false);
     }
@@ -372,8 +373,13 @@ class _GastosFijos extends StatelessWidget {
                     for (final gasto in gastos)
                       PagateDataRow(
                         label: gasto.name,
-                        value: formatSigned(
-                          -gasto.amount,
+                        // SIN signo menos. Coherencia con Inicio: el menos
+                        // de una fila significa "ya se restó del balance", y
+                        // un gasto fijo no se resta (el balance lo calcula
+                        // el backend desde las transacciones). El signo era
+                        // lo que hacía que la suma de la portada no cuadrara.
+                        value: formatCurrency(
+                          gasto.amount,
                           currency: kFallbackCurrency,
                         ),
                         // Un chevron dice "esto navega". Borrar no navega,
@@ -387,12 +393,29 @@ class _GastosFijos extends StatelessWidget {
                         ),
                       ),
                     PagateDataRow(
-                      label: 'Total mensual',
-                      value: formatSigned(
-                        -provider.totalFixedExpenses,
+                      label: 'Comprometido cada mes',
+                      value: formatCurrency(
+                        provider.totalFixedExpenses,
                         currency: kFallbackCurrency,
                       ),
                       showDivider: false,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.x4,
+                        AppSpacing.x0,
+                        AppSpacing.x4,
+                        AppSpacing.x3,
+                      ),
+                      child: Text(
+                        'Referencia de lo que pagas todos los meses. No se '
+                        'resta del balance: cada pago entra cuando lo '
+                        'registras como gasto.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppPalette.textMuted),
+                      ),
                     ),
                   ],
                 ),
@@ -432,9 +455,12 @@ class _GastosFijos extends StatelessWidget {
       await provider.deleteFixedExpense(gasto.id);
     } catch (e) {
       if (!context.mounted) return;
-      AppFeedback.showMessage(
+      // Aquí no hay hoja abierta (la de confirmación ya se cerró), pero
+      // el aviso va igual por el overlay raíz: `showError` se ve encima de
+      // cualquier cosa.
+      AppFeedback.showError(
         context,
-        FinancesProvider.describeError(e, fallback: 'No se pudo eliminar'),
+        FinancesProvider.describeError(e, operation: DataOperation.delete),
       );
     }
   }
@@ -457,6 +483,11 @@ class _HojaGastoFijoState extends State<_HojaGastoFijo> {
   final _monto = TextEditingController();
   bool _guardando = false;
 
+  /// Mensaje del último guardado fallido. Se pinta DENTRO de la hoja: un
+  /// aviso tapado por la propia hoja era lo que hacía que el botón pareciera
+  /// no responder.
+  String? _errorGuardado;
+
   @override
   void dispose() {
     _nombre.dispose();
@@ -468,7 +499,10 @@ class _HojaGastoFijoState extends State<_HojaGastoFijo> {
     if (_guardando) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _guardando = true);
+    setState(() {
+      _guardando = true;
+      _errorGuardado = null;
+    });
     try {
       await widget.provider.addFixedExpense(
         name: _nombre.text.trim(),
@@ -479,11 +513,13 @@ class _HojaGastoFijoState extends State<_HojaGastoFijo> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _guardando = false);
-      AppFeedback.showMessage(
-        context,
-        FinancesProvider.describeError(e, fallback: 'No se pudo guardar'),
-      );
+      setState(() {
+        _guardando = false;
+        _errorGuardado = FinancesProvider.describeError(
+          e,
+          operation: DataOperation.write,
+        );
+      });
     }
   }
 
@@ -526,6 +562,10 @@ class _HojaGastoFijoState extends State<_HojaGastoFijo> {
                   return null;
                 },
               ),
+              if (_errorGuardado != null) ...[
+                const SizedBox(height: AppSpacing.x4),
+                PagateInlineError(message: _errorGuardado),
+              ],
             ],
           ),
         ),
@@ -599,9 +639,9 @@ class _Movimientos extends StatelessWidget {
       return true;
     } catch (e) {
       if (context.mounted) {
-        AppFeedback.showMessage(
+        AppFeedback.showError(
           context,
-          FinancesProvider.describeError(e, fallback: 'No se pudo eliminar'),
+          FinancesProvider.describeError(e, operation: DataOperation.delete),
         );
       }
       return false;

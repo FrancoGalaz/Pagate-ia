@@ -272,15 +272,22 @@ void main() {
     expect(find.text('Nuevo gasto fijo'), findsOneWidget);
   });
 
-  testWidgets('los gastos fijos muestran su total mensual', (
+  testWidgets('los gastos fijos muestran lo comprometido, sin signo', (
     final tester,
   ) async {
     await _montar(tester, _conDatos());
 
     expect(find.text('Gastos fijos'), findsOneWidget);
     expect(find.text('Arriendo'), findsOneWidget);
-    expect(find.text('Total mensual'), findsOneWidget);
-    expect(find.text(r'−$320.000'), findsNWidgets(2));
+    expect(find.text('Comprometido cada mes'), findsOneWidget);
+
+    // SIN signo menos, igual que en Inicio: un menos dice "ya se restó del
+    // balance", y el balance lo calcula el backend desde las transacciones,
+    // así que un gasto fijo no está restado en ninguna parte. El signo era
+    // lo que hacía que la portada no cuadrara.
+    expect(find.text(r'−$320.000'), findsNothing);
+    expect(find.text(r'$320.000'), findsNWidgets(2));
+    expect(find.textContaining('No se resta del balance'), findsOneWidget);
   });
 
   testWidgets('no queda Title Case inglés ni el donut de diez colores', (

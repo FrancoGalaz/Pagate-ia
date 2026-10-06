@@ -126,6 +126,7 @@ class HomeTab extends StatelessWidget {
                   onIngreso: onRegistrarIngreso,
                   onGasto: onRegistrarGasto,
                 ),
+                const _GastosFijos(),
                 _ValorHora(onTap: onVerValorHora),
                 _Movimientos(onVerTodos: onVerFinanzas),
                 const _StockBajo(),
@@ -364,9 +365,34 @@ class _BloqueSaldo extends StatelessWidget {
           ),
         ),
 
-        // Tres filas que responden "de dónde sale ese número" sin abrir
-        // Finanzas. Van todas en tinta: el color del dinero se reserva para
-        // las filas de movimiento, que es donde discrimina.
+        // DOS filas, y la cifra de arriba es exactamente su resta.
+        //
+        // EL DEFECTO QUE ARREGLA: aquí había una TERCERA fila, "Gastos fijos
+        // −$423.490", con el mismo formato y en el mismo bloque que Ingresos
+        // y Gastos, pero `FinancesSummaryEntity.balance` es
+        // `totalIncome - totalExpenses` y los gastos fijos NO entran. El
+        // usuario sumaba las tres filas, le daba negativo, y el titular de
+        // arriba decía +$380.000. En una app de plata eso no es un detalle.
+        //
+        // DECISIÓN, y por qué esta y no la otra: los gastos fijos NO se
+        // restan del balance, así que salen de este bloque y pasan a una
+        // sección propia (`_GastosFijos`, más abajo) que dice en una línea
+        // que son una referencia mensual. Aquí quedan Ingresos y Gastos, y
+        // la resta cuadra con la cifra héroe sin que nadie tenga que
+        // comprobarlo dos veces.
+        //
+        // Lo contrario —meterlos en el balance— sería incorrecto por dos
+        // motivos verificables en el repo: (1) el balance lo calcula el
+        // trigger `onTransactionWritten` en `users/{uid}/months/{monthKey}`
+        // a partir de las transacciones, y el cliente no escribe ahí
+        // (docs/ARQUITECTURA.md), así que restarlos solo en pantalla dejaría
+        // la app contando una cosa y el backend otra; (2) `fixedExpenses` es
+        // un PLAN mensual sin fecha, y cuando el usuario paga el arriendo lo
+        // registra además como gasto del mes, de modo que sumarlos contaría
+        // el mismo dinero dos veces.
+        //
+        // Van todas en tinta: el color del dinero se reserva para las filas
+        // de movimiento, que es donde discrimina.
         PagateSectionCard(
           child: Column(
             children: [
@@ -381,13 +407,6 @@ class _BloqueSaldo extends StatelessWidget {
                 label: 'Gastos',
                 value: formatSigned(
                   -summary.totalExpenses,
-                  currency: kFallbackCurrency,
-                ),
-              ),
-              PagateDataRow(
-                label: 'Gastos fijos',
-                value: formatSigned(
-                  -finances.totalFixedExpenses,
                   currency: kFallbackCurrency,
                 ),
                 showDivider: false,
@@ -480,6 +499,65 @@ class _Registrar extends StatelessWidget {
 
 /// La promesa diferencial del producto, que hasta ahora estaba enterrada
 /// detrás de Perfil. Cuesta 48 dp.
+// ─── Gastos fijos ──────────────────────────────────────────────────────
+
+/// Los gastos fijos del mes, FUERA del bloque de saldo.
+///
+/// Estaban como tercera fila del mismo bloque que Ingresos y Gastos, con el
+/// mismo formato y el mismo signo menos, y no se restan del balance: el
+/// usuario sumaba las tres filas, le salía negativo y el titular decía
+/// +$380.000.
+///
+/// Aquí tienen encabezado propio, el monto va SIN signo (el menos de una fila
+/// significa "ya se restó") y una línea dice qué son. Si no hay ninguno, la
+/// sección no se dibuja: no hay nada que aclarar.
+class _GastosFijos extends StatelessWidget {
+  const _GastosFijos();
+
+  @override
+  Widget build(final BuildContext context) {
+    final total = context.select<FinancesProvider, double>(
+      (final p) => p.totalFixedExpenses,
+    );
+    if (total <= 0) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const PagateSectionHeader(title: 'Gastos fijos'),
+        PagateSectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PagateDataRow(
+                label: 'Comprometido cada mes',
+                value: formatCurrency(total, currency: kFallbackCurrency),
+                showDivider: false,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x4,
+                  AppSpacing.x0,
+                  AppSpacing.x4,
+                  AppSpacing.x3,
+                ),
+                child: Text(
+                  'Referencia de lo que pagas todos los meses. No se resta '
+                  'del balance: cada pago entra cuando lo registras como '
+                  'gasto.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppPalette.textMuted,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ValorHora extends StatelessWidget {
   const _ValorHora({required this.onTap});
 
