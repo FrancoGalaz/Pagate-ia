@@ -114,6 +114,12 @@ export default function PrivacidadPage() {
               o gasto, categoría y fecha. El título es texto libre que escribes tú.
             </>,
             <>
+              En los ingresos, <strong>si los anotas</strong>: con qué documento lo
+              respaldaste —boleta de venta, boleta de honorarios o sin documento— y la{' '}
+              <strong>comisión que te descontó el medio de pago</strong>. Los dos son
+              opcionales: si no los anotas, no se guardan.
+            </>,
+            <>
               <strong>Gastos fijos</strong>: nombre y monto de cada uno.
             </>,
             <>
@@ -123,7 +129,8 @@ export default function PrivacidadPage() {
             </>,
             <>
               <strong>Resúmenes mensuales</strong> que el servidor calcula a partir de
-              tus transacciones: ingresos, gastos y número de movimientos por mes.
+              tus transacciones: ingresos, gastos, suma de las comisiones de los medios
+              de pago y número de movimientos por mes.
             </>,
           ]}
         />
@@ -144,8 +151,16 @@ export default function PrivacidadPage() {
               título generado a partir de tu primer mensaje.
             </>,
             <>
-              Un <strong>contador de uso diario</strong> para aplicar el límite de
-              mensajes de tu plan.
+              Un <strong>contador de mensajes</strong> para aplicar el límite del
+              asistente: cuántos has enviado <strong>en total</strong> desde que
+              creaste la cuenta, y cuántos hoy.
+            </>,
+            <>
+              Si <strong>reportas una respuesta</strong> del asistente: el motivo que
+              elijas, el comentario que escribas si escribes uno, y el texto de la
+              respuesta reportada. Nos sirve para corregir el asistente y{' '}
+              <strong>no sale de nuestro proyecto</strong>: no se envía al proveedor
+              del modelo.
             </>,
           ]}
         />
@@ -186,7 +201,7 @@ export default function PrivacidadPage() {
             'Mostrarte tus ingresos, gastos, resúmenes mensuales e inventario.',
             'Calcular tu valor hora y comparar tus ingresos con tu meta mensual.',
             'Dar contexto al asistente para que sus respuestas se refieran a tu negocio y no a un caso genérico.',
-            'Aplicar el límite diario de mensajes del asistente y evitar abusos del servicio.',
+            'Aplicar el límite de mensajes del asistente y evitar abusos del servicio.',
             'Avisarte por correo cuando la app esté disponible, si te inscribiste en la lista de espera.',
           ]}
         />
@@ -266,10 +281,10 @@ export default function PrivacidadPage() {
           items={[
             'Tu nombre, el nombre de tu negocio, tu rubro, tu moneda, tu meta mensual de ingresos y tu plan.',
             'El sueldo mensual que quieres ganar, las horas disponibles al mes y tu valor hora calculado.',
-            'Los totales del último mes con movimientos: ingresos, gastos, balance y número de movimientos.',
-            'Tus últimas 10 transacciones, cada una con su fecha, tipo, categoría, título y monto.',
-            'Cuántos productos y cuántos materiales tienes registrados en el inventario.',
-            'Los últimos 20 mensajes de la conversación en curso, tuyos y del asistente.',
+            'Los totales del último mes con movimientos: ingresos, comisiones de medios de pago, ingresos netos de esas comisiones, gastos, balance y número de movimientos.',
+            'Tus últimas 10 transacciones, cada una con su fecha, tipo, categoría, título y monto. En las que lo tengan anotado, además: con qué documento respaldaste el ingreso (boleta de venta, boleta de honorarios o sin documento) y la comisión que te descontó el medio de pago.',
+            'Cuántos productos y cuántos materiales tienes registrados en el inventario. Solo esas dos cuentas: ni los nombres, ni los precios, ni el stock, ni los proveedores.',
+            'Los últimos 6 mensajes de la conversación en curso, tuyos y del asistente.',
             'Dos cabeceras técnicas que identifican a la app ante OpenRouter.',
           ]}
         />

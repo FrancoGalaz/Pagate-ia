@@ -53,11 +53,31 @@ export default function EliminarCuentaPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="como" title="Cómo solicitarlo">
+      <LegalSection id="en-la-app" title="Lo más rápido: hazlo tú desde la app">
+        {/* Este bloque va ANTES del correo a propósito. El camino dentro de la
+            app existe (configuracion_screen.dart → EliminarCuentaScreen, que
+            llama al callable deleteAccount) y es inmediato, pero esta página
+            seguía ofreciendo solo el correo: quien la leyera escribía un mensaje
+            y esperaba días por algo que puede hacer en tres toques. */}
         <p>
-          Escríbenos un correo desde <strong>la misma dirección con la que creaste tu
-          cuenta</strong>. Ese es el único requisito: nos permite comprobar que la
-          solicitud la haces tú y no un tercero.
+          Si tienes la app instalada y puedes entrar a tu cuenta, no hace falta
+          escribirnos: abre <strong>Perfil → Configuración → Eliminar cuenta</strong>.
+          El borrado se ejecuta en el momento, sin esperar a que nadie lo tramite.
+        </p>
+        <p>
+          Se elimina lo mismo que se enumera más abajo, y se elimina{' '}
+          <strong>entero</strong>: la app se lo pide al servidor, que borra tu cuenta
+          con todas sus subcolecciones y después comprueba que no quedó nada antes de
+          dar el borrado por hecho.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="como" title="Si no puedes entrar: pídelo por correo">
+        <p>
+          Si ya desinstalaste la app, perdiste el acceso a tu cuenta o prefieres que lo
+          hagamos nosotros, escríbenos un correo desde <strong>la misma dirección con
+          la que creaste tu cuenta</strong>. Ese es el único requisito: nos permite
+          comprobar que la solicitud la haces tú y no un tercero.
         </p>
 
         {/* El botón `mailto:` solo se renderiza si hay un buzón publicado. Con
@@ -106,7 +126,8 @@ export default function EliminarCuentaPage() {
             'Todo tu inventario: productos, materiales, precios, stock, proveedores y códigos.',
             'Todos los resúmenes mensuales calculados a partir de tus movimientos.',
             'Todas tus conversaciones con el asistente, incluidos tus mensajes y las respuestas que recibiste.',
-            'El contador de uso del asistente.',
+            'Los reportes de respuestas del asistente que hayas enviado, con su motivo, tu comentario y el texto reportado.',
+            'El contador de mensajes del asistente.',
             'Tu inscripción en la lista de espera de este sitio, si coincide con el correo de la cuenta.',
           ]}
         />
@@ -166,7 +187,8 @@ export default function EliminarCuentaPage() {
           Una vez borrada, la cuenta no se puede recuperar y los datos no se pueden
           restaurar. Si solo quieres dejar de usar la app por un tiempo, basta con
           cerrar sesión. Si quieres conservar tus números, exporta o anota lo que
-          necesites antes de pedir el borrado.
+          necesites antes de borrar: en <strong>Finanzas</strong> hay un botón que
+          exporta el informe del mes en PDF.
         </p>
       </LegalSection>
 
