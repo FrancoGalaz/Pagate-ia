@@ -17,12 +17,26 @@ export const OPENROUTER_MODEL = defineString('OPENROUTER_MODEL', {
 });
 
 /**
- * Exigir App Check en los callables (`chat` y `deleteAccount`). Se activa cuando
- * App Check esté configurado en consola.
+ * Modelo del lector de boletas (`scanReceipt`).
+ *
+ * Mismo valor por defecto que el del chat, pero es un mando SEPARADO a
+ * propósito: las dos llamadas piden cosas distintas (una conversa, la otra
+ * rellena un esquema JSON estricto), así que el dueño tiene que poder cambiar
+ * una sin tocar la otra. Con un solo parámetro, probar otro modelo para las
+ * boletas obligaba a cambiárselo también al asistente.
+ */
+export const OPENROUTER_SCAN_MODEL = defineString('OPENROUTER_SCAN_MODEL', {
+  default: 'deepseek/deepseek-v4-flash',
+  description: 'Modelo de OpenRouter para el lector de boletas',
+});
+
+/**
+ * Exigir App Check en los callables (`chat`, `scanReceipt` y `deleteAccount`).
+ * Se activa cuando App Check esté configurado en consola.
  */
 export const ENFORCE_APP_CHECK = defineBoolean('ENFORCE_APP_CHECK', {
   default: false,
-  description: 'Rechazar llamadas a chat y deleteAccount sin token válido de App Check',
+  description: 'Rechazar llamadas a los callables sin token válido de App Check',
 });
 
 /**
