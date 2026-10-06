@@ -59,6 +59,25 @@ import '../widgets/net_hourly_value_section.dart';
 //   chileno se guardaba como 1 peso y ninguna validación lo detectaba.
 //   Ahora pasa por `parseCurrencyInput`, el único lector de montos de la
 //   app, igual que el resto de los formularios.
+//
+// QUÉ CAMBIÓ DESPUÉS, Y POR QUÉ:
+//
+// · EL FORMULARIO SE PRECARGA. Los controladores nacían vacíos y nadie los
+//   rellenaba nunca, así que quien ya tenía configurado su valor hora abría
+//   la pantalla en blanco —con los marcadores "0 / 20 / 8"— y tenía que
+//   volver a escribirlo todo sin ver lo que había. La precarga escucha al
+//   provider porque el valor llega por el stream de `users/{uid}`, después
+//   del primer fotograma, y se hace UNA sola vez para no pisar lo que la
+//   persona esté escribiendo.
+//
+// · LOS DOS CAMPOS DE HORAS SE FUNDEN EN UNO ("horas al mes"), que es el
+//   dato que de verdad se guarda. El desglose días × horas al día no se
+//   persiste en ninguna parte —`validHourlyRate` en `firestore.rules` solo
+//   admite `desiredMonthlySalary`, `availableHoursPerMonth` y `hourlyValue`—
+//   así que al reabrir la pantalla era imposible devolverlo: 160 horas son
+//   20×8, pero también 16×10. Rellenar una de esas opciones le habría
+//   inventado a la usuaria una jornada que quizá no es la suya. El
+//   `helperText` del campo explica cómo sacar el número.
 // ═══════════════════════════════════════════════════════════════════════
 
 class HourlyRateSetupPage extends StatefulWidget {
@@ -71,14 +90,59 @@ class HourlyRateSetupPage extends StatefulWidget {
 class _HourlyRateSetupPageState extends State<HourlyRateSetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _sueldo = TextEditingController();
-  final _dias = TextEditingController();
-  final _horas = TextEditingController();
+  final _horasMes = TextEditingController();
+
+  HourlyRateProvider? _provider;
+
+  /// La precarga se hace UNA vez. Si no, el `notifyListeners()` que sigue al
+  /// guardado volvería a escribir en los campos mientras el usuario los está
+  /// editando.
+  bool _precargado = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<HourlyRateProvider>();
+    if (identical(provider, _provider)) return;
+    _provider?.removeListener(_precargar);
+    _provider = provider..addListener(_precargar);
+    _precargar();
+  }
+
+  /// Rellena el formulario con lo que el usuario ya tiene guardado.
+  ///
+  /// POR QUÉ HACE FALTA EL LISTENER Y NO BASTA `initState`: el valor hora
+  /// llega por el stream de `users/{uid}`, así que la primera vez que se
+  /// construye la pantalla `currentRate` suele ser `null` todavía. Sin esto,
+  /// una usuaria con 900.000 y 120 horas guardadas abría el formulario vacío
+  /// y tenía que volver a escribirlo todo a ciegas.
+  void _precargar() {
+    if (_precargado) return;
+    final rate = _provider?.currentRate;
+    if (rate == null) return;
+    _precargado = true;
+    setState(() {
+      _sueldo.text = _montoEditable(rate.desiredMonthlySalary);
+      _horasMes.text = _numeroEditable(rate.availableHoursPerMonth);
+    });
+  }
+
+  /// "900.000": el monto tal como lo escribiría una persona en Chile, sin el
+  /// símbolo de moneda, que el campo ya pinta como prefijo fijo.
+  static String _montoEditable(final double monto) =>
+      formatCurrency(monto, currency: kFallbackCurrency).replaceAll(r'$', '');
+
+  /// "120" o "7,5": sin decimales cuando el número es entero.
+  static String _numeroEditable(final double valor) => valor ==
+          valor.roundToDouble()
+      ? valor.round().toString()
+      : valor.toStringAsFixed(1).replaceAll('.', ',');
 
   @override
   void dispose() {
+    _provider?.removeListener(_precargar);
     _sueldo.dispose();
-    _dias.dispose();
-    _horas.dispose();
+    _horasMes.dispose();
     super.dispose();
   }
 
@@ -87,12 +151,12 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage> {
 
     final provider = context.read<HourlyRateProvider>();
     final sueldo = parseCurrencyInput(_sueldo.text);
-    if (sueldo == null) return;
+    final horas = parseCurrencyInput(_horasMes.text);
+    if (sueldo == null || horas == null) return;
 
-    final guardado = await provider.calculateAndSave(
+    final guardado = await provider.saveMonthlyHours(
       desiredSalary: sueldo,
-      workingDays: int.parse(_dias.text.trim()),
-      hoursPerDay: double.parse(_horas.text.trim().replaceAll(',', '.')),
+      availableHoursPerMonth: horas,
     );
 
     if (!mounted) return;
@@ -182,47 +246,40 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage> {
                     ),
                     const SizedBox(height: AppSpacing.x4),
 
+                    // UN SOLO CAMPO DE HORAS, y no los dos de antes ("días al
+                    // mes" × "horas al día").
+                    //
+                    // POR QUÉ: el desglose no se guarda en ninguna parte. De
+                    // `hourlyRate` solo salen el sueldo y las HORAS AL MES
+                    // (`firestore.rules`, `validHourlyRate`), así que al
+                    // reabrir la pantalla era imposible devolver los días y
+                    // las horas al día que la persona había escrito: 160 horas
+                    // son 20×8, pero también 16×10 o 40×4. Rellenar una de
+                    // esas opciones habría sido inventarle a la usuaria una
+                    // jornada que quizá no es la suya. Se pide el dato que se
+                    // guarda, y el `helperText` explica cómo sacarlo.
                     PagateTextField(
-                      labelText: 'Días que trabajas al mes',
-                      controller: _dias,
-                      hintText: '20',
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      validator: (final v) {
-                        final dias = int.tryParse((v ?? '').trim());
-                        if (dias == null) return 'Escribe cuántos días';
-                        if (dias <= 0 || dias > 31) {
-                          return 'Entre 1 y 31 días';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.x4),
-
-                    PagateTextField(
-                      labelText: 'Horas que trabajas al día',
-                      controller: _horas,
-                      hintText: '8',
+                      labelText: 'Horas que trabajas al mes',
+                      controller: _horasMes,
+                      hintText: '160',
+                      helperText: 'Si trabajas 20 días de 8 horas, son 160.',
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                       textInputAction: TextInputAction.done,
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d{0,2}([.,]\d{0,2})?'),
+                          RegExp(r'^\d{0,3}([.,]\d{0,2})?'),
                         ),
                       ],
                       onFieldSubmitted: (final _) => _calcular(),
                       validator: (final v) {
-                        final horas = double.tryParse(
-                          (v ?? '').trim().replaceAll(',', '.'),
-                        );
+                        final horas = parseCurrencyInput(v ?? '');
                         if (horas == null) return 'Escribe cuántas horas';
-                        if (horas <= 0 || horas > 24) {
-                          return 'Entre 1 y 24 horas';
+                        // 744 son las horas de un mes de 31 días completos:
+                        // por encima, el dato no es una jornada.
+                        if (horas <= 0 || horas > 744) {
+                          return 'Entre 1 y 744 horas al mes';
                         }
                         return null;
                       },

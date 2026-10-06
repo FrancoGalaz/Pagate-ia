@@ -62,22 +62,21 @@ class HourlyRateProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Calcula y guarda el valor hora. Devuelve `true` si se guardó; si falla,
-  /// deja el motivo en [saveError].
-  Future<bool> calculateAndSave({
+  /// Calcula y guarda el valor hora a partir del par que de verdad se
+  /// persiste: sueldo al mes y horas al mes. Devuelve `true` si se guardó; si
+  /// falla, deja el motivo en [saveError].
+  Future<bool> saveMonthlyHours({
     required final double desiredSalary,
-    required final int workingDays,
-    required final double hoursPerDay,
+    required final double availableHoursPerMonth,
   }) async {
     _isSaving = true;
     _saveError = null;
     notifyListeners();
 
     try {
-      final rate = _calculateUseCase.execute(
+      final rate = _calculateUseCase.fromMonthlyHours(
         desiredSalary: desiredSalary,
-        workingDays: workingDays,
-        hoursPerDay: hoursPerDay,
+        availableHoursPerMonth: availableHoursPerMonth,
       );
       await _repository.saveHourlyRate(rate);
       _currentRate = rate;
