@@ -2,6 +2,10 @@
 export default {
   content: [
     "./index.html",
+    // Documentos HTML de las páginas legales (sitio multipágina, ver vite.config.ts).
+    "./privacidad/index.html",
+    "./terminos/index.html",
+    "./eliminar-cuenta/index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
