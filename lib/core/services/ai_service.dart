@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'callable_errors.dart';
+
 /// Respuesta del callable `chat`.
 class ChatReply {
   final String conversationId;
@@ -34,25 +36,10 @@ class AiServiceException implements Exception {
     final String code,
     final String? serverMessage,
   ) {
-    if (_isHumanMessage(serverMessage)) {
+    if (isHumanCallableMessage(serverMessage)) {
       return AiServiceException(code, serverMessage!.trim(), fromServer: true);
     }
     return AiServiceException(code, _fallbackFor(code));
-  }
-
-  /// ¿El mensaje que llegó está escrito para una persona?
-  ///
-  /// Cuando el backend lanza un `HttpsError`, su texto viaja intacto hasta
-  /// aquí. Cuando el fallo lo genera la propia infraestructura, en cambio, el
-  /// SDK rellena `message` con el marcador del código en mayúsculas y sin
-  /// espacios ('INTERNAL', 'UNAVAILABLE', 'DEADLINE_EXCEEDED'), que no se le
-  /// puede enseñar a nadie. Se distinguen por eso: un texto redactado tiene
-  /// espacios y minúsculas.
-  static bool _isHumanMessage(final String? message) {
-    final text = message?.trim();
-    if (text == null || text.length < 12) return false;
-    if (!text.contains(' ')) return false;
-    return text != text.toUpperCase();
   }
 
   /// Respaldo para cuando el servidor no manda un texto legible.

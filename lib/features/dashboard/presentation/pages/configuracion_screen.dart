@@ -10,6 +10,7 @@ import '../../../user_profile/presentation/providers/user_profile_provider.dart'
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import 'editar_perfil_screen.dart';
+import 'eliminar_cuenta_screen.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -160,6 +161,38 @@ class ConfiguracionScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: AppSpacing.xl),
+                  // Requisito de Google Play: la app tiene que ofrecer el
+                  // borrado de cuenta desde dentro, no solo desde una URL.
+                  // Va en su propia seccion y al final, separada de los
+                  // ajustes corrientes, porque es la unica accion de esta
+                  // pantalla que no se puede deshacer.
+                  _Section(
+                    title: 'Cuenta',
+                    children: [
+                      _ItemRow(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Eliminar cuenta',
+                        subtitle: 'Borra tus datos de forma permanente',
+                        isDestructive: true,
+                        onTap: () {
+                          // El servicio de auth se lee aqui, en la pantalla
+                          // que si vive bajo los providers: la de borrado no
+                          // depende de Firebase a proposito.
+                          final auth = context.read<FirebaseAuthService>();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EliminarCuentaScreen(
+                                email: auth.email,
+                                onDeleted: auth.signOut,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
@@ -243,11 +276,17 @@ class _ItemRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
+  /// Pinta la fila en el color de accion destructiva. Lo usa "Eliminar
+  /// cuenta": es la unica fila de esta pantalla que no se puede deshacer y
+  /// tiene que distinguirse antes de tocarla, no despues.
+  final bool isDestructive;
+
   const _ItemRow({
     required this.icon,
     required this.label,
     required this.subtitle,
     required this.onTap,
+    this.isDestructive = false,
   });
 
   @override
@@ -264,10 +303,16 @@ class _ItemRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.1),
+                  color: isDestructive
+                      ? AppPalette.dangerSurface
+                      : AppColors.brand.withValues(alpha: 0.1),
                   borderRadius: AppRadius.smBorder,
                 ),
-                child: Icon(icon, color: AppColors.brand, size: 18),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? AppPalette.danger : AppColors.brand,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -277,7 +322,9 @@ class _ItemRow extends StatelessWidget {
                     Text(
                       label,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textPrimaryDark,
+                            color: isDestructive
+                                ? AppPalette.danger
+                                : AppColors.textPrimaryDark,
                             fontWeight: FontWeight.w600,
                           ),
                     ),
