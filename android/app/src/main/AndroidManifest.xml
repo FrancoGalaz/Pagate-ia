@@ -31,7 +31,19 @@
          `tools:node="remove"` necesita que el permiso esté nombrado aquí para
          poder tacharlo del manifiesto fusionado; no es una declaración de uso.
          Verificado sobre el APK de release con:
-           build-tools/36.1.0/aapt2.exe dump permissions <apk> -->
+           build-tools/36.1.0/aapt2.exe dump permissions <apk>
+         que devuelve exactamente tres entradas: INTERNET,
+         ACCESS_NETWORK_STATE y
+         com.pagate.apppagate.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION.
+
+         Esa tercera no se declara aquí ni se quita: la añade
+         androidx.core:core:1.13.1 (línea 749 del informe del fusionador) para
+         sus propios BroadcastReceiver registrados en tiempo de ejecución. El
+         mismo manifiesto fusionado la define con
+         android:protectionLevel="signature" y con el applicationId de esta
+         app, así que solo se la concede la propia app: no sale en la ficha de
+         Play ni se le pide nada al usuario. Queda anotada para que la próxima
+         auditoría no la confunda con un permiso colado. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"
         tools:node="remove" />
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"
