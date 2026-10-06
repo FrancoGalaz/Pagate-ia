@@ -329,6 +329,25 @@ aclara que eso «*requiere tu propia API Key*». **No es un asistente
 conversacional sobre tus números**: es visión por computador aplicada a rellenar
 una lista de materiales. Tampoco lleva cuentas del mes.
 
+**Y es la única comparación honesta para el lector de boletas de Págate-IA**, que
+también parte de una foto. No es lo mismo, y conviene tener clara la diferencia
+antes de escribir una sola línea de ficha sobre esto:
+
+| | Product Maker | Págate-IA |
+|---|---|---|
+| Qué se fotografía | El **producto terminado**, para que el modelo deduzca con qué está hecho | La **boleta de la compra**, que es un documento con los materiales ya escritos |
+| Qué se obtiene | Una estructura de costos deducida | Los artículos que compraste, para el inventario |
+| Quién paga el modelo | El usuario: su ficha dice que «requiere tu propia API Key» | Nadie: el texto se reconoce en el teléfono, sin conexión |
+| Qué se envía fuera | La imagen, al servicio de visión | El texto reconocido, nunca la imagen |
+
+Lo que esto significa para la ficha: **leer una boleta no es un diferenciador que
+agitar**, igual que la comisión del medio de pago. Media app de gastos del mundo
+lo hace, y la única competidora chilena del cuadro ya usa IA sobre una foto. Lo
+que sí es nuestro es para qué sirve —llenar el inventario de un taller— y que no
+pide ni una API Key ni conexión. Eso se cuenta en una frase dentro de *LLEVA TU
+INVENTARIO*, que es exactamente donde está (`docs/FICHA-PLAY.md` §4), y no en un
+titular.
+
 ### Qué les falta a las siete, sin excepción
 
 Ninguna de las siete registra **ingresos y gastos mes a mes**, ninguna lleva
