@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/services/ai_service.dart';
 
 /// Quién escribió un mensaje del chat.
@@ -144,6 +145,13 @@ class AiProvider extends ChangeNotifier {
     }
   }
 
+  /// Se suscribe a los mensajes de [conversationId].
+  ///
+  /// `limitToLast` y no `limit`: el orden es ascendente (el chat se lee de
+  /// arriba abajo) y lo que interesa son los ÚLTIMOS mensajes, no los
+  /// primeros. Y el tope no es opcional: sin `request.query.limit` la regla
+  /// `list` de `conversations/{id}/messages` deniega la consulta y el chat se
+  /// queda en el error de historial para siempre (ver [FirestoreLimits]).
   void _subscribe(String conversationId) {
     _messagesSub?.cancel();
     _conversationId = conversationId;
@@ -151,6 +159,7 @@ class AiProvider extends ChangeNotifier {
         .doc(conversationId)
         .collection('messages')
         .orderBy('createdAt')
+        .limitToLast(FirestoreLimits.maxList)
         .snapshots()
         .listen(_onMessages, onError: _onStreamError);
   }

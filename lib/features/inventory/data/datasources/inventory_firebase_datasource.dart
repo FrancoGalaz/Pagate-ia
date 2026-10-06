@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/constants/firestore_limits.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../models/inventory_item_model.dart';
@@ -21,19 +22,27 @@ class InventoryFirebaseDataSource {
   ///
   /// Se filtra por `type` en Firestore y se ordena en memoria para no
   /// depender de un índice compuesto `type + name`.
+  ///
+  /// El `.limit()` es OBLIGATORIO: sin él la regla `list` deniega la consulta
+  /// completa y el inventario se ve vacío (ver [FirestoreLimits]).
   Stream<List<InventoryItemEntity>> watchItems(final InventoryItemType type) =>
-      _items.where('type', isEqualTo: type.name).snapshots().map(
-        (final snapshot) {
-          final items = snapshot.docs
-              .map((final doc) => InventoryItemModel.fromDoc(doc.id, doc.data()))
-              .toList();
-          items.sort(
-            (final a, final b) =>
-                a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-          );
-          return items;
-        },
-      );
+      _items
+          .where('type', isEqualTo: type.name)
+          .limit(FirestoreLimits.maxList)
+          .snapshots()
+          .map((final snapshot) {
+            final items = snapshot.docs
+                .map(
+                  (final doc) =>
+                      InventoryItemModel.fromDoc(doc.id, doc.data()),
+                )
+                .toList();
+            items.sort(
+              (final a, final b) =>
+                  a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
+            return items;
+          });
 
   /// Crea un item con id generado por Firestore. El `id` de la entidad se
   /// ignora.
