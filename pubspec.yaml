@@ -40,6 +40,26 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # LOS DOS TTF DEL INFORME EN PDF, declarados como ASSETS y NO como una
+  # familia de fuentes.
+  #
+  # Van aqui, y no en `fonts:`, a proposito: registrarlos como caras de la
+  # familia Manrope cambiaria la tipografia de TODA la app (el motor elegiria
+  # entre tres caras en vez de mover el eje `wght` de la variable, que es lo
+  # que hace `core/theme/app_text.dart`). Como assets solo se empaquetan para
+  # que `rootBundle.load` los lea desde `core/services/pdf_report_service.dart`.
+  #
+  # Son instancias estaticas de `Manrope[wght].ttf`, generadas con
+  # `fontTools.varLib.instancer` en los pesos 400 y 700. Hacen falta porque el
+  # paquete `pdf` no interpreta `fvar`/`gvar`: embeber la variable tal cual
+  # pondria el informe entero en ExtraLight (el default del eje es 200) y sin
+  # diferencia entre un total y una linea de detalle. Conservan el copyright y
+  # el aviso de licencia OFL en su tabla `name`.
+  assets:
+    - assets/fonts/pdf/Manrope-Regular.ttf
+    - assets/fonts/pdf/Manrope-Bold.ttf
+
   fonts:
     - family: Manrope
       fonts:
