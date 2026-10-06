@@ -202,7 +202,19 @@ export async function reserveChatQuota(
     // Ambos contadores suben siempre: el diario sirve al plan pro y el de por
     // vida al free, y mantenerlos los dos al día evita sorpresas si el usuario
     // cambia de plan.
-    tx.set(usageRef, { dayKey, chatCountDay: usedDay + 1, chatCountLifetime: usedLifetime + 1 });
+    //
+    // `{ merge: true }` no es opcional. `meta/usage` es el único documento de
+    // `meta/` y mañana puede llevar más campos (marca del último uso, consumo de
+    // tokens, avisos ya mostrados). Un `set` sin merge BORRA todo lo que no esté
+    // en este objeto, así que cada mensaje del asistente se llevaría por delante
+    // cualquier otro campo del documento. `refundChatQuota` ya escribía con
+    // merge: la diferencia entre las dos escrituras del mismo documento era el
+    // olvido, no una decisión.
+    tx.set(
+      usageRef,
+      { dayKey, chatCountDay: usedDay + 1, chatCountLifetime: usedLifetime + 1 },
+      { merge: true },
+    );
     tx.set(
       globalRef,
       { calls: globalCalls + 1, dayKey, updatedAt: FieldValue.serverTimestamp() },
