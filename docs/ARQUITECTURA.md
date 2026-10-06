@@ -53,11 +53,13 @@ users/{uid}/inventory/{itemId}           (owner: read/write)
 users/{uid}/transactions/{txId}          (owner: read/write)
   title: string
   description: string
-  amount: number (> 0)
+  amount: number (> 0)           BRUTO: lo que el cliente pagó
   type: 'income' | 'expense'
   category: string
   date: Timestamp
-  monthKey: string 'yyyy-MM'  (derivado de date en el cliente; validado por regex)
+  monthKey: string 'yyyy-MM'  (derivado de date en el cliente; mes acotado a 01-12)
+  docType: 'boleta_venta' | 'boleta_honorarios' | 'sin_documento'   (OPCIONAL, C-3)
+  platformFee: number (>= 0 y <= amount)                            (OPCIONAL, C-3)
   createdAt, updatedAt: Timestamp
 
 users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurrentes
@@ -81,19 +83,76 @@ users/{uid}/conversations/{convId}/messages/{msgId}   (owner: read; write SOLO b
   createdAt: Timestamp
 
 users/{uid}/meta/usage                   (owner: read; write SOLO backend)
-  dayKey: string 'yyyy-MM-dd'
-  chatCountDay: number
+  dayKey: string 'yyyy-MM-dd'  (día, en hora de Santiago, de chatCountDay)
+  chatCountDay: number         (mensajes del día; es la cuota del plan pro)
+  chatCountLifetime: number    (mensajes de toda la vida; es la cuota del plan free)
+
+system/aiConfig                          (sin acceso desde cliente; solo backend)
+  freeLifetimeQuota: number       (default 25)
+  proDailyQuota: number           (default 300)
+  globalDailyCapEnabled: boolean  (default false)
+  globalDailyCap: number          (default 2000)
+system/aiUsage/days/{yyyy-MM-dd}         (sin acceso desde cliente; solo backend)
+  calls: number
+  dayKey: string
+  updatedAt: Timestamp
 
 waitlist/{id}                            (sin acceso desde cliente; solo backend)
-  name, email, source: string
-  createdAt: Timestamp
+  name, email, source: string     (id = sha256 del email normalizado → sin duplicados)
+  submissions: number             (reenvíos del mismo correo)
+  createdAt, updatedAt: Timestamp
 ```
 
-Validaciones en reglas: `hasOnly` de campos permitidos, tipos, rangos,
-strings de máximo 200 caracteres (2000 para `description`), `monthKey` con
-regex `^\d{4}-\d{2}$`.
+`system/aiConfig` existe para que el dueño pueda cambiar los límites del
+asistente, o cortarlo del todo, editando un documento en la consola de Firestore
+sin desplegar nada. Cualquier campo ausente o malformado cae al default.
+
+Validaciones en reglas: `hasOnly` de campos permitidos, tipos, rangos con tope
+SUPERIOR (1e12 para dinero, 1e9 para unidades; sin tope, `Infinity` pasaba como
+número y contaminaba para siempre las sumas de `months`), strings de máximo 200
+caracteres (2000 para `description`), `monthKey` con regex
+`^\d{4}-(0[1-9]|1[0-2])$`, `createdAt` inmutable, `updatedAt == request.time`
+(o sea, `serverTimestamp()`), `read` separado en `get` y `list` con `list`
+acotado a 200 documentos, y `delete` de `users/{uid}` denegado.
+
+El mismo regex de `monthKey` vive en `functions/src/months.ts`
+(`MONTH_KEY_RE`). No es redundante: las reglas cubren lo que escribe el cliente
+y el regex del trigger cubre lo que escribe el Admin SDK (sembrado de datos,
+migraciones), que no pasa por las reglas. Si cambia uno, cambia el otro.
+
+## Contrato C-3: orientación al mercado chileno
+
+`docType` y `platformFee` existen porque en Chile un "ingreso" a secas no se
+puede agrupar de forma útil: una boleta de honorarios y una boleta de venta no
+son el mismo documento, y la comisión del medio de pago sale del monto cobrado.
+Sin estos dos campos, cualquier total derivado del bruto sobreestima lo que el
+negocio realmente recibió.
+
+- Los dos campos son **opcionales**, para no invalidar ningún documento ya
+  escrito. Si falta `docType`, se asume `'sin_documento'`. Si falta
+  `platformFee`, es `0`.
+- `docType` se escribe **omitido o con uno de los tres valores**. `null` lo
+  rechazan las reglas a propósito: "sin documento" tiene que tener una sola
+  representación.
+- `platformFee` va acotado a `[0, amount]`. Por encima de `amount`, el neto
+  derivado saldría negativo.
+- **El neto NO se guarda.** Se deriva siempre como `amount - platformFee`. Un
+  neto guardado se puede contradecir con sus propios operandos.
+
+Límite que no se cruza, y que vale para el cliente, para el backend y para el
+prompt del asistente: la app **registra y muestra**, no **asesora**. No calcula
+impuestos a pagar, no dice cuánto declarar y no da consejo tributario. Lo
+permitido es agrupar lo que el usuario registró de forma que le sirva para
+hablar con su contador. `functions/src/prompt.ts` lo impone también al modelo
+(`No des asesoría legal ni tributaria específica`).
 
 ## Backend (Cloud Functions 2ª gen, TypeScript, Node 22, región `southamerica-west1`)
+
+Todas: `region: southamerica-west1`. Los dos callables (`chat` y
+`deleteAccount`) exigen App Check cuando el parámetro `ENFORCE_APP_CHECK` es
+`true` (por defecto `false`, hasta activarlo en consola) y aceptan CORS solo
+desde el hosting de producción; el `localhost` de desarrollo se añade únicamente
+bajo el emulador.
 
 ### `chat` (callable)
 
@@ -103,28 +162,84 @@ response: { conversationId: string, reply: string }
 errores:  unauthenticated | invalid-argument | resource-exhausted | internal
 ```
 
+`timeoutSeconds: 60`, `memory: 256MiB`, `maxInstances: 5`,
+`secrets: [OPENROUTER_API_KEY]`.
+
 Flujo:
-1. Verifica `request.auth`. App Check se exige cuando el parámetro
-   `ENFORCE_APP_CHECK` es `true` (por defecto `false` hasta activarlo en consola).
-2. Lee `users/{uid}/meta/usage`; cuota diaria: `free` 30 mensajes, `pro` 300.
-   Si se excede → `resource-exhausted`.
-3. Si no hay `conversationId`, crea la conversación.
-4. Guarda el mensaje del usuario en `messages`.
-5. Arma el system prompt del lado servidor con: perfil, `hourlyRate`, último
-   `months/*`, últimas 10 transacciones, conteo de inventario, y los últimos 20
-   mensajes de la conversación.
-6. Llama a OpenRouter con `OPENROUTER_API_KEY` (secreto) y modelo
+1. Verifica `request.auth` y, si `ENFORCE_APP_CHECK`, `request.app`.
+2. Valida la entrada: `message` no vacío y de hasta 2.000 caracteres
+   (`MAX_MESSAGE_CHARS`), `conversationId` con forma `^[A-Za-z0-9_-]{1,128}$`.
+3. **Reserva** cuota de forma atómica (`reserveChatQuota`), ANTES de llamar al
+   modelo. Si no queda → `resource-exhausted`. Los límites:
+   - plan `free`: **25 mensajes DE POR VIDA** (`chatCountLifetime`), no diarios.
+     El registro es abierto, así que una cuota diaria era un grifo que se
+     reabría cada día por cada cuenta nueva, y lo paga el dueño.
+   - plan `pro`: **300 mensajes al día** (`chatCountDay`), porque hay un pago
+     detrás que cubre el consumo.
+   - tope **global** diario con interruptor en `system/aiConfig`: el freno de
+     mano del dueño, que corta todo el gasto de IA sin desplegar.
+   - el día se calcula en `America/Santiago`, no en UTC.
+4. Si no hay `conversationId`, crea la conversación.
+5. Guarda el mensaje del usuario en `messages`.
+6. Arma el system prompt del lado servidor con: perfil, `hourlyRate`, último
+   `months/*`, últimas 10 transacciones (`RECENT_TRANSACTIONS_LIMIT`), conteo de
+   inventario, y los últimos **6** mensajes de la conversación
+   (`HISTORY_LIMIT`). Era 20: el historial se reenvía completo en cada turno,
+   así que ese número multiplica los tokens de entrada de toda la conversación.
+   El prompt tiene tope duro de 12.000 caracteres (`MAX_PROMPT_CHARS`) y los
+   datos del usuario van saneados y dentro de un bloque delimitado, declarado
+   como datos y no como instrucciones (defensa contra inyección de prompt).
+7. Llama a OpenRouter con `OPENROUTER_API_KEY` (secreto) y modelo
    `OPENROUTER_MODEL` (parámetro, default `deepseek/deepseek-v4-flash`).
-7. Guarda la respuesta en `messages`, actualiza `messageCount`, `updatedAt` y
-   la cuota en `meta/usage`.
-8. Devuelve `{ conversationId, reply }`.
+8. Guarda la respuesta en `messages` y actualiza `messageCount` y `updatedAt`.
+   Si OpenRouter falla, **devuelve** la cuota (`refundChatQuota`) y deshace lo
+   escrito: un fallo del proveedor no le gasta el mensaje al usuario.
+9. Devuelve `{ conversationId, reply }`.
+
+### `deleteAccount` (callable)
+
+```
+request:  (sin cuerpo)
+response: { ok: true, uid: string, authDeleted: boolean, deletedAt: string }
+errores:  unauthenticated | internal
+```
+
+`timeoutSeconds: 300`, `memory: 256MiB`, `maxInstances: 2`.
+
+Existe porque la política de eliminación de datos de Google Play exige dos
+caminos para borrar una cuenta: uno dentro de la app (este callable) y una URL
+pública accesible sin instalarla (la página de la landing).
+
+Borra en este orden, y el orden importa: **primero** los datos
+(`recursiveDelete` de `users/{uid}` y todo su árbol) y **después** el usuario de
+Authentication. Al revés, si el paso de datos fallara quedarían documentos
+huérfanos sin ninguna sesión capaz de volver a pedir su borrado. Tras el borrado
+verifica que no quedó nada (`recursiveDelete` usa un `BulkWriter` que resuelve
+sin lanzar aunque algún lote quede atrás) y si queda algo responde `internal`.
+Es idempotente: `auth/user-not-found` se trata como el estado final buscado.
+
+Por eso `firestore.rules` deniega `delete` en `users/{uid}`: borrar solo ese
+documento desde el cliente dejaba colgando todas las subcolecciones.
 
 ### `onTransactionWritten` (trigger Firestore)
 
 Al crear, editar o borrar `users/{uid}/transactions/{txId}`, recalcula
 `users/{uid}/months/{monthKey}` con una consulta agregada
 (`sum`/`count`) sobre las transacciones de ese `monthKey`. Si cambió el
-`monthKey` entre before/after, recalcula ambos meses. Idempotente.
+`monthKey` entre before/after, recalcula ambos meses. Idempotente, con
+`retry: true` y `maxInstances: 10`.
+
+Detalles que no son negociables:
+- La lectura agregada y la escritura van **dentro de una misma transacción**.
+  Con dos escrituras seguidas sobre el mismo mes (el caso normal), las dos
+  invocaciones del trigger se solapaban y la que había leído el estado más viejo
+  podía commitear la última, dejando los totales mal de forma permanente.
+- Solo recalcula meses cuyo `monthKey` pasa `MONTH_KEY_RE` (mes 01-12).
+- Si el mes se queda sin transacciones, el documento se **borra** en vez de
+  quedarse en ceros: un mes en cero hacía que `chat` eligiera como "último mes"
+  un documento vacío y le contara al asistente que el negocio no facturó nada.
+- `platformFee` **no** entra en los agregados: `months/*` suma `amount`, que es
+  el bruto. El neto se deriva donde se muestra.
 
 ### `waitlist` (HTTP, CORS abierto solo a los dominios de la landing)
 
@@ -133,8 +248,43 @@ POST { name: string, email: string, source?: string }
 200 { ok: true } | 400 { error } | 429 { error }
 ```
 
-Valida email, largo de campos, límite simple por IP en memoria, y escribe en
-`waitlist/{id}`.
+Valida email, largo de campos y un límite por IP en memoria (5 por hora). El id
+del documento es el **sha256 del correo normalizado**, así que reenviar el mismo
+correo no crea un duplicado: se conserva el `createdAt` original y se incrementa
+`submissions`.
+
+## Hosting: cabeceras HTTP y el namespace reservado `/__/`
+
+`firebase.json` sirve el mismo build en `pagate-17211.web.app` y en
+`pagate-17211.firebaseapp.com`, y el segundo es el **`authDomain`** del
+proyecto. El SDK de Auth (lo que usa `signInWithPopup` por debajo, también en
+Flutter web) **mete en un iframe** `https://<authDomain>/__/auth/iframe` para
+recibir los eventos de autenticación.
+
+Por eso las cabeceras están partidas en dos grupos:
+
+| Cabeceras | `source` | Por qué |
+|---|---|---|
+| HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` | `**` | No estorban en `/__/`. |
+| `X-Frame-Options: DENY`, CSP con `frame-ancestors 'none'` | `/`, `/!(__)`, `/!(__)/**` | Entre los tres cubren toda la app y **ninguno casa con `/__/**`**. |
+
+Antes, `X-Frame-Options: DENY` estaba sobre `**`, o sea también sobre
+`/__/auth/iframe`: el navegador se niega a enmarcar ese documento y el inicio de
+sesión con Google queda colgado. Lo mismo haría `frame-ancestors 'none'` el día
+que la CSP deje de ser `Report-Only`.
+
+Dos cosas que conviene saber antes de "simplificar" esto:
+- **`SAMEORIGIN` no arregla nada.** La página está en `web.app` y el iframe en
+  `firebaseapp.com`: son orígenes distintos, así que `SAMEORIGIN` bloquea igual.
+- **Una cabecera no se puede "quitar" para una ruta.** `headers` solo sabe PONER
+  valores, así que un bloque posterior para `/__/**` no puede borrar lo que puso
+  `**`. El único arreglo posible es que el patrón que la pone no llegue a casar
+  con `/__/`, que es exactamente lo que hacen los tres `source` de arriba.
+
+`functions/test/hosting-headers.test.ts` vigila esto: comprueba contra el
+`firebase.json` real, con el mismo extglob que usa Hosting, que ninguna cabecera
+de enmarcado alcanza `/__/auth/iframe` y que las rutas de la app (incluidas las
+de navegación que reescriben a `index.html`) sí quedan protegidas.
 
 ## Cliente Flutter
 
@@ -165,6 +315,16 @@ Valida email, largo de campos, límite simple por IP en memoria, y escribe en
   forma optimista mientras llega la confirmación.
 - **Errores:** los providers exponen `error` (String?) y `retry()`. Las
   pantallas muestran un estado de error con botón de reintento.
+- **Tema claro único.** `AppTheme.lightTheme` es el único tema y lo aplica
+  `app_shell.dart`. **No existe `AppTheme.darkTheme`** ni `themeMode`: no hay
+  tema oscuro que mantener, así que ningún widget debe volver a consultar
+  `Theme.of(context).brightness` ni `MediaQuery.platformBrightness` para decidir
+  colores. Los tokens salen de `lib/core/constants/app_constants.dart`.
+- **Moneda:** un único formateador con `intl`. No se construyen strings de
+  dinero a mano.
+- **C-3:** el neto de una transacción se **deriva** (`amount - platformFee`),
+  nunca se guarda. El cliente tampoco calcula impuestos ni da indicaciones
+  tributarias: ver el límite al final de la sección del contrato C-3.
 
 ## Propiedad de archivos durante la migración
 
