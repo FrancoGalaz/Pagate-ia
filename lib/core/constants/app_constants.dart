@@ -482,10 +482,22 @@ class AppSizes {
   AppSizes._();
 
   // Heights
-  static const double buttonHeight = 56.0;
-  static const double inputHeight = 56.0;
+  /// 48, no 56. Lo consume el tema (minimumSize del primario y del
+  /// secundario) y PagatePrimaryButton. Es el valor del sistema v2, y junto
+  /// con el radio 12 es el cambio que mas transforma la sensacion de la app.
+  static const double buttonHeight = 48.0;
+
+  /// 48, no 56. Alto minimo del campo de formulario.
+  static const double inputHeight = 48.0;
+
+  /// Sigue en 36 a proposito: el sistema lo baja a 32 pero con
+  /// `MaterialTapTargetSize.padded` alrededor, y eso es trabajo del
+  /// componente (paso 5), no del tema. Bajarlo aqui sin el padding dejaria
+  /// el chip de mes de Finanzas con una caja tactil de 32.
   static const double chipHeight = 36.0;
-  static const double progressBarHeight = 8.0;
+
+  /// 6, no 8. Barra de progreso y de categoria.
+  static const double progressBarHeight = 6.0;
 
   // Widths
   static const double backButtonSize = 40.0;
