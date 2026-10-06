@@ -41,6 +41,19 @@ async function seedFullUser(uid: string): Promise<void> {
   batch.set(db.doc(`users/${uid}/conversations/c1`), { title: 'Hola', messageCount: 2 });
   batch.set(db.doc(`users/${uid}/conversations/c1/messages/m1`), { role: 'user', text: 'Hola' });
   batch.set(db.doc(`users/${uid}/conversations/c1/messages/m2`), { role: 'assistant', text: 'Qué tal' });
+  // aiReports (P-12). Va aquí porque el borrado de cuenta tiene que ser
+  // COMPLETO: la política de eliminación de datos de Google Play no admite que
+  // una subcolección sobreviva, y los reportes son la única que el cliente crea
+  // y después no puede borrar por su cuenta, así que si `recursiveDelete` no los
+  // alcanzara no habría ninguna otra vía para quitarlos.
+  batch.set(db.doc(`users/${uid}/aiReports/r1`), {
+    messageId: 'm2',
+    conversationId: 'c1',
+    reason: 'incorrecto',
+    reportedText: 'Qué tal',
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
   await batch.commit();
 }
 
@@ -58,6 +71,7 @@ describe('deleteUserData', () => {
     // Comprobación previa: la siembra existe de verdad.
     expect((await db.doc(`users/${UID}`).get()).exists).toBe(true);
     expect((await db.collection(`users/${UID}/conversations/c1/messages`).get()).size).toBe(2);
+    expect((await db.collection(`users/${UID}/aiReports`).get()).size).toBe(1);
 
     const leftovers = await deleteUserData(db, UID);
     expect(leftovers).toEqual([]);
@@ -67,6 +81,7 @@ describe('deleteUserData', () => {
       `users/${UID}/inventory`,
       `users/${UID}/transactions`,
       `users/${UID}/fixedExpenses`,
+      `users/${UID}/aiReports`,
       `users/${UID}/months`,
       `users/${UID}/meta`,
       `users/${UID}/conversations`,
@@ -88,6 +103,7 @@ describe('deleteUserData', () => {
     expect((await db.doc(`users/${OTHER}`).get()).exists).toBe(true);
     expect((await db.collection(`users/${OTHER}/transactions`).get()).size).toBe(1);
     expect((await db.collection(`users/${OTHER}/conversations/c1/messages`).get()).size).toBe(2);
+    expect((await db.collection(`users/${OTHER}/aiReports`).get()).size).toBe(1);
   });
 
   it('es idempotente: borrar dos veces no falla', async () => {
