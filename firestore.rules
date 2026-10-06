@@ -31,6 +31,11 @@
 // `docType` y `platformFee`, los dos OPCIONALES para no invalidar ni un solo
 // documento ya escrito. El detalle y el por qué están junto a
 // `validTransaction`, más abajo.
+//
+// P-12 (política de IA generativa de Google Play): `users/{uid}/aiReports` es
+// la subcolección donde el cliente deja los reportes de respuestas del
+// asistente. Es la única que el dueño puede crear y después NO puede modificar
+// ni borrar. El detalle está junto a `validAiReport`.
 
 rules_version = '2';
 
@@ -262,6 +267,57 @@ service cloud.firestore {
         allow update: if isOwner(uid)
           && validFixedExpense(incoming())
           && validTimestampsOnUpdate(incoming(), resource.data);
+      }
+
+      // ---------- aiReports (P-12): reportes de respuestas del asistente ----------
+      //
+      // POR QUÉ EXISTE ESTE MATCH. La política de Google Play para apps con IA
+      // generativa exige un mecanismo DENTRO de la app para marcar contenido
+      // ofensivo o dañino. El botón «Reportar respuesta» de la pestaña de IA
+      // escribe aquí (`ai_provider.dart`, `reportMessage`). Sin este match la
+      // ruta caía en el `match /{document=**} { allow read, write: if false; }`
+      // del final y TODO reporte se denegaba: el requisito estaba en la interfaz
+      // y no funcionaba.
+      //
+      // Es la única subcolección que el cliente CREA y después no puede tocar.
+      // `update` y `delete` denegados a propósito: un reporte es la prueba de
+      // que alguien marcó una respuesta, y quien puede editarlo o borrarlo
+      // después puede hacer desaparecer esa prueba. Si la persona se equivocó de
+      // motivo, manda otro reporte. El borrado de cuenta sigue llevándose el
+      // árbol completo: `deleteAccount` usa `recursiveDelete`, que descubre las
+      // subcolecciones en tiempo de ejecución, así que esta queda cubierta sin
+      // tocar `account.ts`.
+      function validAiReport(d) {
+        return d.keys().hasOnly([
+            'messageId', 'conversationId', 'reason', 'comment', 'reportedText',
+            'createdAt', 'updatedAt'
+          ])
+          && d.keys().hasAll(['messageId', 'reason', 'reportedText', 'createdAt', 'updatedAt'])
+          // Id del mensaje reportado. 200 es el mismo tope que el resto del
+          // árbol y sobra para un id de documento de Firestore.
+          && isNonEmptyStr(d.messageId, 200)
+          // Opcional: el mensaje de bienvenida no pertenece a ninguna
+          // conversación guardada, así que el cliente omite el campo. `null` se
+          // rechaza igual que en `docType`: ausente es la única forma de decir
+          // "sin conversación".
+          && (!('conversationId' in d) || isNonEmptyStr(d.conversationId, 200))
+          && d.reason in ['ofensivo', 'incorrecto', 'peligroso', 'otro']
+          // Comentario libre, opcional. 1000 es el tope que aplica el cliente
+          // (`maxReportCommentChars`); se repite aquí porque el cliente no es
+          // quien decide.
+          && (!('comment' in d) || isStr(d.comment, 1000))
+          // Copia del texto reportado, hasta 2000 (`maxReportedTextChars`). Se
+          // guarda el texto y no solo el id porque un reporte tiene que seguir
+          // siendo legible si la conversación desaparece. Se acepta vacío: un
+          // mensaje sin texto también se puede reportar.
+          && isStr(d.reportedText, 2000);
+      }
+
+      match /aiReports/{reportId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validAiReport(incoming()) && validTimestampsOnCreate(incoming());
+        allow update, delete: if false;
       }
 
       // ---------- Solo lectura (escribe el backend) ----------
