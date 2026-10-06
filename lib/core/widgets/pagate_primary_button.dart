@@ -13,7 +13,7 @@ import '../constants/app_constants.dart';
 //
 // QUÉ SE BORRÓ DE LA VERSIÓN ANTERIOR:
 //   · El `Container` envolvente, que existía SOLO para llevar un glow verde
-//     (`AppShadows.brand`) bajo el botón principal de toda la app. El
+//     de marca bajo el botón principal de toda la app. El
 //     sistema separa con línea y superficie, nunca con sombra.
 //   · La propiedad pública `hasShadow`, que venía en `true` por defecto.
 //     Verificado con grep: cero call sites la pasaban, así que quitarla no

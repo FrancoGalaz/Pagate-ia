@@ -42,7 +42,8 @@ import '../../../../user_profile/presentation/providers/user_profile_provider.da
 //   en tinta, a 40/700: es lo primero que ve el ojo a un brazo de
 //   distancia.
 //
-// · LAS CUATRO "ACCIONES RÁPIDAS" con sus cuatro `Color(0x…)` literales
+// · LAS CUATRO "ACCIONES RÁPIDAS" con sus cuatro colores hexadecimales
+//   literales
 //   —#00C2B8, #EF4444, #3B82F6, #F97316, de los cuales el turquesa y el
 //   naranja ni siquiera existen en la paleta— y el icono de robot. Dos de
 //   las cuatro (Inventario, IA) no eran acciones sino destinos que ya

@@ -13,7 +13,6 @@ import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../providers/finances_provider.dart';
-import '../../../../core/theme/app_text.dart';
 
 // ─── Categorías ──────────────────────────────────────────────────────────
 // Las que usa de verdad un taller chileno, no las genéricas de antes
@@ -69,10 +68,9 @@ Future<void> showTransactionSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: AppColors.surfaceDark,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
+    // Ni `backgroundColor` ni `shape`: los pone `bottomSheetTheme`
+    // (blanco, radio 16 arriba, cero elevación, velo al 40% y asa). Aquí
+    // estaban escritos a mano con radio 24 y la superficie del tema oscuro.
     builder: (final _) => ChangeNotifierProvider<FinancesProvider>.value(
       value: provider,
       child: TransactionFormSheet(
@@ -264,7 +262,6 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
     final isIncome = _type == TransactionType.income;
-    final accent = isIncome ? AppColors.success : AppColors.error;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -283,33 +280,16 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // El tema ya dibuja el drag handle (showDragHandle: true).
-              Row(
-                children: [
-                  Container(
-                    width: AppSizes.iconContainerSmall,
-                    height: AppSizes.iconContainerSmall,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.15),
-                      borderRadius: AppRadius.smBorder,
-                    ),
-                    child: Icon(
-                      isIncome
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      color: accent,
-                      size: AppIconSize.xs,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Registrar movimiento',
-                    style: AppText.weight(
-                      theme.textTheme.titleLarge!,
-                      700,
-                    ).copyWith(color: AppColors.textPrimaryDark),
-                  ),
-                ],
+              // El tema ya dibuja el asa de arrastre (showDragHandle).
+              //
+              // Y el título va solo: el cuadrado teñido de 32 dp con la
+              // flecha arriba/abajo según el tipo no añadía nada que los
+              // chips "Ingreso / Gasto" de la línea siguiente no digan, y
+              // su `accent.withValues(alpha: 0.15)` era una opacidad
+              // inventada sobre un fondo que ya no es oscuro.
+              Text(
+                'Registrar movimiento',
+                style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: AppSpacing.lg),
 
@@ -326,7 +306,6 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 labelText: 'Título',
                 controller: _titleController,
                 hintText: isIncome ? 'Ej: venta en la feria' : 'Ej: greda 25 kg',
-                prefixIcon: Icons.edit_outlined,
                 maxLength: 200,
                 validator: (final v) => (v == null || v.trim().isEmpty)
                     ? 'Escribe un título'
@@ -338,7 +317,6 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 labelText: 'Monto',
                 controller: _amountController,
                 hintText: '0',
-                prefixIcon: Icons.attach_money_rounded,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -416,7 +394,6 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                 labelText: 'Descripción (opcional)',
                 controller: _descriptionController,
                 hintText: 'Detalles, cliente, notas...',
-                prefixIcon: Icons.notes_rounded,
                 maxLength: 2000,
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -455,35 +432,42 @@ class _DateField extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: AppRadius.pillBorder,
+      borderRadius: AppRadius.r8Border,
       child: Container(
         height: AppSizes.inputHeight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+
+        // El mismo píxel que un campo de texto del tema: blanco con
+        // contorno `borderField` de 1 dp (3,63:1) y radio 8. Era un relleno
+        // gris al 50% de opacidad con radio 100.
         decoration: BoxDecoration(
-          color: AppColors.surfaceDarkSecondary.withValues(alpha: 0.5),
-          borderRadius: AppRadius.pillBorder,
-          border: Border.all(color: AppColors.borderDark),
+          color: AppPalette.surface,
+          borderRadius: AppRadius.r8Border,
+          border: Border.all(
+            color: AppPalette.borderField,
+            width: AppSizes.borderField,
+          ),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.calendar_today_outlined,
-              color: AppColors.textSecondaryDark,
+              color: AppPalette.textMuted,
               size: AppIconSize.sm,
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(width: AppSpacing.x3),
             Expanded(
               child: Text(
                 label,
-                style: AppText.weight(
-                  Theme.of(context).textTheme.bodyLarge!,
-                  500,
-                ).copyWith(color: AppColors.textPrimaryDark),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppPalette.textPrimary,
+                    ),
               ),
             ),
             const Icon(
               Icons.expand_more_rounded,
-              color: AppColors.textSecondaryDark,
+              color: AppPalette.textMuted,
+              size: AppIconSize.sm,
             ),
           ],
         ),

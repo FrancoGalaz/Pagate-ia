@@ -20,7 +20,8 @@ import '../../../finances/presentation/providers/finances_provider.dart';
 // Aquí el usuario llega con intención de analizar.
 //
 // EL DONUT DESAPARECE, y no se sustituye por una rampa de seis colores.
-// Tenía `_pieColors`, diez `Color(0x…)` de los cuales seis duplicaban
+// Tenía `_pieColors`, diez colores hexadecimales literales de los cuales
+// seis duplicaban
 // tokens y cuatro —violeta #8B5CF6, rosa #EC4899, turquesa #14B8A6, índigo
 // #6366F1— no existían en la paleta. El texto blanco de 11 dp que iba
 // dentro de cada porción fallaba el contraste en NUEVE de los diez colores

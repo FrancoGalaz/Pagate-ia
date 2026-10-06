@@ -13,8 +13,8 @@ import '../constants/app_constants.dart';
 // además pierde 32 dp de ancho útil por fila.
 //
 // QUÉ SE BORRÓ:
-//   · `AppRadius.xxlBorder` (32 dp) como forma por defecto.
-//   · `AppShadows.sm`, y con él la rama
+//   · El radio de 32 dp como forma por defecto.
+//   · La sombra pequeña del tema anterior, y con ella la rama
 //     `Theme.of(context).brightness == Brightness.dark`: ningún widget del
 //     sistema vuelve a decidir su propio brillo, porque el tema es único.
 //   · El padding de 24 por los cuatro lados: en móvil las filas traen el

@@ -13,7 +13,8 @@ import '../constants/app_constants.dart';
 // mínimo de fábrica, y todo eso es exactamente lo que faltaba.
 //
 // QUÉ SE BORRÓ:
-//   · El indicador de 3 dp pintado con `brandGradient` sobre la pestaña
+//   · El indicador de 3 dp pintado con el degradado de marca sobre la
+//     pestaña
 //     activa. No hay degradados en el sistema.
 //   · El `AnimatedSwitcher` del icono. Un cambio de pestaña tiene que
 //     sentirse instantáneo.
