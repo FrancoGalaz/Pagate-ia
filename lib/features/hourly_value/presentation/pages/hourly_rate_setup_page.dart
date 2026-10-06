@@ -6,6 +6,7 @@ import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../bloc/hourly_rate_provider.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/net_hourly_value_section.dart';
 import '../widgets/premium_text_field.dart';
 import '../../../../core/theme/app_text.dart';
 
@@ -111,7 +112,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
               child: const Icon(Icons.check_circle, color: AppColors.success),
             ),
             const SizedBox(width: AppSpacing.md),
-            const Text('¡Configuración Guardada!'),
+            const Text('Valor hora guardado'),
           ],
         ),
         content: Column(
@@ -119,7 +120,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tu valor hora es:',
+              'Tu valor hora objetivo:',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -139,7 +140,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Ahora podrás calcular el costo real de tus productos.',
+              'Lo vuelves a ver en Configuración, en Valor hora.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondaryDark,
                   ),
@@ -191,6 +192,10 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
                         _buildSubmitButton(),
                         const SizedBox(height: AppSpacing.md),
                         _buildHelper(),
+                        // Contrato C-3: debajo de la meta, el hecho. Lo que
+                        // le quedo por hora este mes, con las comisiones del
+                        // medio de pago ya descontadas.
+                        const NetHourlyValueSection(),
                       ],
                     ),
                   ),
@@ -223,7 +228,8 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Configura tu meta y te diremos cuánto vale tu hora de trabajo',
+            'Dinos tu meta y las horas que trabajas, y calculamos cuánto tendría '
+            'que valer tu hora para llegar a ella.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondaryDark,
                 ),
@@ -348,7 +354,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
                     width: AppIconSize.sm,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Calcular mi Valor Hora'),
+                : const Text('Calcular mi valor hora'),
           ),
         ),
       );
@@ -370,7 +376,9 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
             const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
-                'Este cálculo te permitirá saber cuánto cobrar por tus productos sin perder dinero.',
+                'Es tu meta dividida por las horas que trabajas: la referencia con '
+                'la que puedes comparar lo que cobras. No es un precio '
+                'recomendado.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondaryDark,
                     ),
