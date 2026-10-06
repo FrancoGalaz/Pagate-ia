@@ -13,12 +13,28 @@ plugins {
 // Firma de release
 //
 // Las credenciales viven en android/key.properties, que NO se versiona
-// (android/.gitignore lo excluye junto con *.jks y *.keystore). Si el archivo
-// no está —por ejemplo en un clon limpio o en CI sin secretos— el build de
-// release NO falla: cae al keystore de depuración y avisa en voz alta. Esa es
-// una decisión deliberada: que cualquiera pueda comprobar que el proyecto
-// compila sin tener que pedir las claves, a cambio de un aviso imposible de
-// pasar por alto para que nadie intente subir ese artefacto a Play.
+// (android/.gitignore excluye `key.properties`, `*.jks` y `*.keystore`). Dicho
+// de otro modo: en un clon limpio ese archivo NO EXISTE, y quien construya
+// desde la rama principal no tiene por qué saberlo.
+//
+// La plantilla versionada con las instrucciones es android/key.properties.example.
+//
+// Cuando falta, el comportamiento es distinto según el artefacto, y la
+// diferencia es deliberada:
+//
+//   flutter build apk --release   -> funciona, firma con la clave de
+//                                    DEPURACIÓN e imprime un recuadro de
+//                                    aviso. Un APK así sirve para instalarlo
+//                                    en un emulador o en un teléfono y
+//                                    comprobar que el proyecto compila y
+//                                    arranca, que es un uso legítimo.
+//   flutter build appbundle       -> FALLA antes de compilar. El AAB solo
+//                                    sirve para subirlo a Play, y Play
+//                                    rechaza lo firmado en depuración; dejar
+//                                    que se genere solo produce un archivo
+//                                    inservible y media hora perdida.
+//
+// La lógica está más abajo, en el bloque `if (!hasReleaseKeystore)`.
 //
 // Para generar un keystore de subida propio:
 //
@@ -42,22 +58,70 @@ val keystoreProperties = Properties().apply {
 }
 val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
 
+// Guardia de firma de release. Solo se arma cuando falta key.properties.
+//
+// Se evalúa sobre el grafo de tareas y no durante la configuración del
+// proyecto a propósito: así solo habla en los builds de release. Antes se
+// imprimía en la configuración, es decir también en cada `flutter run` de
+// depuración, donde firmar con la clave de depuración es lo correcto; un aviso
+// que sale siempre es un aviso que nadie lee.
 if (!hasReleaseKeystore) {
-    logger.warn(
-        """
-        |
-        |  ============================================================
-        |   AVISO: no se encontró android/key.properties.
-        |   El build de release se firmará con el keystore de DEPURACIÓN.
-        |   Google Play RECHAZA ese artefacto:
-        |     «You uploaded an APK or Android App Bundle that was signed
-        |      in debug mode».
-        |   Crea android/key.properties (ver el comentario de este
-        |   archivo) antes de generar el AAB que se vaya a publicar.
-        |  ============================================================
-        |
+    // Nombre de la tarea que produce el AAB: `bundleRelease`, o
+    // `bundle<Sabor>Release` si algún día hay sabores. La expresión deja fuera
+    // a `bundleReleaseResources` y compañía, que son tareas internas y no
+    // generan el artefacto que se sube.
+    val tareaDeAab = Regex("^bundle([A-Z][A-Za-z0-9]*)?Release$")
+
+    gradle.taskGraph.whenReady {
+        val tareasDelModulo = allTasks.filter { it.project == project }
+        val generaAab = tareasDelModulo.any { tareaDeAab.matches(it.name) }
+        val generaApk = tareasDelModulo.any {
+            it.name.startsWith("assemble") && it.name.endsWith("Release")
+        }
+
+        val recuadro = """
+            |
+            |  ============================================================
+            |   FALTA android/key.properties
+            |
+            |   Sin ese archivo la firma de release cae al keystore de
+            |   DEPURACION. Google Play rechaza ese artefacto:
+            |     «You uploaded an APK or Android App Bundle that was
+            |      signed in debug mode.»
+            |
+            |   Copia android/key.properties.example a
+            |   android/key.properties y rellena los cuatro valores.
+            |  ============================================================
+            |
         """.trimMargin()
-    )
+
+        if (generaAab) {
+            // El AAB es exactamente lo que se sube a Play y no sirve para nada
+            // más: uno firmado en depuración no tiene ningún uso legítimo. Por
+            // eso aquí se corta el build, y se corta ANTES de compilar nada,
+            // en vez de entregar un archivo inservible acompañado de un aviso
+            // que se puede pasar por alto en mitad del registro de Gradle.
+            throw GradleException(
+                recuadro +
+                    "  El AAB no se genera sin clave de subida.\n" +
+                    "  Para probar en un teléfono: flutter build apk --release\n",
+            )
+        }
+        if (generaApk) {
+            // El APK sí tiene uso legítimo sin clave propia: instalarlo en un
+            // emulador o en un teléfono para comprobar que el proyecto compila
+            // y que la app arranca. Así que aquí solo se avisa.
+            //
+            // `logger.quiet` y NO `logger.warn`, que es lo que había antes y
+            // en la práctica no se veía nunca. Motivo, comprobado: cuando no
+            // se le pasa `--verbose`, `flutter build apk` invoca a Gradle con
+            // `-q` (flutter_tools/lib/src/android/gradle.dart:492), y ese
+            // nivel de registro descarta los mensajes WARN. QUIET es el único
+            // que sobrevive a `-q`, así que es el nivel obligado para un aviso
+            // que tiene que llegarle a quien construye.
+            logger.quiet(recuadro + "  Este APK sirve para PROBAR, no para publicar.\n")
+        }
+    }
 }
 
 android {
