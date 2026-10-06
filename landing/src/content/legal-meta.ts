@@ -6,10 +6,13 @@
 // desincronizados. Cuando el dueño tenga razón social, domicilio y correo
 // definitivos, basta con editar ESTE archivo.
 //
-// Los valores entre corchetes son MARCADORES sin rellenar: hay que
-// reemplazarlos antes de declarar las URLs en Google Play Console, porque una
-// política de privacidad con marcadores visibles es motivo de rechazo.
-// El inventario de marcadores pendientes está en docs/SEGURIDAD-DATOS-PLAY.md.
+// Los valores entre corchetes son MARCADORES sin rellenar. Las páginas legales
+// NO los imprimen tal cual: `esMarcador()` los detecta y cada página muestra en
+// su lugar una frase en castellano, porque una política publicada con corchetes
+// a la vista es motivo de rechazo en Google Play y delata una plantilla sin
+// revisar. Eso evita el rechazo por corchetes, pero NO rellena el dato: el
+// inventario de lo que el dueño tiene que decidir está en docs/FICHA-PLAY.md §8
+// y en docs/SEGURIDAD-DATOS-PLAY.md §4.1.
 
 /** Nombre comercial de la app tal como aparecerá en Google Play. */
 export const APP_NAME = 'Págate-IA';
@@ -86,3 +89,80 @@ export const DELETION_SLA_DAYS = 30;
  * el borrado. Se declara porque afirmar borrado instantáneo sería falso.
  */
 export const BACKUP_RETENTION_DAYS = 90;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marcadores sin rellenar
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Lo que sigue existe por una sola razón: el visitante no puede ver un corchete.
+// Google Play rechaza una política de privacidad con marcadores de plantilla a
+// la vista, y mientras el dueño no decida razón social, RUT, domicilio y
+// correos, esos datos siguen siendo marcadores. La salida honesta no es
+// inventarlos: es que cada página redacte la frase que corresponde al estado
+// real del dato y que avise, en castellano, de que falta.
+
+/**
+ * ¿El valor sigue siendo un marcador sin rellenar?
+ *
+ * La convención del archivo es escribir los pendientes entre corchetes
+ * (`[RUT DEL RESPONSABLE]`). Basta con encontrar un par de corchetes con algo
+ * dentro: ningún dato legítimo —ni un nombre, ni un RUT, ni un correo— lleva
+ * corchetes.
+ */
+export function esMarcador(value: string): boolean {
+  return /\[[^\]]+\]/.test(value);
+}
+
+/**
+ * Correos listos para usar en un enlace `mailto:`, o `null` mientras el valor
+ * siga siendo un marcador.
+ *
+ * Se expone aparte de [CONTACT] a propósito: un `mailto:[CORREO…]` es un enlace
+ * roto que abre el cliente de correo con un destinatario inválido, que es peor
+ * que no ofrecer el enlace. Con `null`, la página renderiza el camino
+ * alternativo en lugar del botón.
+ */
+export const BUZON = {
+  privacidad: esMarcador(CONTACT.privacy) ? null : CONTACT.privacy,
+  soporte: esMarcador(CONTACT.support) ? null : CONTACT.support,
+} as const;
+
+/** ¿Está publicada la identidad completa del responsable? */
+export const RESPONSABLE_IDENTIFICADO =
+  !esMarcador(RESPONSIBLE.legalName) &&
+  !esMarcador(RESPONSIBLE.taxId) &&
+  !esMarcador(RESPONSIBLE.address);
+
+/**
+ * Canal al que se deriva al visitante mientras no haya un correo publicado.
+ *
+ * No es un invento: Google Play obliga a publicar en la ficha un correo de
+ * contacto del desarrollador y lo muestra en la propia página de la app, así
+ * que ese canal existe siempre, incluso antes de que este archivo tenga un
+ * buzón propio.
+ */
+export const CANAL_ALTERNATIVO =
+  `la dirección de contacto del desarrollador que aparece en la ficha de ` +
+  `${APP_NAME} en Google Play`;
+
+/**
+ * Frase que describe al responsable cuando su identidad todavía no está
+ * publicada. Dice lo que sí se sabe —quién es, aunque no cómo se llama— y no
+ * finge un nombre ni un RUT.
+ */
+export const RESPONSABLE_SIN_IDENTIFICAR =
+  `el titular de la cuenta de desarrollador con la que se publica ${APP_NAME} ` +
+  `en Google Play, con domicilio en ${RESPONSIBLE.country}`;
+
+/**
+ * Datos que el dueño todavía tiene que publicar, en el orden en que aparecen en
+ * las páginas. Lo usa el aviso visible de las páginas legales: si la lista está
+ * vacía, el aviso no se renderiza y desaparece solo.
+ */
+export const DATOS_PENDIENTES: readonly string[] = [
+  esMarcador(RESPONSIBLE.legalName) ? 'nombre completo o razón social' : null,
+  esMarcador(RESPONSIBLE.taxId) ? 'RUT' : null,
+  esMarcador(RESPONSIBLE.address) ? 'domicilio' : null,
+  esMarcador(CONTACT.privacy) ? 'correo de privacidad' : null,
+  esMarcador(CONTACT.support) ? 'correo de soporte' : null,
+].filter((x): x is string => x !== null);

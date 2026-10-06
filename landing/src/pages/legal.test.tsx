@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import PrivacidadPage from './PrivacidadPage';
 import TerminosPage from './TerminosPage';
 import EliminarCuentaPage from './EliminarCuentaPage';
+import { BUZON, CANAL_ALTERNATIVO } from '../content/legal-meta';
 
 /** Texto plano de la página, normalizado para buscar frases sin pelear con el markup. */
 function textOf(ui: Parameters<typeof render>[0]): string {
@@ -115,8 +116,18 @@ describe('Eliminar cuenta y datos', () => {
 
   it('ofrece un canal de solicitud sin pedir iniciar sesión', () => {
     const { container } = render(<EliminarCuentaPage />);
+    // El botón `mailto:` solo existe cuando hay un buzón publicado. Mientras
+    // `CONTACT.privacy` sea un marcador, `BUZON.privacidad` vale `null` y la
+    // página describe el canal en texto en lugar de ofrecer un enlace roto.
+    // Lo que se exige siempre es que haya ALGÚN canal, nunca un `mailto`
+    // inválido.
     const mailto = container.querySelector('a[href^="mailto:"]');
-    expect(mailto).not.toBeNull();
+    if (BUZON.privacidad) {
+      expect(mailto?.getAttribute('href')).toContain(BUZON.privacidad);
+    } else {
+      expect(mailto).toBeNull();
+      expect(container.textContent).toContain(CANAL_ALTERNATIVO);
+    }
     // No debe haber ningún campo de entrada: un formulario público que acepte
     // un correo ajeno permitiría pedir el borrado de la cuenta de otra persona.
     expect(container.querySelectorAll('input, textarea').length).toBe(0);
@@ -133,6 +144,28 @@ describe('Enlaces cruzados entre las páginas legales', () => {
       expect(hrefs.some((h) => h?.includes('privacidad/'))).toBe(true);
       expect(hrefs.some((h) => h?.includes('terminos/'))).toBe(true);
       expect(hrefs.some((h) => h?.includes('eliminar-cuenta/'))).toBe(true);
+      document.body.innerHTML = '';
+    }
+  });
+
+  it('ninguna página muestra un marcador entre corchetes', () => {
+    // Una política de privacidad publicada con `[RAZÓN SOCIAL…]` a la vista es
+    // motivo de rechazo en Google Play. Este test renderiza las tres páginas y
+    // busca corchetes en el texto resultante, que es exactamente lo que vería
+    // el revisor. Da igual si el dueño rellenó o no los datos: en los dos
+    // estados el documento tiene que leerse como prosa.
+    for (const ui of [<PrivacidadPage />, <TerminosPage />, <EliminarCuentaPage />]) {
+      expect(textOf(ui)).not.toMatch(/\[[^\]]+\]/);
+      document.body.innerHTML = '';
+    }
+  });
+
+  it('ningún enlace mailto apunta a un destinatario con corchetes', () => {
+    for (const ui of [<PrivacidadPage />, <TerminosPage />, <EliminarCuentaPage />]) {
+      const { container } = render(ui);
+      for (const a of container.querySelectorAll('a[href^="mailto:"]')) {
+        expect(a.getAttribute('href')).not.toMatch(/[[\]]/);
+      }
       document.body.innerHTML = '';
     }
   });

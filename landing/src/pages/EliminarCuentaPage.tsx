@@ -16,7 +16,8 @@ import {
   ANDROID_PACKAGE,
   APP_NAME,
   BACKUP_RETENTION_DAYS,
-  CONTACT,
+  BUZON,
+  CANAL_ALTERNATIVO,
   DELETION_SLA_DAYS,
   LEGAL_ROUTES,
   siteUrl,
@@ -58,19 +59,36 @@ export default function EliminarCuentaPage() {
           cuenta</strong>. Ese es el único requisito: nos permite comprobar que la
           solicitud la haces tú y no un tercero.
         </p>
-        <p>
-          <a
-            className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-brand text-white font-semibold text-sm hover:bg-brand-dark transition-colors"
-            href={`mailto:${CONTACT.privacy}?subject=${MAIL_SUBJECT}&body=${MAIL_BODY}`}
-          >
-            Escribir para pedir la eliminación
-          </a>
-        </p>
-        <p>
-          Si el botón no abre tu cliente de correo, envía el mensaje manualmente a{' '}
-          <strong>{CONTACT.privacy}</strong> con el asunto «Solicitud de eliminación de
-          cuenta y datos» e indica el correo de tu cuenta.
-        </p>
+
+        {/* El botón `mailto:` solo se renderiza si hay un buzón publicado. Con
+            el marcador sin rellenar, `mailto:[CORREO…]` sería un enlace roto que
+            abre el cliente de correo con un destinatario inválido: peor que no
+            ofrecer el botón. En ese caso se nombra el canal que sí existe, el
+            correo del desarrollador que Google Play publica en la ficha. */}
+        {BUZON.privacidad ? (
+          <>
+            <p>
+              <a
+                className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-brand text-white font-semibold text-sm hover:bg-brand-dark transition-colors"
+                href={`mailto:${BUZON.privacidad}?subject=${MAIL_SUBJECT}&body=${MAIL_BODY}`}
+              >
+                Escribir para pedir la eliminación
+              </a>
+            </p>
+            <p>
+              Si el botón no abre tu cliente de correo, envía el mensaje manualmente a{' '}
+              <strong>{BUZON.privacidad}</strong> con el asunto «Solicitud de
+              eliminación de cuenta y datos» e indica el correo de tu cuenta.
+            </p>
+          </>
+        ) : (
+          <p>
+            Envía el mensaje a {CANAL_ALTERNATIVO}, con el asunto «Solicitud de
+            eliminación de cuenta y datos», e indica el correo de tu cuenta. En cuanto
+            haya un buzón de privacidad propio aparecerá aquí, en esta misma página.
+          </p>
+        )}
+
         <p>
           Confirmaremos la recepción y te avisaremos cuando el borrado esté hecho.
         </p>
@@ -164,9 +182,10 @@ export default function EliminarCuentaPage() {
 
       <LegalSection id="contacto" title="Contacto">
         <p>
-          Solicitudes de eliminación y privacidad: <strong>{CONTACT.privacy}</strong>
+          Solicitudes de eliminación y privacidad:{' '}
+          <strong>{BUZON.privacidad ?? CANAL_ALTERNATIVO}</strong>
           <br />
-          Soporte general: <strong>{CONTACT.support}</strong>
+          Soporte general: <strong>{BUZON.soporte ?? CANAL_ALTERNATIVO}</strong>
         </p>
       </LegalSection>
     </LegalLayout>

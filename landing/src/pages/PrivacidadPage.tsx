@@ -13,12 +13,21 @@ import LegalLayout, { LegalList, LegalSection } from './LegalLayout';
 import {
   APP_NAME,
   BACKUP_RETENTION_DAYS,
-  CONTACT,
+  BUZON,
+  CANAL_ALTERNATIVO,
   DELETION_SLA_DAYS,
   LEGAL_ROUTES,
+  RESPONSABLE_IDENTIFICADO,
+  RESPONSABLE_SIN_IDENTIFICAR,
   RESPONSIBLE,
   siteUrl,
 } from '../content/legal-meta';
+
+// Texto del canal de privacidad. Mientras no haya buzón publicado se nombra el
+// canal que sí existe siempre (el correo del desarrollador en la ficha de Play)
+// en lugar de imprimir el marcador entre corchetes.
+const CONTACTO_PRIVACIDAD = BUZON.privacidad ?? CANAL_ALTERNATIVO;
+const CONTACTO_SOPORTE = BUZON.soporte ?? CANAL_ALTERNATIVO;
 
 export default function PrivacidadPage() {
   return (
@@ -27,14 +36,25 @@ export default function PrivacidadPage() {
       intro={`Este documento explica qué datos recoge ${APP_NAME}, dónde se guardan, con quién se comparten, cuánto tiempo se conservan y cómo puedes ejercer tus derechos sobre ellos.`}
     >
       <LegalSection id="responsable" title="1. Quién es responsable de tus datos">
-        <p>
-          El responsable del tratamiento de los datos personales que se describen en
-          este documento es {RESPONSIBLE.legalName}, RUT {RESPONSIBLE.taxId}, con
-          domicilio en {RESPONSIBLE.address}, {RESPONSIBLE.country}.
-        </p>
+        {/* Dos redacciones, no un marcador: con la identidad publicada se dan
+            nombre, RUT y domicilio; sin ella se describe al responsable por lo
+            que sí se sabe de él. Nunca se imprime un corchete. */}
+        {RESPONSABLE_IDENTIFICADO ? (
+          <p>
+            El responsable del tratamiento de los datos personales que se describen en
+            este documento es {RESPONSIBLE.legalName}, RUT {RESPONSIBLE.taxId}, con
+            domicilio en {RESPONSIBLE.address}, {RESPONSIBLE.country}.
+          </p>
+        ) : (
+          <p>
+            El responsable del tratamiento de los datos personales que se describen en
+            este documento es {RESPONSABLE_SIN_IDENTIFICAR}. Su nombre completo, RUT y
+            domicilio se publican en esta misma página en cuanto estén definidos.
+          </p>
+        )}
         <p>
           Para cualquier consulta sobre privacidad puedes escribir a{' '}
-          <strong>{CONTACT.privacy}</strong>.
+          <strong>{CONTACTO_PRIVACIDAD}</strong>.
         </p>
       </LegalSection>
 
@@ -347,7 +367,7 @@ export default function PrivacidadPage() {
         />
         <p>
           Para ejercer cualquiera de estos derechos escribe a{' '}
-          <strong>{CONTACT.privacy}</strong> desde el correo con el que creaste la
+          <strong>{CONTACTO_PRIVACIDAD}</strong> desde el correo con el que creaste la
           cuenta. Te responderemos en un plazo máximo de {DELETION_SLA_DAYS} días. Si
           lo que quieres es borrar tu cuenta, la página de{' '}
           <a className="text-brand underline" href={siteUrl(LEGAL_ROUTES.eliminarCuenta)}>
@@ -377,7 +397,7 @@ export default function PrivacidadPage() {
           {APP_NAME} está dirigida a personas que gestionan un negocio o un trabajo
           independiente y no está diseñada para menores de 18 años. No recogemos datos
           de menores a sabiendas. Si crees que un menor ha creado una cuenta, escríbenos
-          a {CONTACT.privacy} y la eliminaremos.
+          a {CONTACTO_PRIVACIDAD} y la eliminaremos.
         </p>
       </LegalSection>
 
@@ -392,12 +412,14 @@ export default function PrivacidadPage() {
 
       <LegalSection id="contacto" title="11. Contacto">
         <p>
-          Privacidad y ejercicio de derechos: <strong>{CONTACT.privacy}</strong>
+          Privacidad y ejercicio de derechos: <strong>{CONTACTO_PRIVACIDAD}</strong>
           <br />
-          Soporte general: <strong>{CONTACT.support}</strong>
+          Soporte general: <strong>{CONTACTO_SOPORTE}</strong>
           <br />
-          Responsable: {RESPONSIBLE.legalName}, {RESPONSIBLE.address},{' '}
-          {RESPONSIBLE.country}
+          Responsable:{' '}
+          {RESPONSABLE_IDENTIFICADO
+            ? `${RESPONSIBLE.legalName}, ${RESPONSIBLE.address}, ${RESPONSIBLE.country}`
+            : RESPONSABLE_SIN_IDENTIFICAR}
         </p>
       </LegalSection>
     </LegalLayout>
