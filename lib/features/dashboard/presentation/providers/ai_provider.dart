@@ -84,13 +84,16 @@ class AiProvider extends ChangeNotifier {
 
   /// Subcolección donde se guardan los reportes de respuestas del asistente.
   ///
-  /// OJO, PENDIENTE DE BACKEND: `firestore.rules` todavía no tiene un `match`
-  /// para esta ruta, y lo que no coincide con ningún match cae en el
-  /// `match /{document=**} { allow read, write: if false; }` del final. O sea
-  /// que hoy la escritura se deniega. El cliente está escrito para el
-  /// contrato definitivo (ids de Firestore, `createdAt`/`updatedAt` de
-  /// servidor como en el resto del árbol) y falla de forma honesta mientras
-  /// tanto: no le dice a nadie que su reporte se envió si no se envió.
+  /// `firestore.rules` tiene el `match /aiReports/{reportId}` que exige la
+  /// política P-12 de Google Play: el dueño puede crear y leer, y `update` y
+  /// `delete` están denegados a propósito (un reporte es la prueba de que
+  /// alguien marcó una respuesta). La regla valida los mismos topes que
+  /// aplica el cliente, [maxReportCommentChars] y [maxReportedTextChars],
+  /// porque el cliente no es quien decide.
+  ///
+  /// Si la escritura falla igualmente, `reportMessage` devuelve `false` y la
+  /// pantalla lo dice: nunca le cuenta a nadie que su reporte se envió si no
+  /// se envió.
   static const String aiReportsCollection = 'aiReports';
 
   /// Tope del comentario libre del reporte, en caracteres.
