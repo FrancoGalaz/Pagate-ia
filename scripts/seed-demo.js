@@ -339,11 +339,11 @@ const MOVIMIENTOS = [
  * [id, nombre, tipo, precio, stock, mínimo, unidad, proveedor, código]
  */
 const INVENTARIO = [
-  ['taza-gres-300', 'Taza de gres esmaltada 300 ml', 'product', 14900, 24, 10, 'unidad', null, 'TZ-300'],
-  ['pocillo-ramen', 'Pocillo ramen 900 ml', 'product', 22900, 6, 8, 'unidad', null, 'PR-900'],
-  ['macetero-20', 'Macetero esmaltado 20 cm', 'product', 28900, 11, 6, 'unidad', null, 'MC-20'],
-  ['plato-llano-26', 'Plato llano 26 cm', 'product', 16900, 3, 12, 'unidad', null, 'PL-26'],
-  ['jarron-atacama', 'Jarrón línea Atacama', 'product', 54900, 4, 3, 'unidad', null, 'JA-01'],
+  ['taza-gres-300', 'Taza de gres esmaltada 300 ml', 'product', 14900, 24, 10, 'unidades', null, 'TZ-300'],
+  ['pocillo-ramen', 'Pocillo ramen 900 ml', 'product', 22900, 6, 8, 'unidades', null, 'PR-900'],
+  ['macetero-20', 'Macetero esmaltado 20 cm', 'product', 28900, 11, 6, 'unidades', null, 'MC-20'],
+  ['plato-llano-26', 'Plato llano 26 cm', 'product', 16900, 3, 12, 'unidades', null, 'PL-26'],
+  ['jarron-atacama', 'Jarrón línea Atacama', 'product', 54900, 4, 3, 'unidades', null, 'JA-01'],
   ['set-6-bandeja', 'Set 6 tazas y bandeja', 'product', 89900, 4, 2, 'set', null, 'ST-06'],
   ['arcilla-gres', 'Arcilla de gres chilena', 'material', 1920, 75, 50, 'kg', 'Cerámica Santa Elena', null],
   ['caolin', 'Caolín', 'material', 1450, 18, 25, 'kg', 'Minerales Illapel', null],
