@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../domain/entities/inventory_item_entity.dart';
@@ -281,7 +282,9 @@ class DetalleItemScreen extends StatelessWidget {
             onPressed: () async {
               final stock = int.tryParse(controller.text.trim());
               if (stock == null || stock < 0) {
-                AppFeedback.showMessage(
+                // `showError`: un `AlertDialog` tampoco trae Scaffold, y
+                // el aviso quedaba detrás del diálogo.
+                AppFeedback.showError(
                   dialogContext,
                   'Ingresa una cantidad válida de stock.',
                 );
@@ -292,10 +295,11 @@ class DetalleItemScreen extends StatelessWidget {
                 await provider.updateStock(itemId: item.id, newStock: stock);
               } catch (e) {
                 if (!dialogContext.mounted) return;
-                AppFeedback.showMessage(
+                AppFeedback.showError(
                   dialogContext,
                   InventoryProvider.describeError(
                     e,
+                    operation: DataOperation.write,
                     fallback: 'No se pudo actualizar el stock',
                   ),
                 );
@@ -353,9 +357,9 @@ class DetalleItemScreen extends StatelessWidget {
       await provider.deleteItem(item.id);
     } catch (e) {
       if (!context.mounted) return;
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
-        InventoryProvider.describeError(e, fallback: 'No se pudo eliminar'),
+        InventoryProvider.describeError(e, operation: DataOperation.delete),
       );
       return;
     }

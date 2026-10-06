@@ -8,10 +8,13 @@
 
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
+import 'package:pagate_ia/core/widgets/pagate_inline_error.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_summary_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_transaction_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/fixed_expense_entity.dart';
@@ -19,9 +22,13 @@ import 'package:pagate_ia/features/finances/domain/repositories/finances_reposit
 import 'package:pagate_ia/features/finances/presentation/providers/finances_provider.dart';
 import 'package:pagate_ia/features/finances/presentation/widgets/transaction_form_sheet.dart';
 
-/// Repositorio falso: solo guarda lo que le mandan.
+/// Repositorio falso: guarda lo que le mandan, o revienta si se le pide.
 class FakeRepository implements FinancesRepository {
   final List<FinancesTransactionEntity> added = [];
+
+  /// Si no es nulo, `addTransaction` lo lanza en vez de guardar. Es lo que
+  /// permite probar el camino de error, que era el que no se veía.
+  Object? errorAlGuardar;
 
   @override
   Stream<List<FinancesSummaryEntity>> watchMonths() => const Stream.empty();
@@ -40,6 +47,8 @@ class FakeRepository implements FinancesRepository {
   Future<void> addTransaction(
     final FinancesTransactionEntity transaction,
   ) async {
+    final error = errorAlGuardar;
+    if (error != null) throw error;
     added.add(transaction);
   }
 
@@ -247,5 +256,166 @@ void main() {
       find.text('La comisión no puede ser mayor que el monto'),
       findsOneWidget,
     );
+  });
+  // ─── EL CAMINO DE ERROR, que era invisible ────────────────────────────
+  //
+  // Lo que pasaba: la hoja sigue abierta en el `catch`, y el aviso se pintaba
+  // con `ScaffoldMessenger`, es decir dentro del Scaffold de la pantalla que
+  // está DEBAJO de la hoja. El coordinador lo comprobó en el emulador: al
+  // fallar el guardado de un ingreso, ocho capturas seguidas sin spinner, sin
+  // aviso y sin error. El botón parecía no hacer nada.
+  //
+  // Un `find.text` no habría detectado nada, porque el texto SÍ estaba en el
+  // árbol. Por eso estos tests montan la hoja como hoja modal de verdad y
+  // comprueban el hit test.
+
+  /// ¿Llega un toque en el centro de [finder] hasta su render object?
+  bool recibeToques(final WidgetTester tester, final Finder finder) {
+    final objetivo = tester.renderObject(finder);
+    final resultado = HitTestResult();
+    tester.binding.hitTestInView(
+      resultado,
+      tester.getCenter(finder),
+      tester.view.viewId,
+    );
+    return resultado.path.any((final e) => e.target == objetivo);
+  }
+
+  /// Monta la hoja COMO HOJA MODAL, con `showTransactionSheet`, que es como
+  /// la abre la app. Montarla dentro de un Scaffold, como hacen los tests de
+  /// arriba, es justamente lo que ocultaba el defecto.
+  Future<void> abrirComoHojaModal(final WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: ChangeNotifierProvider<FinancesProvider>.value(
+          value: provider,
+          child: Scaffold(
+            body: Builder(
+              builder: (final context) => Center(
+                child: ElevatedButton(
+                  onPressed: () => showTransactionSheet(context),
+                  child: const Text('Registrar movimiento'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Registrar movimiento'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('un guardado fallido SE VE dentro de la hoja', (
+    final tester,
+  ) async {
+    repository.errorAlGuardar = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'permission-denied',
+    );
+
+    await abrirComoHojaModal(tester);
+    await escribir(tester, 'titulo', 'Venta en feria');
+    await escribir(tester, 'monto', '120.000');
+    await enviar(tester, 'Registrar ingreso');
+
+    // 1. El error está en pantalla.
+    final aviso = find.byType(PagateInlineError);
+    expect(aviso, findsOneWidget, reason: 'el fallo no puede ser silencioso');
+
+    // 2. Y está DENTRO de la hoja, no detrás de ella.
+    expect(
+      find.descendant(
+        of: find.byType(TransactionFormSheet),
+        matching: aviso,
+      ),
+      findsOneWidget,
+    );
+
+    // 3. LA COMPROBACIÓN QUE IMPORTA: nada lo cubre. Con el `SnackBar` de
+    // antes esto era `false` aunque el texto estuviera en el árbol.
+    final texto = find.descendant(of: aviso, matching: find.byType(Text));
+    expect(
+      recibeToques(tester, texto),
+      isTrue,
+      reason: 'el aviso tiene que quedar por encima de la hoja',
+    );
+
+    // 4. La hoja sigue abierta y lo escrito sigue ahí: un fallo de red no
+    // puede costarle al usuario el formulario entero.
+    expect(find.text('Registrar ingreso'), findsOneWidget);
+    expect(find.text('Venta en feria'), findsWidgets);
+    expect(find.text('120.000'), findsOneWidget);
+    expect(repository.added, isEmpty);
+  });
+
+  testWidgets('el texto del error habla de GUARDAR, no de ver', (
+    final tester,
+  ) async {
+    repository.errorAlGuardar = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'permission-denied',
+    );
+
+    await abrirComoHojaModal(tester);
+    await escribir(tester, 'titulo', 'Venta por Instagram');
+    await escribir(tester, 'monto', '45.000');
+    await enviar(tester, 'Registrar ingreso');
+
+    // Decía "No tienes permiso para ver estos datos" al fallar un GUARDADO:
+    // el usuario los tenía delante, escritos, y lo que necesitaba saber es
+    // que no quedaron guardados.
+    expect(find.textContaining('No se guardó'), findsOneWidget);
+    expect(find.textContaining('ver estos datos'), findsNothing);
+  });
+
+  testWidgets('el botón vuelve a estar pulsable tras el fallo', (
+    final tester,
+  ) async {
+    repository.errorAlGuardar = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'unavailable',
+    );
+
+    await abrirComoHojaModal(tester);
+    await escribir(tester, 'titulo', 'Pedido personalizado');
+    await escribir(tester, 'monto', '80.000');
+    await enviar(tester, 'Registrar ingreso');
+    expect(find.byType(PagateInlineError), findsOneWidget);
+
+    // Segundo intento, ahora sin error: se guarda y la hoja se cierra.
+    repository.errorAlGuardar = null;
+    await enviar(tester, 'Registrar ingreso');
+
+    expect(repository.added, hasLength(1));
+    expect(repository.added.single.amount, 80000);
+    expect(find.byType(TransactionFormSheet), findsNothing);
+  });
+
+  testWidgets('al cambiar de tipo el error del intento anterior se va', (
+    final tester,
+  ) async {
+    repository.errorAlGuardar = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'unavailable',
+    );
+
+    await abrirComoHojaModal(tester);
+    await escribir(tester, 'titulo', 'Venta en feria');
+    await escribir(tester, 'monto', '30.000');
+    await enviar(tester, 'Registrar ingreso');
+    expect(find.byType(PagateInlineError), findsOneWidget);
+
+    // `ensureVisible`: dentro de la hoja modal el selector de tipo queda
+    // fuera del viewport del test, y un tap que no acierta no cambia nada.
+    final chipGasto = find.text('Gasto');
+    await tester.ensureVisible(chipGasto);
+    await tester.pump();
+    await tester.tap(chipGasto);
+    await tester.pump();
+
+    // El error era de otro movimiento: dejarlo visible seria mentir.
+    expect(find.byType(PagateInlineError), findsNothing);
   });
 }

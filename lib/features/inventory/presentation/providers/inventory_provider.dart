@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/utils/error_messages.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -156,23 +156,16 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   /// Traduce una excepción a un mensaje corto en español.
+  ///
+  /// [operation] es obligatorio en la práctica para una escritura o un
+  /// borrado: sin él, un `permission-denied` al GUARDAR se contaba como
+  /// "No tienes permiso para ver estos datos", que es falso y además
+  /// desorienta (el usuario los está viendo). La lógica vive en
+  /// `core/utils/error_messages.dart`, compartida con InventoryProvider.
   static String describeError(
     final Object error, {
-    final String fallback = 'Error al cargar',
-  }) {
-    if (error is FirebaseException) {
-      switch (error.code) {
-        case 'permission-denied':
-          return 'No tienes permiso para ver estos datos';
-        case 'unavailable':
-          return 'Sin conexión';
-        default:
-          return fallback;
-      }
-    }
-    if (error is ArgumentError) {
-      return error.message?.toString() ?? fallback;
-    }
-    return fallback;
-  }
+    final String? fallback,
+    final DataOperation operation = DataOperation.read,
+  }) =>
+      describeDataError(error, operation: operation, fallback: fallback);
 }

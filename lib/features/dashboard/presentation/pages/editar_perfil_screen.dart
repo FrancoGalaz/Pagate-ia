@@ -63,7 +63,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     final goal = parseCurrencyInput(_goalController.text);
 
     if (name.isEmpty || businessName.isEmpty) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'Completa tu nombre y el nombre del negocio.',
       );
@@ -71,7 +71,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
 
     if (_selectedBusinessType.isEmpty) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'Selecciona un tipo de negocio.',
       );
@@ -79,7 +79,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
 
     if (goal == null || goal <= 0) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'Ingresa una meta económica válida.',
       );
@@ -101,7 +101,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

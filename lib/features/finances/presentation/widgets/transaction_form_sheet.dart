@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/pagate_chip_selector.dart';
+import '../../../../core/widgets/pagate_inline_error.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../../../../core/widgets/pagate_text_field.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
@@ -119,6 +121,13 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   DateTime _date = DateTime.now();
   bool _saving = false;
 
+  /// Mensaje del último guardado fallido, o `null` si no hubo ninguno.
+  ///
+  /// Se dibuja DENTRO de la hoja, justo encima del botón: un fallo al
+  /// registrar dinero tiene que seguir legible cuando el usuario vuelve a
+  /// mirar el formulario, no desvanecerse a los pocos segundos.
+  String? _errorGuardado;
+
   static String _defaultCategory(final TransactionType type) =>
       categoriesFor(type).first;
 
@@ -144,6 +153,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
       // comisión en un gasto sería un dato falso.
       _docType = TransactionDocType.fallback;
       _feeController.clear();
+      // El error era de otro movimiento: dejarlo visible sería mentir.
+      _errorGuardado = null;
     });
   }
 
@@ -202,7 +213,11 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     final amount = _parseAmount(_amountController.text);
     if (amount == null || amount <= 0) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      // Un reintento empieza sin el error del intento anterior en pantalla.
+      _errorGuardado = null;
+    });
     final provider = context.read<FinancesProvider>();
     final navigator = Navigator.of(context);
     try {
@@ -228,11 +243,20 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
-      AppFeedback.showMessage(
-        context,
-        FinancesProvider.describeError(e, fallback: 'No se pudo guardar'),
-      );
+      // EL ERROR SE QUEDA DENTRO DE LA HOJA, no en un aviso que se va.
+      //
+      // Aquí estaba el defecto grave: la hoja sigue abierta en el `catch`, y
+      // el `SnackBar` que pintaba `AppFeedback` lo dibujaba el Scaffold de
+      // la pantalla de DETRÁS, así que quedaba tapado por la hoja. El botón
+      // volvía a su estado normal y no pasaba nada visible: ocho capturas
+      // seguidas sin spinner, sin aviso y sin error.
+      setState(() {
+        _saving = false;
+        _errorGuardado = FinancesProvider.describeError(
+          e,
+          operation: DataOperation.write,
+        );
+      });
     }
   }
 
@@ -397,6 +421,10 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
               const SizedBox(height: AppSpacing.xl),
 
+              if (_errorGuardado != null) ...[
+                PagateInlineError(message: _errorGuardado),
+                const SizedBox(height: AppSpacing.md),
+              ],
               PagatePrimaryButton(
                 label: isIncome ? 'Registrar ingreso' : 'Registrar gasto',
                 leadingIcon: Icons.check_rounded,

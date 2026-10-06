@@ -83,7 +83,7 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage>
     if (success) {
       _showSuccessDialog();
     } else {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         provider.saveError ?? 'No se pudo guardar el valor hora.',
       );

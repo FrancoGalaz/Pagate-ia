@@ -135,7 +135,7 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
       // El AuthGate detecta la sesión nueva y abre el onboarding.
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

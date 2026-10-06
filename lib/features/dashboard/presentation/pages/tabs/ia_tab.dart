@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/theme/app_text.dart';
+import '../../../../../core/utils/app_feedback.dart';
 import '../../../../../core/widgets/widgets.dart';
 import '../../providers/ai_provider.dart';
 
@@ -554,7 +555,6 @@ class _ReportAction extends StatelessWidget {
 
   Future<void> _report(final BuildContext context) async {
     final provider = context.read<AiProvider>();
-    final messenger = ScaffoldMessenger.of(context);
     final eleccion = await showModalBottomSheet<({AiReportReason reason, String comment})>(
       context: context,
       isScrollControlled: true,
@@ -574,18 +574,20 @@ class _ReportAction extends StatelessWidget {
       reason: eleccion.reason,
       comment: eleccion.comment,
     );
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            guardado
-                ? 'Reporte enviado. Gracias por avisar.'
-                // No se dice "enviado" si no se envió.
-                : 'No se pudo enviar el reporte. Intenta de nuevo.',
-          ),
-        ),
+    if (!context.mounted) return;
+    // `AppFeedback` y no `ScaffoldMessenger`: el aviso del overlay raíz se ve
+    // también si queda una hoja abierta encima. Aquí la hoja ya se cerró,
+    // pero tener DOS mecanismos de aviso en la app es justo lo que dejó el
+    // error de guardado invisible durante semanas.
+    if (guardado) {
+      AppFeedback.showMessage(context, 'Reporte enviado. Gracias por avisar.');
+    } else {
+      // No se dice "enviado" si no se envió.
+      AppFeedback.showError(
+        context,
+        'No se pudo enviar el reporte. Intenta de nuevo.',
       );
+    }
   }
 
   @override

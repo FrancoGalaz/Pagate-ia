@@ -25,6 +25,7 @@ export 'pagate_movement_row.dart';
 // ─── Estados ─────────────────────────────────────────────────────
 export 'pagate_empty_state.dart';
 export 'pagate_error_state.dart';
+export 'pagate_inline_error.dart';
 export 'pagate_skeleton.dart';
 
 // ─── Navegación y superficies ────────────────────────────────────

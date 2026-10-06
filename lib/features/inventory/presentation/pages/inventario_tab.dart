@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/pagate_error_state.dart';
 import '../../../../core/widgets/pagate_primary_button.dart';
 import '../providers/inventory_provider.dart';
@@ -116,7 +117,11 @@ class InventarioTab extends StatelessWidget {
                     price < 0 ||
                     stock < 0 ||
                     minStock < 0) {
-                  AppFeedback.showMessage(
+                  // `showError` y no `showMessage`: esta hoja no lleva
+                  // Scaffold propio, así que el `SnackBar` de antes lo
+                  // pintaba el Scaffold de detrás y quedaba tapado por la
+                  // hoja. El aviso del overlay raíz se ve encima.
+                  AppFeedback.showError(
                     sheetContext,
                     'Completa todos los campos con valores válidos.',
                   );
@@ -134,10 +139,11 @@ class InventarioTab extends StatelessWidget {
                   );
                 } catch (e) {
                   if (!sheetContext.mounted) return;
-                  AppFeedback.showMessage(
+                  AppFeedback.showError(
                     sheetContext,
                     InventoryProvider.describeError(
                       e,
+                      operation: DataOperation.write,
                       fallback: 'No se pudo guardar el ítem',
                     ),
                   );

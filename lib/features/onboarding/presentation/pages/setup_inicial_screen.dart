@@ -130,7 +130,7 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
       // El gate reacciona al stream del perfil y muestra el dashboard.
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

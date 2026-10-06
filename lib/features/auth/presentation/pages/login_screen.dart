@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onForgotPassword() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'Ingresa tu correo primero para enviarte el enlace de recuperación.',
       );
@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -84,10 +84,10 @@ class _LoginScreenState extends State<LoginScreen> {
           e.code == 'cancelled-popup-request') {
         return; // El usuario cerró el popup: no es un error.
       }
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -105,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      AppFeedback.showMessage(
+      AppFeedback.showError(
         context,
         'Completa correo y contraseña para continuar.',
       );
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // El AuthGate detecta la sesión nueva.
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(context, describeFirebaseError(e));
+      AppFeedback.showError(context, describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
