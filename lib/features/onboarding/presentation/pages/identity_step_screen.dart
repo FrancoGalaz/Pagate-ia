@@ -1,18 +1,65 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
-import '../../../user_profile/domain/entities/user_profile_entity.dart';
-import '../../../../core/theme/app_text.dart';
 
-/// Registro con correo y contraseña.
-///
-/// Al crear la cuenta el `AuthGate` detecta la sesión y muestra el onboarding
-/// (`SetupInicialScreen`) dentro del `UserScope`; el nombre se guarda en el
-/// `displayName` de Auth para precargarlo ahí. No navega manualmente.
+// ═══════════════════════════════════════════════════════════════════════
+// REGISTRO CON CORREO Y CONTRASEÑA
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 6.2, y tarea B2-04 de
+// docs/PLAN.md.
+//
+// Al crear la cuenta el `AuthGate` detecta la sesión y abre el onboarding
+// (`SetupInicialScreen`) dentro del `UserScope`; el nombre se guarda en el
+// `displayName` de Auth para precargarlo allí. Esta pantalla no navega.
+//
+// QUÉ SE BORRÓ Y POR QUÉ:
+//
+// · LA SECCIÓN "CONFIGURACIÓN REGIONAL" ENTERA, con sus dos builders. Eran
+//   ~130 px que no producían NINGÚN dato: el selector de país era un
+//   `Container` con un chevron que no tenía `onTap` en ninguna línea —no se
+//   podía tocar— y no existe campo `country` en el modelo
+//   (docs/ARQUITECTURA.md). Y `_selectedCurrency` cambiaba con las
+//   pestañas, pero `_onNext` NO LO LEÍA NUNCA, y acto seguido
+//   `setup_inicial_screen` volvía a preguntar la moneda. Es la tarea B2-04.
+//
+// · LA BARRA DE PROGRESO "Paso 1 de 3". Los pasos 2 y 3 no existen: en
+//   `features/onboarding/presentation/pages/` solo hay dos archivos y el
+//   segundo no usa `PagateStepHeader` en ninguna línea. Dos pantallas no
+//   necesitan barra de progreso.
+//
+// · EL SALUDO "¡Hola, artesano! 👋" y "para que puedas recibir pagos
+//   globalmente": la app no procesa pagos ni tiene pasarela.
+//
+// · EL DEGRADADO `fadeToWhite` del pie, que además no podía funcionar —el
+//   árbol es una cabecera, un scroll y el contenedor del botón, así que el
+//   botón nunca se superponía al scroll y el degradado se dibujaba sobre
+//   blanco— y con él los 96 px de espacio vacío puro que lo acompañaban.
+//
+// · LOS ENLACES LEGALES FALSOS: "Términos" y "Privacidad" iban pintados en
+//   color de marca pero eran `TextSpan` SIN `recognizer`, es decir, no
+//   respondían al toque. Y el bloque estaba dentro de un `Center`,
+//   rompiendo la alineación del formulario. La aceptación se declara en la
+//   bienvenida, que es donde el usuario decide crear la cuenta, y allí los
+//   dos enlaces sí son controles de verdad.
+//
+// QUÉ GANA:
+//
+// · `Form` con `validator` por campo, en vez de tres `if` que disparaban un
+//   snackbar genérico: el error sale debajo del campo que lo causa.
+// · `AutofillGroup` con `.name`, `.email` y `.newPassword`, y `next` entre
+//   campos con `done` en el último. En todo `lib/` había CERO
+//   `autofillHints`.
+// · `PopScope`: el botón atrás ya no descarta tres campos escritos sin
+//   avisar.
+// ═══════════════════════════════════════════════════════════════════════
+
 class IdentityStepScreen extends StatefulWidget {
   const IdentityStepScreen({super.key});
 
@@ -21,48 +68,69 @@ class IdentityStepScreen extends StatefulWidget {
 }
 
 class _IdentityStepScreenState extends State<IdentityStepScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedCurrency = kDefaultCurrency;
+
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+
   bool _isLoading = false;
+
+  /// Mínimo que exige Firebase Auth. Se declara una vez para que el mensaje
+  /// y la comprobación no puedan desincronizarse.
+  static const int _minimoContrasena = 6;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _onNext() async {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+  bool get _hayAlgoEscrito =>
+      _nameController.text.trim().isNotEmpty ||
+      _emailController.text.trim().isNotEmpty ||
+      _passwordController.text.isNotEmpty;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      AppFeedback.showMessage(
-        context,
-        'Completa todos los campos para continuar.',
-      );
-      return;
-    }
+  String? _validarNombre(final String? valor) =>
+      (valor == null || valor.trim().isEmpty) ? 'Escribe tu nombre' : null;
 
-    if (password.length < 6) {
-      AppFeedback.showMessage(
-        context,
-        'La contraseña debe tener al menos 6 caracteres.',
-      );
-      return;
+  /// Comprobación deliberadamente laxa: la de verdad la hace Firebase Auth y
+  /// su error llega al usuario por `describeFirebaseError`. Una expresión
+  /// regular estricta rechaza direcciones válidas y no aporta seguridad.
+  String? _validarCorreo(final String? valor) {
+    final texto = (valor ?? '').trim();
+    if (texto.isEmpty) return 'Escribe tu correo';
+    if (!texto.contains('@') || !texto.contains('.')) {
+      return 'Ese correo no parece válido';
     }
+    return null;
+  }
+
+  String? _validarContrasena(final String? valor) {
+    final texto = valor ?? '';
+    if (texto.isEmpty) return 'Escribe una contraseña';
+    if (texto.length < _minimoContrasena) {
+      return 'Usa al menos $_minimoContrasena caracteres';
+    }
+    return null;
+  }
+
+  Future<void> _crearCuenta() async {
+    if (_isLoading) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isLoading = true);
-
     try {
       await context.read<FirebaseAuthService>().createUserWithEmailAndPassword(
-            email: email,
-            password: password,
-            displayName: name,
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            displayName: _nameController.text.trim(),
           );
       // El AuthGate detecta la sesión nueva y abre el onboarding.
     } catch (e) {
@@ -73,285 +141,145 @@ class _IdentityStepScreenState extends State<IdentityStepScreen> {
     }
   }
 
+  /// Pregunta antes de descartar lo escrito. `true` si se puede salir.
+  Future<bool> _confirmarSalida() async {
+    if (!_hayAlgoEscrito || _isLoading) return true;
+
+    final salir = await showPagateSheet<bool>(
+      context: context,
+      builder: (final sheetContext) => PagateSheet(
+        title: '¿Descartar lo escrito?',
+        primaryAction: PagatePrimaryButton.secondary(
+          label: 'Seguir escribiendo',
+          onPressed: () => Navigator.of(sheetContext).pop(false),
+        ),
+        secondaryAction: PagatePrimaryButton(
+          label: 'Descartar',
+          onPressed: () => Navigator.of(sheetContext).pop(true),
+        ),
+        child: Text(
+          'Perderás el nombre, el correo y la contraseña que escribiste.',
+          style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                color: AppPalette.textSecondary,
+              ),
+        ),
+      ),
+    );
+    return salir ?? false;
+  }
+
+  Future<void> _volver() async {
+    if (!await _confirmarSalida()) return;
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. Unified step header
-            const PagateStepHeader(
-              currentStep: 1,
-              totalSteps: 3,
-              stepLabel: 'Identidad y Región',
-            ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (final didPop, final _) {
+        if (didPop) return;
+        unawaited(_volver());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Volver',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: _volver,
+          ),
+        ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                  ),
+                  child: Form(
+                    key: _formKey,
 
-            // 2. Scrollable form
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.screenHorizontal,
-                  vertical: AppSpacing.xl,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Greeting
-                    Text(
-                      'Crea tu cuenta',
-                      style: textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textPrimary,
+                    // El error aparece en cuanto el campo se toca, no solo al
+                    // pulsar el botón: así el usuario no llega al pie para
+                    // enterarse de que escribió mal el correo.
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Crea tu cuenta',
+                            style: theme.textTheme.headlineLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.x2),
+                          Text(
+                            'Después configuras tu taller y tu meta del mes.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppPalette.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.x8),
+                          PagateTextField(
+                            labelText: 'Nombre completo',
+                            hintText: 'Camila Rojas',
+                            controller: _nameController,
+                            validator: _validarNombre,
+                            autofillHints: const [AutofillHints.name],
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (final _) =>
+                                _emailFocus.requestFocus(),
+                          ),
+                          const SizedBox(height: AppSpacing.x4),
+                          PagateTextField(
+                            labelText: 'Correo electrónico',
+                            hintText: 'camila@taller.cl',
+                            controller: _emailController,
+                            focusNode: _emailFocus,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: _validarCorreo,
+                            autofillHints: const [AutofillHints.email],
+                            textInputAction: TextInputAction.next,
+                            onFieldSubmitted: (final _) =>
+                                _passwordFocus.requestFocus(),
+                          ),
+                          const SizedBox(height: AppSpacing.x4),
+                          PagateTextField(
+                            labelText: 'Contraseña',
+                            hintText: 'Al menos $_minimoContrasena caracteres',
+                            controller: _passwordController,
+                            focusNode: _passwordFocus,
+                            isPassword: true,
+                            validator: _validarContrasena,
+                            autofillHints: const [AutofillHints.newPassword],
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (final _) =>
+                                unawaited(_crearCuenta()),
+                          ),
+                          const SizedBox(height: AppSpacing.x6),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Con esto creas tu cuenta. Después configuras tu taller y tu meta '
-                      'del mes.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    // Name
-                    PagateTextField(
-                      labelText: 'Nombre completo',
-                      controller: _nameController,
-                      hintText: 'Ej. María González',
-                      prefixIcon: Icons.person_outline,
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Email
-                    PagateTextField(
-                      labelText: 'Correo electrónico',
-                      controller: _emailController,
-                      hintText: 'hola@ejemplo.com',
-                      prefixIcon: Icons.mail_outline,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Password
-                    PagateTextField(
-                      labelText: 'Contraseña',
-                      controller: _passwordController,
-                      hintText: '••••••••',
-                      prefixIcon: Icons.lock_outline,
-                      isPassword: true,
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    // Separator
-                    const Divider(),
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    // Regional settings
-                    Text(
-                      'Moneda y país',
-                      style: AppText.weight(
-                        textTheme.titleMedium!,
-                        700,
-                      ).copyWith(color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Country selector
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'País',
-                                style: textTheme.titleSmall?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              _buildCountrySelector(),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        // Currency selector
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Moneda',
-                                style: textTheme.titleSmall?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              _buildCurrencySelector(),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    // Terms
-                    Center(
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                          children: const [
-                            TextSpan(
-                              text: 'Al continuar, aceptas nuestros ',
-                            ),
-                            TextSpan(
-                              text: 'Términos',
-                              style: TextStyle(color: AppColors.brand),
-                            ),
-                            TextSpan(text: ' y '),
-                            TextSpan(
-                              text: 'Privacidad',
-                              style: TextStyle(color: AppColors.brand),
-                            ),
-                            TextSpan(text: '.'),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Bottom spacer for scroll
-                    const SizedBox(height: AppSpacing.hero + AppSpacing.xxl),
-                  ],
+                  ),
                 ),
               ),
-            ),
 
-            // 3. Fixed bottom action
-            Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.fadeToWhite,
+              // El pie es una barra con línea de 1 px, no un degradado.
+              PagateActionBar(
+                child: PagatePrimaryButton(
+                  label: 'Crear cuenta',
+                  isLoading: _isLoading,
+                  onPressed: _crearCuenta,
+                ),
               ),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenHorizontal,
-                0,
-                AppSpacing.screenHorizontal,
-                AppSpacing.xxl,
-              ),
-              child: PagatePrimaryButton(
-                label: 'Siguiente',
-                trailingIcon: Icons.arrow_forward_rounded,
-                isLoading: _isLoading,
-                onPressed: _onNext,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
-  Widget _buildCountrySelector() => Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
-          borderRadius: AppRadius.xxlBorder,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: AppIconSize.md,
-                  height: AppIconSize.md,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.textTertiary,
-                  ),
-                  child: const Icon(
-                    Icons.flag,
-                    color: AppColors.textOnBrand,
-                    size: AppIconSize.xs,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Chile',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
-            ),
-            const Icon(
-              Icons.expand_more,
-              color: AppColors.textTertiary,
-              size: AppIconSize.md,
-            ),
-          ],
-        ),
-      );
-
-  Widget _buildCurrencySelector() => Container(
-        padding: const EdgeInsets.all(AppSpacing.xxs),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceSecondary,
-          borderRadius: AppRadius.xxlBorder,
-        ),
-        child: Row(
-          children: [
-            _buildCurrencyTab('CLP', _selectedCurrency == 'CLP'),
-            _buildCurrencyTab('USD', _selectedCurrency == 'USD'),
-          ],
-        ),
-      );
-
-  Widget _buildCurrencyTab(final String code, final bool isSelected) =>
-      Expanded(
-        child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedCurrency = code;
-            });
-          },
-          child: AnimatedContainer(
-            duration: AppDurations.fast,
-            curve: AppCurves.standard,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm - 2),
-            decoration: isSelected
-                ? BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: AppRadius.xlBorder,
-                    boxShadow: AppShadows.sm,
-                  )
-                : null,
-            child: Text(
-              code,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color:
-                        isSelected ? AppColors.brand : AppColors.textTertiary,
-                  ),
-            ),
-          ),
-        ),
-      );
 }
