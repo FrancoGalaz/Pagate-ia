@@ -3,7 +3,9 @@
 Guía para agentes que trabajan en este repo. La fuente de verdad del modelo de
 datos, la API del backend y las convenciones del cliente es
 `docs/ARQUITECTURA.md`: léelo antes de tocar `lib/`, `functions/` o
-`firestore.rules`.
+`firestore.rules`. La del sistema visual es `docs/DISENO-v2.md`: léelo antes de
+tocar `lib/core/theme/`, `lib/core/constants/app_constants.dart` o cualquier
+pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 
 ## Entorno y toolchain
 - Flutter/Dart del canal **beta**: `pubspec.yaml` exige `sdk: ^3.12.0-113.1.beta` y `.metadata` está en `channel: beta`.
@@ -14,15 +16,27 @@ datos, la API del backend y las convenciones del cliente es
 ## Comandos de verificación
 - Análisis estático: `flutter analyze`
 - Tests Flutter: `flutter test` (un archivo: `flutter test test/widget_test.dart`)
-- Backend: `npm --prefix functions run build && npm --prefix functions test` (levanta el emulador de Firestore)
+- Backend: `npm --prefix functions run lint && npm --prefix functions run build && npm --prefix functions test`
+  (el último levanta su propio emulador de Firestore en el puerto **8181**, con
+  `firebase.test.json`, para no tocar el de desarrollo del 8080). Los tests de
+  reglas borran la base en cada caso: **nunca** los lances con `vitest` a mano,
+  o apuntan el borrado al emulador que tenga datos; fallan rápido si lo
+  intentas.
 - Landing: `npm --prefix landing run lint && npm --prefix landing test && npm --prefix landing run build`
 - App en local contra emuladores: `./scripts/dev.sh` y luego `flutter run --dart-define=PAGATE_ENV=dev`
 - App contra producción: `flutter run` (o `flutter run -d chrome`)
 
 ## Cómo está cableada la app
-- Entrada: `lib/main.dart`. El widget raíz escucha `authStateChanges`:
-  sin usuario → `WelcomeScreen`; con usuario sin `users/{uid}` → onboarding;
-  con perfil → `DashboardScreen`.
+- Entrada: `lib/main.dart` → `PagateIAApp` (solo provee
+  `FirebaseAuthService`) → `AuthGate`
+  (`lib/features/auth/presentation/pages/auth_gate.dart`), que escucha
+  `authStateChanges`: sin usuario → `WelcomeScreen`; con usuario sin
+  `users/{uid}` → onboarding; con perfil → `DashboardScreen`.
+- El `MaterialApp` lo monta `AppShell`
+  (`lib/features/auth/presentation/widgets/app_shell.dart`), con
+  `AppTheme.lightTheme` y `themeMode: ThemeMode.light`. Su `key` cambia con la
+  sesión para que el `Navigator` se cree de cero y ninguna ruta apilada
+  sobreviva a un cambio de usuario.
 - Los providers con alcance de usuario se crean **debajo** del auth gate con
   `key: ValueKey(uid)`. No existe el usuario `'anonymous'`.
 - Entorno con `--dart-define=PAGATE_ENV=dev|prod` (`prod` por defecto). En
@@ -36,17 +50,28 @@ datos, la API del backend y las convenciones del cliente es
 
 ## Capa de datos
 - Todo dato de usuario cuelga de `users/{uid}`:
-  `inventory/`, `transactions/`, `fixedExpenses/`, `months/` (solo backend),
-  `conversations/{id}/messages/` (solo backend), `meta/usage` (solo backend).
+  `inventory/`, `transactions/`, `fixedExpenses/`, `aiReports/`,
+  `months/` (solo backend), `conversations/{id}/messages/` (solo backend),
+  `meta/usage` (solo backend).
+- `aiReports/` son los reportes de respuestas del asistente (**P-12**: la
+  política de IA generativa de Google Play exige poder marcar contenido
+  ofensivo o dañino dentro de la app). Es la única subcolección que el cliente
+  **crea y después no puede tocar**: `create` y `read` para el dueño, `update` y
+  `delete` denegados. Un reporte es la prueba de que alguien marcó una
+  respuesta; si se pudiera editar o borrar, esa prueba desaparece. Campos:
+  `messageId`, `conversationId` (opcional), `reason`
+  (`ofensivo` | `incorrecto` | `peligroso` | `otro`), `comment` (opcional,
+  ≤1000), `reportedText` (≤2000) y las dos marcas de tiempo del servidor.
 - Ids generados por Firestore, fechas como `Timestamp`, sin campo `userId`
   duplicado. `monthKey` es `yyyy-MM` derivado de `date` en el cliente, con el
   mes acotado a 01-12 (mismo regex en reglas y en `months.ts`).
 - Contrato **C-3** en `transactions`: `docType`
   (`boleta_venta` | `boleta_honorarios` | `sin_documento`) y `platformFee`
-  (`0 <= platformFee <= amount`), los dos **opcionales**. Ausentes valen
-  `'sin_documento'` y `0`. El neto **no se guarda**: se deriva como
-  `amount - platformFee`. La app registra y muestra, **no asesora**: nada de
-  calcular impuestos a pagar ni dar consejo tributario.
+  (`0 <= platformFee <= amount`, **solo en los ingresos**), los dos
+  **opcionales**. Ausentes valen `'sin_documento'` y `0`. El neto de una
+  transacción **no se guarda**: se deriva como `amount - platformFee`. La app
+  registra y muestra, **no asesora**: nada de calcular impuestos a pagar ni dar
+  consejo tributario, ni en el cliente ni en el prompt del asistente.
 - Las lecturas son **streams** (`snapshots()`), nunca `get()` puntuales.
 - Los providers exponen `error` (String?) y `retry()`. Nunca devolver una
   lista vacía como si fuera un estado válido ante un error.
@@ -65,13 +90,30 @@ datos, la API del backend y las convenciones del cliente es
     historial viaja completo en cada turno, así que ese número multiplica los
     tokens de entrada de toda la conversación.
   - Si OpenRouter falla, la cuota se devuelve y lo escrito se deshace.
+  - **No existe ningún plan Pro que se pueda comprar**: no hay
+    `in_app_purchase` ni integración de facturación en el proyecto. `pro` es un
+    valor del campo `plan` que solo escribe el backend o el dueño a mano.
+    Ningún texto que lea el usuario puede ofrecerlo: anunciar dentro de la app
+    un plan de pago que no pasa por la facturación de Google Play incumple su
+    política. El candado está en `functions/test/quota.test.ts`.
+  - El prompt lleva los campos chilenos de C-3 (documento de cada ingreso, y
+    bruto/comisión/neto) y prohíbe explícitamente la asesoría tributaria.
 - `deleteAccount` (callable): auth + App Check, borra `users/{uid}` y todo su
   árbol y luego el usuario de Authentication, en ese orden. Lo exige la política
   de borrado de datos de Google Play. Por eso las reglas deniegan `delete` en
   `users/{uid}`.
 - `onTransactionWritten`: recalcula `months/{monthKey}` (ambos meses si cambió
-  `monthKey`) dentro de una transacción. Idempotente. `months/*` suma `amount`
-  (bruto); `platformFee` no entra en los agregados.
+  `monthKey`) dentro de una transacción. Idempotente. `months/*` guarda
+  `totalIncome` (bruto), `totalExpenses`, `totalPlatformFees` (comisiones de los
+  **ingresos** del mes) y `transactionCount`. El neto del mes se **deriva**
+  (`totalIncome - totalPlatformFees`); no se guarda ningún neto.
+  - Las comisiones se suman en una agregación **aparte**, y eso no se puede
+    "simplificar" metiéndolas en la misma `aggregate()`: en agregación
+    combinada, un `sum('platformFee')` restringe el conjunto a los documentos
+    que **tienen** el campo, y como es opcional, los totales del mes pasarían a
+    contar solo las ventas con comisión. El por qué, medido contra el emulador,
+    está en `docs/ARQUITECTURA.md` y en el test
+    «mezcla ingresos con y sin comision sin perder ninguno».
 - `waitlist` (HTTP): `POST {name, email, source}` → `200 {ok:true}` |
   `400/429 {error}`. Lo consume `landing/src/services/waitlist-service.ts`. El
   id del documento es el sha256 del correo normalizado: reenviar no duplica.
@@ -116,8 +158,11 @@ datos, la API del backend y las convenciones del cliente es
   consola de Firebase, decisiones de producto).
 - Respetar el contrato de `docs/ARQUITECTURA.md`. Si hay que cambiarlo, cambiar
   primero el documento y luego reglas, funciones y datasources.
-- Commits locales, atómicos y descriptivos. **Push solo tras** `flutter analyze`,
-  `flutter test` y `npm --prefix functions test` en verde.
+- Commits locales, atómicos y descriptivos, en español. **Nada de `git push` ni
+  de cualquier otra operación contra `origin` sin que el dueño lo pida
+  explícitamente**, y él lo comprueba. Verificación en verde
+  (`flutter analyze`, `flutter test`, `npm --prefix functions run lint`,
+  `run build` y `test`) **antes de commitear**, no antes de subir.
 - Usar los tokens de `app_constants.dart`; seguir `data/domain/presentation`
   con Provider para features nuevas.
 - Tests: unitarios de casos de uso en `test/features/<feature>/`, widget tests

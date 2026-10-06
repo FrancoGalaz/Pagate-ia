@@ -67,6 +67,14 @@ users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurr
   amount: number (> 0)
   createdAt, updatedAt: Timestamp
 
+users/{uid}/aiReports/{reportId}         (owner: create + read; SIN update ni delete)
+  messageId: string                 id del mensaje reportado
+  conversationId: string            (OPCIONAL; ausente = mensaje sin conversación guardada)
+  reason: 'ofensivo' | 'incorrecto' | 'peligroso' | 'otro'
+  comment: string (<= 1000)         (OPCIONAL, texto libre de la persona)
+  reportedText: string (<= 2000)    copia del texto reportado
+  createdAt, updatedAt: Timestamp
+
 users/{uid}/months/{yyyy-MM}             (owner: read; write SOLO backend)
   totalIncome: number         BRUTO: suma de amount de los ingresos del mes
   totalExpenses: number
@@ -115,6 +123,22 @@ caracteres (2000 para `description`), `monthKey` con regex
 `^\d{4}-(0[1-9]|1[0-2])$`, `createdAt` inmutable, `updatedAt == request.time`
 (o sea, `serverTimestamp()`), `read` separado en `get` y `list` con `list`
 acotado a 200 documentos, y `delete` de `users/{uid}` denegado.
+
+**`aiReports` es la excepción a la forma del resto del árbol (P-12).** Es la
+única subcolección que el dueño **crea y después no puede modificar ni borrar**:
+`create` y `read` sí, `update` y `delete` denegados. Existe porque la política de
+Google Play para apps con IA generativa exige un mecanismo **dentro de la app**
+para marcar contenido ofensivo o dañino, y el botón «Reportar respuesta» de la
+pestaña de IA escribe ahí. Un reporte es la prueba de que alguien marcó una
+respuesta: quien puede editarlo o borrarlo después puede hacer esa prueba
+desaparecer, así que si la persona se equivocó de motivo manda otro reporte. El
+borrado de cuenta sigue cubierto sin tocar nada, porque `deleteAccount` usa
+`recursiveDelete`, que descubre las subcolecciones en tiempo de ejecución.
+
+Hasta este cambio no había ningún `match` para esa ruta, así que caía en el
+`match /{document=**} { allow read, write: if false; }` del final y **toda
+escritura se denegaba**: el requisito de Play estaba dibujado en la interfaz y no
+funcionaba.
 
 El mismo regex de `monthKey` vive en `functions/src/months.ts`
 (`MONTH_KEY_RE`). No es redundante: las reglas cubren lo que escribe el cliente
@@ -216,11 +240,23 @@ Flujo:
    - plan `free`: **25 mensajes DE POR VIDA** (`chatCountLifetime`), no diarios.
      El registro es abierto, así que una cuota diaria era un grifo que se
      reabría cada día por cada cuenta nueva, y lo paga el dueño.
-   - plan `pro`: **300 mensajes al día** (`chatCountDay`), porque hay un pago
-     detrás que cubre el consumo.
+   - plan `pro`: **300 mensajes al día** (`chatCountDay`).
    - tope **global** diario con interruptor en `system/aiConfig`: el freno de
      mano del dueño, que corta todo el gasto de IA sin desplegar.
    - el día se calcula en `America/Santiago`, no en UTC.
+
+   **`pro` no se puede comprar, y ningún texto de la app lo ofrece.** No existe
+   `in_app_purchase` ni integración de facturación en el proyecto: `pro` es un
+   valor del campo `plan` que solo escribe el backend, o el dueño a mano en la
+   consola, para abrir la mano con una cuenta concreta. El mensaje de cuota
+   agotada decía «Cambia a Pro para seguir conversando»: pedía una acción
+   imposible y, al anunciar dentro de la app un plan de pago que no pasa por la
+   facturación de Google Play, incumplía su política. Ahora
+   (`freeQuotaExhaustedMessage`) dice solo que los mensajes eran un total y no
+   se renuevan. `functions/test/quota.test.ts` tiene el candado: el texto no
+   puede contener pro, plan, pago, pagar, comprar, premium, suscri, mejora ni
+   upgrade. El día que exista una compra real, este es el sitio donde se
+   menciona, y no antes.
 4. Si no hay `conversationId`, crea la conversación.
 5. Guarda el mensaje del usuario en `messages`.
 6. Arma el system prompt del lado servidor con: perfil, `hourlyRate`, último
@@ -394,6 +430,11 @@ de navegación que reescriben a `index.html`) sí quedan protegidas.
 - **Chat:** el cliente NO escribe en `messages`. Llama a `chat` y escucha el
   stream de `messages` de la conversación activa. Muestra el mensaje propio de
   forma optimista mientras llega la confirmación.
+- **Reportes de IA (P-12):** `AiProvider.reportMessage` es la ÚNICA escritura
+  que el cliente hace en el árbol del chat, y va a `users/{uid}/aiReports`, no a
+  `messages`. Devuelve `false` si Firestore rechazó la escritura, y la interfaz
+  dice que no se pudo: un reporte que no se guardó no se da por enviado. No hay
+  reintento ni cola local.
 - **Errores:** los providers exponen `error` (String?) y `retry()`. Las
   pantallas muestran un estado de error con botón de reintento.
 - **Tema claro único.** `AppTheme.lightTheme` es el único tema y lo aplica
