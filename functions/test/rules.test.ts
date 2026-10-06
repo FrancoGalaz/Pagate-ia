@@ -50,8 +50,29 @@ const MAX_COUNT = 1_000_000_000;
 
 let env: RulesTestEnvironment;
 
+/**
+ * Emulador contra el que corren estos tests. Lo levanta `npm test`
+ * (`firebase emulators:exec --config ../firebase.test.json`, puerto 8181) y
+ * exporta `FIRESTORE_EMULATOR_HOST`.
+ *
+ * NO HAY VALOR POR DEFECTO, y es a propósito. Antes caía a `127.0.0.1:8080`,
+ * que es el puerto del emulador de DESARROLLO, el que tiene los datos de
+ * demostración. Estos tests llaman a `clearFirestore()` en cada `beforeEach`:
+ * lanzar `vitest` a mano, sin `npm test`, apuntaba un borrado en bucle contra
+ * ese emulador. Lo único que salvaba los datos era que el `projectId` de los
+ * tests (`demo-pagate`) no es el del emulador de desarrollo
+ * (`pagate-17211`), porque `clearFirestore()` borra por proyecto. Es un margen
+ * demasiado fino para dejarlo en pie: ahora falla rápido, igual que
+ * `test/helpers/admin.ts`.
+ */
 function emulatorHost(): { host: string; port: number } {
-  const raw = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+  const raw = process.env.FIRESTORE_EMULATOR_HOST;
+  if (!raw) {
+    throw new Error(
+      'FIRESTORE_EMULATOR_HOST no está definido. Estos tests borran la base en cada caso: ' +
+        'usa `npm --prefix functions test`, que levanta su propio emulador en el puerto 8181.',
+    );
+  }
   const [host, port] = raw.split(':');
   return { host, port: Number(port) };
 }
@@ -549,6 +570,42 @@ describe('C-3: docType y platformFee en transactions', () => {
     }
   });
 
+  it('rechaza platformFee en un gasto: una comision de medio de pago sobre un gasto no existe', async () => {
+    // El agregado `totalPlatformFees` de months/* suma las comisiones de los
+    // INGRESOS, asi que una comision guardada en un gasto se ignoraba en
+    // silencio. El formulario del cliente nunca escribe una (en un gasto borra
+    // el campo); el gasto que si existe, la liquidacion mensual de un
+    // marketplace, se registra con la categoria 'Comision de plataforma'.
+    await assertFails(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios', platformFee: 500 }),
+    );
+    // Ni siquiera 0: en un gasto el campo no tiene sentido, y el cliente lo
+    // borra en vez de escribir un cero.
+    await assertFails(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios', platformFee: 0 }),
+    );
+    // Sin el campo, el mismo gasto pasa.
+    await assertSucceeds(
+      addDoc(txs(), { ...validTransaction(), type: 'expense', category: 'Envios' }),
+    );
+  });
+
+  it('no se puede colar una comision cambiando un ingreso a gasto en un update', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'users', ALICE, 'transactions', 'ingreso'), {
+        ...validTransaction(),
+        amount: 12000,
+        platformFee: 400,
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'transactions', 'ingreso'), {
+        type: 'expense',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
   it('acepta los dos campos juntos', async () => {
     await assertSucceeds(
       addDoc(txs(), {
@@ -589,6 +646,147 @@ describe('C-3: docType y platformFee en transactions', () => {
         updatedAt: serverTimestamp(),
       }),
     );
+  });
+});
+
+/**
+ * P-12: users/{uid}/aiReports, los reportes de respuestas del asistente.
+ *
+ * POR QUÉ IMPORTA: la política de Google Play para apps con IA generativa exige
+ * un mecanismo dentro de la app para marcar contenido ofensivo o dañino. El
+ * botón existía en la pestaña de IA y la escritura se DENEGABA, porque no había
+ * `match` para esta ruta y el catch-all del final la rechazaba. Estos tests son
+ * la prueba de que el botón funciona, no de que esté dibujado.
+ *
+ * Los campos son exactamente los que escribe `AiProvider.reportMessage`.
+ */
+describe('P-12: users/{uid}/aiReports', () => {
+  const reports = (db: Firestore = aliceDb()) => collection(db, 'users', ALICE, 'aiReports');
+
+  function validReport() {
+    return {
+      messageId: 'msg123',
+      conversationId: 'conv123',
+      reason: 'ofensivo',
+      comment: 'La respuesta trataba mal a la persona.',
+      reportedText: 'Texto de la respuesta del asistente.',
+      ...stamps(),
+    };
+  }
+
+  it('el dueño crea un reporte completo', async () => {
+    await assertSucceeds(addDoc(reports(), validReport()));
+  });
+
+  it('acepta el reporte mínimo: sin conversationId y sin comment', async () => {
+    // Es el caso real del mensaje de bienvenida, que no pertenece a ninguna
+    // conversación guardada: el cliente omite los dos campos.
+    await assertSucceeds(
+      addDoc(reports(), {
+        messageId: 'bienvenida',
+        reason: 'otro',
+        reportedText: 'Hola, soy tu asistente financiero.',
+        ...stamps(),
+      }),
+    );
+  });
+
+  it('acepta los cuatro motivos del contrato', async () => {
+    for (const reason of ['ofensivo', 'incorrecto', 'peligroso', 'otro']) {
+      await assertSucceeds(addDoc(reports(), { ...validReport(), reason }));
+    }
+  });
+
+  it('rechaza un motivo fuera del conjunto', async () => {
+    for (const reason of ['spam', 'OFENSIVO', 'ofensivo ', '', null, 1, ['otro']]) {
+      await assertFails(addDoc(reports(), { ...validReport(), reason }));
+    }
+  });
+
+  // Un test por campo obligatorio, y no un bucle dentro de un solo `it`: si
+  // falta la validación de uno, el informe dice cuál.
+  for (const field of ['messageId', 'reason', 'reportedText', 'createdAt', 'updatedAt']) {
+    it(`rechaza el reporte sin ${field}`, async () => {
+      const data: Record<string, unknown> = validReport();
+      delete data[field];
+      await assertFails(addDoc(reports(), data));
+    });
+  }
+
+  it('rechaza messageId vacío o que no es texto', async () => {
+    for (const messageId of ['', null, 42, { id: 'x' }]) {
+      await assertFails(addDoc(reports(), { ...validReport(), messageId }));
+    }
+  });
+
+  it('rechaza conversationId nulo o vacío: ausente es la única forma de decir "sin conversación"', async () => {
+    for (const conversationId of [null, '', 7]) {
+      await assertFails(addDoc(reports(), { ...validReport(), conversationId }));
+    }
+  });
+
+  it('acepta comment y reportedText en el tope y los rechaza por encima', async () => {
+    await assertSucceeds(
+      addDoc(reports(), { ...validReport(), comment: 'c'.repeat(1000), reportedText: 'r'.repeat(2000) }),
+    );
+    await assertFails(addDoc(reports(), { ...validReport(), comment: 'c'.repeat(1001) }));
+    await assertFails(addDoc(reports(), { ...validReport(), reportedText: 'r'.repeat(2001) }));
+  });
+
+  it('acepta reportedText vacío: un mensaje sin texto también se puede reportar', async () => {
+    await assertSucceeds(addDoc(reports(), { ...validReport(), reportedText: '' }));
+  });
+
+  it('rechaza un campo desconocido', async () => {
+    await assertFails(addDoc(reports(), { ...validReport(), severidad: 'alta' }));
+  });
+
+  it('exige marcas de tiempo del servidor', async () => {
+    await assertFails(addDoc(reports(), { ...validReport(), updatedAt: Timestamp.now() }));
+    await assertFails(
+      addDoc(reports(), {
+        ...validReport(),
+        createdAt: Timestamp.fromDate(new Date('2020-01-01T00:00:00Z')),
+      }),
+    );
+  });
+
+  it('el dueño lee sus reportes, de uno en uno y en lista acotada', async () => {
+    await seed((db) => setDoc(doc(db, 'users', ALICE, 'aiReports', 'r1'), validReport()));
+    await assertSucceeds(getDoc(doc(aliceDb(), 'users', ALICE, 'aiReports', 'r1')));
+    await assertSucceeds(listOf(aliceDb(), ['users', ALICE, 'aiReports'], 50));
+    // El tope de la regla `list` también vale aquí.
+    await assertFails(getDocs(query(collection(aliceDb(), 'users', ALICE, 'aiReports'), limit(201))));
+    await assertFails(getDocs(collection(aliceDb(), 'users', ALICE, 'aiReports')));
+  });
+
+  it('NO puede modificar ni borrar un reporte ya enviado', async () => {
+    await seed((db) => setDoc(doc(db, 'users', ALICE, 'aiReports', 'r1'), validReport()));
+    await assertFails(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'aiReports', 'r1'), {
+        reason: 'otro',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(aliceDb(), 'users', ALICE, 'aiReports', 'r1'), {
+        comment: 'ya no me importa',
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(deleteDoc(doc(aliceDb(), 'users', ALICE, 'aiReports', 'r1')));
+  });
+
+  it('otro usuario no lee ni escribe los reportes ajenos', async () => {
+    await seed((db) => setDoc(doc(db, 'users', ALICE, 'aiReports', 'r1'), validReport()));
+    await assertFails(getDoc(doc(bobDb(), 'users', ALICE, 'aiReports', 'r1')));
+    await assertFails(listOf(bobDb(), ['users', ALICE, 'aiReports'], 10));
+    await assertFails(addDoc(reports(bobDb()), validReport()));
+  });
+
+  it('sin autenticación no se puede reportar nada', async () => {
+    await assertFails(addDoc(reports(anonDb()), validReport()));
+    await assertFails(listOf(anonDb(), ['users', ALICE, 'aiReports'], 10));
   });
 });
 

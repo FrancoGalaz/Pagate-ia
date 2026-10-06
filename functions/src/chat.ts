@@ -25,6 +25,7 @@ import { ENFORCE_APP_CHECK, OPENROUTER_API_KEY, OPENROUTER_MODEL, REGION, callab
 import { askOpenRouter, type ChatMessage } from './openrouter';
 import {
   buildSystemPrompt,
+  type DocType,
   type InventoryCounts,
   type MonthContext,
   type Plan,
@@ -120,18 +121,39 @@ function toMonthContext(doc: QueryDocumentSnapshot | undefined): MonthContext | 
     monthKey: doc.id,
     totalIncome: typeof d.totalIncome === 'number' ? d.totalIncome : 0,
     totalExpenses: typeof d.totalExpenses === 'number' ? d.totalExpenses : 0,
+    // Ausente en los `months/*` escritos antes del contrato C-3: se lee como 0,
+    // y entonces el neto del mes coincide con el bruto, que es la verdad para un
+    // mes en el que no se registró ninguna comisión.
+    totalPlatformFees: typeof d.totalPlatformFees === 'number' ? d.totalPlatformFees : 0,
     transactionCount: typeof d.transactionCount === 'number' ? d.transactionCount : 0,
   };
 }
 
+/** Valores de `docType` que admite el contrato C-3. */
+const DOC_TYPES: readonly string[] = ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
+
+/**
+ * Valida `docType` contra el conjunto cerrado en vez de pasar el texto tal cual.
+ * Un `docType` escrito por el Admin SDK no pasa por `firestore.rules`, y de aquí
+ * sale directo al prompt del asistente.
+ */
+function toDocType(value: unknown): DocType | undefined {
+  return typeof value === 'string' && DOC_TYPES.includes(value) ? (value as DocType) : undefined;
+}
+
 function toTransactionContext(doc: QueryDocumentSnapshot): TransactionContext {
   const d = doc.data();
+  const type = d.type === 'expense' ? 'expense' : 'income';
   return {
     title: typeof d.title === 'string' ? d.title : '',
     amount: typeof d.amount === 'number' ? d.amount : 0,
-    type: d.type === 'expense' ? 'expense' : 'income',
+    type,
     category: typeof d.category === 'string' ? d.category : '',
     date: d.date instanceof Timestamp ? d.date.toDate() : null,
+    // Los dos campos del contrato C-3, y solo en los ingresos: en un gasto el
+    // contrato no los acepta, así que ni se leen.
+    docType: type === 'income' ? toDocType(d.docType) : undefined,
+    platformFee: type === 'income' && typeof d.platformFee === 'number' ? d.platformFee : undefined,
   };
 }
 

@@ -24,6 +24,15 @@
         { "fieldPath": "monthKey", "order": "ASCENDING" },
         { "fieldPath": "amount", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "monthKey", "order": "ASCENDING" },
+        { "fieldPath": "platformFee", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

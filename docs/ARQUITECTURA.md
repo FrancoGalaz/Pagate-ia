@@ -59,7 +59,7 @@ users/{uid}/transactions/{txId}          (owner: read/write)
   date: Timestamp
   monthKey: string 'yyyy-MM'  (derivado de date en el cliente; mes acotado a 01-12)
   docType: 'boleta_venta' | 'boleta_honorarios' | 'sin_documento'   (OPCIONAL, C-3)
-  platformFee: number (>= 0 y <= amount)                            (OPCIONAL, C-3)
+  platformFee: number (>= 0 y <= amount; SOLO si type == 'income')  (OPCIONAL, C-3)
   createdAt, updatedAt: Timestamp
 
 users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurrentes
@@ -67,9 +67,18 @@ users/{uid}/fixedExpenses/{id}           (owner: read/write) gastos fijos recurr
   amount: number (> 0)
   createdAt, updatedAt: Timestamp
 
+users/{uid}/aiReports/{reportId}         (owner: create + read; SIN update ni delete)
+  messageId: string                 id del mensaje reportado
+  conversationId: string            (OPCIONAL; ausente = mensaje sin conversación guardada)
+  reason: 'ofensivo' | 'incorrecto' | 'peligroso' | 'otro'
+  comment: string (<= 1000)         (OPCIONAL, texto libre de la persona)
+  reportedText: string (<= 2000)    copia del texto reportado
+  createdAt, updatedAt: Timestamp
+
 users/{uid}/months/{yyyy-MM}             (owner: read; write SOLO backend)
-  totalIncome: number
+  totalIncome: number         BRUTO: suma de amount de los ingresos del mes
   totalExpenses: number
+  totalPlatformFees: number   suma de platformFee de los INGRESOS del mes (C-3)
   transactionCount: number
   updatedAt: Timestamp
 
@@ -115,6 +124,22 @@ caracteres (2000 para `description`), `monthKey` con regex
 (o sea, `serverTimestamp()`), `read` separado en `get` y `list` con `list`
 acotado a 200 documentos, y `delete` de `users/{uid}` denegado.
 
+**`aiReports` es la excepción a la forma del resto del árbol (P-12).** Es la
+única subcolección que el dueño **crea y después no puede modificar ni borrar**:
+`create` y `read` sí, `update` y `delete` denegados. Existe porque la política de
+Google Play para apps con IA generativa exige un mecanismo **dentro de la app**
+para marcar contenido ofensivo o dañino, y el botón «Reportar respuesta» de la
+pestaña de IA escribe ahí. Un reporte es la prueba de que alguien marcó una
+respuesta: quien puede editarlo o borrarlo después puede hacer esa prueba
+desaparecer, así que si la persona se equivocó de motivo manda otro reporte. El
+borrado de cuenta sigue cubierto sin tocar nada, porque `deleteAccount` usa
+`recursiveDelete`, que descubre las subcolecciones en tiempo de ejecución.
+
+Hasta este cambio no había ningún `match` para esa ruta, así que caía en el
+`match /{document=**} { allow read, write: if false; }` del final y **toda
+escritura se denegaba**: el requisito de Play estaba dibujado en la interfaz y no
+funcionaba.
+
 El mismo regex de `monthKey` vive en `functions/src/months.ts`
 (`MONTH_KEY_RE`). No es redundante: las reglas cubren lo que escribe el cliente
 y el regex del trigger cubre lo que escribe el Admin SDK (sembrado de datos,
@@ -136,15 +161,56 @@ negocio realmente recibió.
   representación.
 - `platformFee` va acotado a `[0, amount]`. Por encima de `amount`, el neto
   derivado saldría negativo.
+- `platformFee` se acepta **solo en los ingresos** (`type == 'income'`). La
+  comisión es lo que descuenta el medio de pago de una venta cobrada; en un
+  gasto no significa nada. Antes se aceptaba en los dos tipos, y era un dato
+  que nada podía interpretar: el agregado `totalPlatformFees` suma las
+  comisiones de los ingresos, así que una comisión guardada en un gasto se
+  ignoraba en silencio. El formulario del cliente nunca escribe una (en un
+  gasto borra el campo). El gasto que sí existe —la liquidación mensual que un
+  marketplace cobra aparte— se registra como gasto normal con la categoría
+  `Comisión de plataforma`.
 - **El neto NO se guarda.** Se deriva siempre como `amount - platformFee`. Un
   neto guardado se puede contradecir con sus propios operandos.
+
+### Decisión: `months/*` guarda la SUMA de las comisiones, no el neto
+
+`users/{uid}/months/{yyyy-MM}` guarda `totalPlatformFees`, y **no** guarda
+ningún neto. Las dos mitades de la decisión:
+
+**Por qué sí se guarda la suma de comisiones.** `months/*` es el único sitio del
+que el cliente y el asistente sacan el resumen de un mes, y solo tenía el bruto.
+El neto del mes no se podía derivar de él: había que recorrer las transacciones,
+que es exactamente lo que el agregado existe para evitar, y además el cliente
+solo puede leer **200 documentos por consulta** (el tope de `firestore.rules`),
+así que a partir del movimiento 201 de un mes el neto calculado en el cliente
+habría salido mal **sin avisar**. Un negocio que cobra con Mercado Pago o
+Transbank ve en pantalla un ingreso mensual que no recibió, y el asistente
+razona sobre esa misma cifra inflada.
+
+**Por qué no se guarda el neto.** Es la regla de C-3 y sigue en pie: un neto
+guardado se puede contradecir con sus propios operandos. `totalPlatformFees` es
+un **operando**, una suma más, del mismo tipo que `totalIncome` y recalculada de
+cero en cada pasada del trigger. El neto se deriva donde se muestra, como
+`totalIncome - totalPlatformFees`.
 
 Límite que no se cruza, y que vale para el cliente, para el backend y para el
 prompt del asistente: la app **registra y muestra**, no **asesora**. No calcula
 impuestos a pagar, no dice cuánto declarar y no da consejo tributario. Lo
 permitido es agrupar lo que el usuario registró de forma que le sirva para
-hablar con su contador. `functions/src/prompt.ts` lo impone también al modelo
-(`No des asesoría legal ni tributaria específica`).
+hablar con su contador.
+
+`functions/src/prompt.ts` se lo impone al modelo, y desde que el asistente VE
+los documentos el bloque es explícito, no una frase de cortesía: no calcular
+impuestos, retenciones, IVA ni PPM; no decir cuánto declarar ni cuándo; no
+interpretar normas del SII; no recomendar emitir un documento en vez de otro; y
+decir claro, cuando se lo pidan, que la app registra y muestra sus números pero
+no asesora, y que eso lo ve un contador. El tipo de documento está en el
+contexto para **describir y agrupar** (cuánto vendió con boleta de venta este
+mes), no para deducir obligaciones. Un número de impuestos equivocado no es un
+error cosmético: es dinero de la persona y una afirmación que la app no puede
+sostener. `functions/test/prompt.test.ts` vigila que esas instrucciones estén
+presentes y **fuera** del bloque de datos, donde serían inertes.
 
 ## Backend (Cloud Functions 2ª gen, TypeScript, Node 22, región `southamerica-west1`)
 
@@ -174,11 +240,23 @@ Flujo:
    - plan `free`: **25 mensajes DE POR VIDA** (`chatCountLifetime`), no diarios.
      El registro es abierto, así que una cuota diaria era un grifo que se
      reabría cada día por cada cuenta nueva, y lo paga el dueño.
-   - plan `pro`: **300 mensajes al día** (`chatCountDay`), porque hay un pago
-     detrás que cubre el consumo.
+   - plan `pro`: **300 mensajes al día** (`chatCountDay`).
    - tope **global** diario con interruptor en `system/aiConfig`: el freno de
      mano del dueño, que corta todo el gasto de IA sin desplegar.
    - el día se calcula en `America/Santiago`, no en UTC.
+
+   **`pro` no se puede comprar, y ningún texto de la app lo ofrece.** No existe
+   `in_app_purchase` ni integración de facturación en el proyecto: `pro` es un
+   valor del campo `plan` que solo escribe el backend, o el dueño a mano en la
+   consola, para abrir la mano con una cuenta concreta. El mensaje de cuota
+   agotada decía «Cambia a Pro para seguir conversando»: pedía una acción
+   imposible y, al anunciar dentro de la app un plan de pago que no pasa por la
+   facturación de Google Play, incumplía su política. Ahora
+   (`freeQuotaExhaustedMessage`) dice solo que los mensajes eran un total y no
+   se renuevan. `functions/test/quota.test.ts` tiene el candado: el texto no
+   puede contener pro, plan, pago, pagar, comprar, premium, suscri, mejora ni
+   upgrade. El día que exista una compra real, este es el sitio donde se
+   menciona, y no antes.
 4. Si no hay `conversationId`, crea la conversación.
 5. Guarda el mensaje del usuario en `messages`.
 6. Arma el system prompt del lado servidor con: perfil, `hourlyRate`, último
@@ -189,6 +267,24 @@ Flujo:
    El prompt tiene tope duro de 12.000 caracteres (`MAX_PROMPT_CHARS`) y los
    datos del usuario van saneados y dentro de un bloque delimitado, declarado
    como datos y no como instrucciones (defensa contra inyección de prompt).
+
+   **El contexto incluye los campos chilenos de C-3.** El resumen del mes lleva
+   tres renglones separados y etiquetados —ingresos brutos, comisiones de medios
+   de pago e ingresos netos de comisiones— y cada ingreso de la lista lleva su
+   documento (`doc: boleta de venta` / `boleta de honorarios` /
+   `sin documento`) y, si tuvo comisión, su bruto, su comisión y su neto. Antes
+   solo viajaba el bruto, así que el asistente hablaba de lo que el negocio
+   "ganó" con una cifra que el negocio nunca recibió, y no podía distinguir los
+   documentos ni cuando se le preguntaba de frente.
+
+   El **balance** del mes se sigue calculando bruto menos gastos, y la etiqueta
+   lo dice. No se calcula con el neto a propósito: es la cifra que el gráfico de
+   la app muestra en pantalla, y si el asistente diera otra con el mismo nombre
+   nadie podría saber cuál de las dos miente.
+
+   Los valores se acotan otra vez aquí (`docType` contra el conjunto cerrado,
+   comisiones a `[0, monto]`), porque el Admin SDK no pasa por
+   `firestore.rules` y de este punto los datos salen directos al modelo.
 7. Llama a OpenRouter con `OPENROUTER_API_KEY` (secreto) y modelo
    `OPENROUTER_MODEL` (parámetro, default `deepseek/deepseek-v4-flash`).
 8. Guarda la respuesta en `messages` y actualiza `messageCount` y `updatedAt`.
@@ -238,8 +334,38 @@ Detalles que no son negociables:
 - Si el mes se queda sin transacciones, el documento se **borra** en vez de
   quedarse en ceros: un mes en cero hacía que `chat` eligiera como "último mes"
   un documento vacío y le contara al asistente que el negocio no facturó nada.
-- `platformFee` **no** entra en los agregados: `months/*` suma `amount`, que es
-  el bruto. El neto se deriva donde se muestra.
+- Suma también `totalPlatformFees` (comisiones de los **ingresos** del mes). El
+  bruto sigue siendo `totalIncome`; el neto se deriva donde se muestra.
+- **Las comisiones se suman en una agregación APARTE**, y eso no es una
+  redundancia que se pueda simplificar metiéndolas en la misma `aggregate()` que
+  el total y la cuenta. Comprobado contra el emulador: en una agregación
+  combinada, un `sum('platformFee')` restringe el conjunto entero a los
+  documentos que **tienen** ese campo. Con dos ingresos de 100 y 50, y solo el
+  primero con comisión,
+  `{ total: sum('amount'), fees: sum('platformFee'), count: count() }` devuelve
+  `{ total: 100, fees: 7, count: 1 }`: el ingreso de 50 desaparece del total y de
+  la cuenta. Y como `platformFee` es opcional, lo normal es que la mayoría de los
+  ingresos no lo tengan, así que los totales del mes habrían contado solo las
+  ventas con comisión. En consulta propia el comportamiento es el correcto.
+  `functions/test/months.test.ts` tiene el test que lo caza
+  («mezcla ingresos con y sin comision sin perder ninguno»).
+- Cada agregación de suma necesita su **índice compuesto** con el campo sumado
+  al final. `firestore.indexes.json` ya traía
+  `(type, monthKey, amount)` para `sum('amount')`; la suma de comisiones añade
+  `(type, monthKey, platformFee)`. El emulador no exige índices, así que esto
+  **no lo detecta ningún test**: sin la entrada, el recálculo del mes puede
+  fallar en producción con `FAILED_PRECONDITION`. Los dos caminos de despliegue
+  ya lo cubren, porque los dos usan `--only ...,firestore,...`, que sube reglas
+  **e** índices: `scripts/deploy-web.sh` y
+  `.github/workflows/deploy-web.yml`.
+- Las sumas pasan por un filtro de finitud y `totalPlatformFees` se acota a
+  `[0, totalIncome]`. Por documento las reglas ya garantizan
+  `0 <= platformFee <= amount`, pero el Admin SDK (sembrado, migraciones) no pasa
+  por las reglas, y un `Infinity` o un neto negativo en `months/*` es permanente:
+  nada vuelve a recalcular ese mes hasta la siguiente escritura en él.
+- **El cliente no necesita cambiar para que esto no le rompa nada**:
+  `FinancesSummaryModel.fromDoc` lee los campos que conoce e ignora el resto, y
+  un `months/*` escrito antes de este cambio (sin el campo) se lee como 0.
 
 ### `waitlist` (HTTP, CORS abierto solo a los dominios de la landing)
 
@@ -313,6 +439,11 @@ de navegación que reescriben a `index.html`) sí quedan protegidas.
 - **Chat:** el cliente NO escribe en `messages`. Llama a `chat` y escucha el
   stream de `messages` de la conversación activa. Muestra el mensaje propio de
   forma optimista mientras llega la confirmación.
+- **Reportes de IA (P-12):** `AiProvider.reportMessage` es la ÚNICA escritura
+  que el cliente hace en el árbol del chat, y va a `users/{uid}/aiReports`, no a
+  `messages`. Devuelve `false` si Firestore rechazó la escritura, y la interfaz
+  dice que no se pudo: un reporte que no se guardó no se da por enviado. No hay
+  reintento ni cola local.
 - **Errores:** los providers exponen `error` (String?) y `retry()`. Las
   pantallas muestran un estado de error con botón de reintento.
 - **Tema claro único.** `AppTheme.lightTheme` es el único tema y lo aplica
