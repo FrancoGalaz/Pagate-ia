@@ -25,6 +25,54 @@ dependencies:
   cloud_functions: ^5.6.2
   firebase_app_check: ^0.3.2+10
 
+  # ─── LECTOR DE BOLETAS ───────────────────────────────────────────────
+  # Reconocimiento de texto de ML Kit, CIEN POR CIEN EN EL DISPOSITIVO: la
+  # imagen no viaja a ningun servidor, no hace falta conexion y no cuesta
+  # nada por lectura. Es la pieza que permite que la politica de privacidad
+  # pueda afirmar que la foto no sale del telefono.
+  #
+  # LA VERSION NO ES LA 0.17.1. Esa es la ultima de pub.dev, pero su
+  # `environment` exige `flutter >=3.44.0` y este proyecto esta clavado en
+  # Flutter 3.42.0-0.0.pre (`.metadata` canal beta, `sdk: ^3.12.0-113.1.beta`
+  # en este mismo archivo). Con ^0.17.1 el solucionador falla antes de
+  # compilar. La 0.16.0 pide `flutter >=3.32.0` y `google_mlkit_commons
+  # ^0.12.0`, que si entran. Subir a 0.17.x es una tarea de cuando el
+  # proyecto mueva de version de Flutter, no de este carril.
+  google_mlkit_text_recognition: ^0.16.0
+
+  # La camara y la galeria, SIEMPRE con el selector del sistema: la camara se
+  # abre con el intento `ACTION_IMAGE_CAPTURE` de Android y la galeria con el
+  # selector de fotos, asi que la ficha de Play no gana el permiso CAMERA ni
+  # el de leer el almacenamiento. Verificado sobre el manifiesto fusionado
+  # (ver el comentario de android/app/src/main/AndroidManifest.xml).
+  image_picker: ^1.2.4
+
+  # Recibir una boleta COMPARTIDA desde WhatsApp, el correo o cualquier otra
+  # app. Es el unico de los cuatro con un solo mantenedor, asi que es el
+  # eslabon mas debil de la cadena; si algun dia se abandona, las otras dos
+  # entradas (camara y galeria) siguen funcionando sin el.
+  #
+  # CLAVADA EN 1.8.1, SIN `^`, Y NO ES PEREZA. La 1.9.0 (la ultima) NO
+  # COMPILA en este proyecto, comprobado ejecutando `flutter build apk`:
+  #   · su `android/build.gradle` declara `plugins { id "com.android.library" }`
+  #     y despues usa un bloque `kotlin { compilerOptions { ... } }` sin
+  #     aplicar nunca `kotlin-android`, asi que Gradle falla con
+  #     "Could not find method kotlin()" en su linea 53;
+  #   · y pide `compileSdk 37`, mientras este proyecto esta en 36
+  #     (`flutter.compileSdkVersion`).
+  # La 1.8.1 aplica `kotlin-android` y pide `compileSdk 34`, y expone
+  # exactamente la misma API que usa este carril (`instance`,
+  # `getInitialMedia`, `getMediaStream`, `reset`, `SharedMediaFile.path` y
+  # `.mimeType`): verificado en el cache de pub. Subir a 1.9.x es tarea de
+  # cuando el proyecto mueva de compileSdk, y de que el paquete arregle su
+  # Gradle.
+  receive_sharing_intent: 1.8.1
+
+  # `getTemporaryDirectory()`: donde se escribe el PNG intermedio de un PDF
+  # rasterizado, que ML Kit necesita como archivo porque su
+  # `InputImageFormat` no acepta RGBA. Se borra siempre, haya ido bien o mal.
+  path_provider: ^2.1.6
+
   # Abrir los textos legales en el navegador del sistema. Sin esto, la linea
   # legal de Bienvenida solo copiaba la URL al portapapeles: el usuario
   # aceptaba unos terminos que no podia leer, que es material de rechazo en

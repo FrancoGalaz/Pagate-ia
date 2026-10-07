@@ -51,6 +51,41 @@
     <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"
         tools:node="remove" />
 
+    <!-- ===== LA CÁMARA DEL LECTOR DE BOLETAS NO AÑADE PERMISOS =====
+         Y no es una suposición, es un requisito que hay que vigilar.
+
+         La app abre la cámara con `ACTION_IMAGE_CAPTURE` del sistema
+         (image_picker, `ImageSource.camera`), no con una vista previa
+         propia, así que NO necesita `android.permission.CAMERA`. Comprobado
+         leyendo el manifiesto de cada plugin nuevo en el caché de pub:
+         google_mlkit_text_recognition-0.16.0, google_mlkit_commons-0.12.0,
+         image_picker_android-0.8.13+17 y receive_sharing_intent-1.9.0 NO
+         declaran ni un `uses-permission`. El de `printing`, que rasteriza
+         los PDF, solo aporta un `FileProvider`.
+
+         Y DECLARARLO SERÍA PEOR QUE INÚTIL: la documentación de
+         `ACTION_IMAGE_CAPTURE` dice que si una app DECLARA `CAMERA` y el
+         usuario no lo ha CONCEDIDO, la captura lanza `SecurityException`.
+         O sea que un permiso puesto «por si acaso» rompería la función.
+
+         Si una versión futura de cualquiera de esos paquetes lo cuela, la
+         línea de abajo (hoy comentada) es el remedio, y la comprobación es
+         ejecutar sobre el APK de release:
+           build-tools/<ver>/aapt2.exe dump permissions <apk>
+         que tiene que seguir devolviendo exactamente tres entradas:
+         INTERNET, ACCESS_NETWORK_STATE y
+         com.pagate.apppagate.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION.
+
+         <uses-permission android:name="android.permission.CAMERA"
+             tools:node="remove" />
+
+         TAMPOCO SE DECLARA `READ_EXTERNAL_STORAGE`, aunque el README de
+         receive_sharing_intent lo ponga en su ejemplo. No hace falta: la
+         app que comparte concede permiso sobre su propio `content://` y el
+         plugin copia el archivo a la caché de Págate. Un permiso de
+         almacenamiento aparecería en la ficha de Play sin que ninguna
+         línea de código lo use. -->
+
     <!-- `android:label` apunta a res/values/strings.xml en vez de llevar el
          texto escrito aquí: ese archivo explica por qué el nombre visible es
          «Págate-IA» con tilde y qué otros archivos del proyecto lo fijan. -->
@@ -79,6 +114,40 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- ===== COMPARTIR UNA BOLETA A PÁGATE =====
+                 Las cuatro combinaciones que la app sabe leer, y solo esas.
+
+                 NO se declara `*/*`, que es lo que sugiere el ejemplo del
+                 plugin: con el comodín, Págate aparecería como destino al
+                 compartir una canción o un .zip, y después tendría que
+                 decir que no sabe leerlo. Ofrecerse para lo que no se puede
+                 hacer es ruido en el menú de compartir de todo el teléfono.
+
+                 `SEND_MULTIPLE` sí entra: WhatsApp manda varias fotos de
+                 una sola vez con mucha facilidad. Se lee la primera y la
+                 pantalla de revisión AVISA de cuántas llegaron, en vez de
+                 dar a entender que se leyeron todas. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

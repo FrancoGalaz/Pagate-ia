@@ -46,6 +46,32 @@
 -dontwarn javax.annotation.**
 
 # --------------------------------------------------------------------------
+# google_mlkit_text_recognition — los tres alfabetos que NO se empaquetan
+# --------------------------------------------------------------------------
+# Sin estas cuatro líneas `flutter build apk --release` FALLA, no avisa:
+#
+#   Missing class com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+#   ... devanagari ... japanese ... korean ...
+#   Execution failed for task ':app:minifyReleaseWithR8'
+#
+# El motivo es deliberado del lado del paquete: su `android/build.gradle`
+# declara UN solo artefacto, `com.google.mlkit:text-recognition:16.0.1`, que
+# es el alfabeto latino; los otros tres (chino, devanagari, japonés, coreano)
+# son dependencias aparte que no se incluyen. Pero su código Kotlin los
+# nombra en el `when` que elige el reconocedor, así que R8 ve una referencia
+# a clases que no están y corta el build.
+#
+# `-dontwarn` y NO añadir los artefactos: esta app lee boletas chilenas, y
+# cada alfabeto extra son varios MB de modelo que nadie va a usar. La guarda
+# de que no se usan está en el código: `MlkitTextReader` construye el
+# `TextRecognizer` sin argumentos, y su `script` por defecto es
+# `TextRecognitionScript.latin`.
+-dontwarn com.google.mlkit.vision.text.chinese.**
+-dontwarn com.google.mlkit.vision.text.devanagari.**
+-dontwarn com.google.mlkit.vision.text.japanese.**
+-dontwarn com.google.mlkit.vision.text.korean.**
+
+# --------------------------------------------------------------------------
 # Trazas de excepción legibles en los informes de fallos de Play Console
 # --------------------------------------------------------------------------
 # Sin esto, las líneas de las trazas se pierden y un fallo en producción llega a
