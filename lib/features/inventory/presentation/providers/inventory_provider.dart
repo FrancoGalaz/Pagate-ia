@@ -18,6 +18,23 @@ class InventoryProvider extends ChangeNotifier {
 
   StreamSubscription<List<InventoryItemEntity>>? _itemsSub;
 
+  /// Segunda suscripción, a TODO el inventario (los dos tipos).
+  ///
+  /// POR QUÉ HAY DOS Y NO UNA. La lista de la pestaña se filtra por `type`
+  /// en Firestore, así que `allItems` solo trae el tipo activo. El lector de
+  /// boletas necesita los DOS para emparejar: una boleta de materiales se
+  /// puede leer estando en la pestaña de Productos, y mirar solo la activa
+  /// crearía una ficha duplicada del material que el usuario ya tiene.
+  ///
+  /// Se añadió como segunda suscripción en vez de derivar la pestaña de
+  /// esta, que sería un oyente menos, porque eso cambiaría el
+  /// comportamiento de una pantalla que ya está probada y en producción. El
+  /// coste es un oyente más por sesión sobre una colección topada a 200
+  /// documentos.
+  StreamSubscription<List<InventoryItemEntity>>? _completoSub;
+
+  List<InventoryItemEntity> _inventarioCompleto = const [];
+
   List<InventoryItemEntity> _allItems = const [];
   InventoryItemType _activeTab = InventoryItemType.product;
   String _searchQuery = '';
@@ -28,6 +45,7 @@ class InventoryProvider extends ChangeNotifier {
   InventoryProvider({required InventoryRepository repository})
       : _repository = repository {
     _subscribe();
+    _subscribeCompleto();
   }
 
   // ─── Estado ───────────────────────────────────────────────────────
@@ -47,6 +65,14 @@ class InventoryProvider extends ChangeNotifier {
 
   /// Todos los items del tipo activo, sin filtrar por búsqueda.
   List<InventoryItemEntity> get allItems => _allItems;
+
+  /// TODO el inventario, productos y materiales, sin filtrar por nada.
+  ///
+  /// Lo usa el lector de boletas para emparejar. Puede llegar vacío durante
+  /// el primer frame; el emparejamiento con una lista vacía simplemente
+  /// propone fichas nuevas, que es el comportamiento correcto cuando no se
+  /// sabe qué hay.
+  List<InventoryItemEntity> get inventarioCompleto => _inventarioCompleto;
 
   InventoryItemType get activeTab => _activeTab;
   String get searchQuery => _searchQuery;
@@ -152,6 +178,75 @@ class InventoryProvider extends ChangeNotifier {
     return texto.isEmpty ? null : texto;
   }
 
+  /// Guarda de golpe los artículos confirmados de una boleta.
+  ///
+  /// Valida LO MISMO que [addItem] y [updateItem], y por el mismo motivo:
+  /// estos datos no los escribió el usuario campo a campo, los propuso un
+  /// reconocimiento de texto y un modelo, así que son los MENOS fiables que
+  /// entran al inventario. Un nombre vacío o un precio infinito aquí
+  /// reventarían el lote entero con un error opaco del servidor.
+  ///
+  /// Un artículo inválido NO se cuela ni se descarta en silencio: se lanza,
+  /// y la pantalla de revisión dice qué pasó. Descartarlo guardaría 14 de
+  /// 15 fichas diciendo "15 artículos agregados".
+  Future<void> applyScannedItems({
+    required final List<InventoryItemEntity> nuevos,
+    required final Map<String, int> stocksFinales,
+    required final Map<String, double> preciosNuevos,
+  }) async {
+    final limpios = <InventoryItemEntity>[];
+    for (final item in nuevos) {
+      final safeName = item.name.trim();
+      if (safeName.isEmpty) throw ArgumentError('El nombre es obligatorio');
+      if (!item.price.isFinite || item.price < 0) {
+        throw ArgumentError('El precio no puede ser negativo');
+      }
+      if (item.stock < 0 || item.minStock < 0) {
+        throw ArgumentError('El stock no puede ser negativo');
+      }
+      limpios.add(
+        InventoryItemEntity(
+          id: '',
+          name: safeName,
+          type: item.type,
+          price: item.price,
+          stock: item.stock,
+          minStock: item.minStock,
+          unit: item.unit.trim().isEmpty ? 'unidades' : item.unit.trim(),
+          supplier: _opcional(item.supplier),
+          code: _opcional(item.code),
+        ),
+      );
+    }
+
+    for (final entry in stocksFinales.entries) {
+      if (entry.key.isEmpty) {
+        throw ArgumentError('No se puede actualizar una ficha sin id');
+      }
+      if (entry.value < 0) {
+        throw ArgumentError('El stock no puede ser negativo');
+      }
+    }
+    for (final entry in preciosNuevos.entries) {
+      if (entry.key.isEmpty) {
+        throw ArgumentError('No se puede actualizar una ficha sin id');
+      }
+      if (!entry.value.isFinite || entry.value < 0) {
+        throw ArgumentError('El precio no puede ser negativo');
+      }
+    }
+
+    if (limpios.isEmpty && stocksFinales.isEmpty && preciosNuevos.isEmpty) {
+      throw ArgumentError('No hay nada que guardar');
+    }
+
+    await _repository.applyScannedItems(
+      nuevos: limpios,
+      stocksFinales: stocksFinales,
+      preciosNuevos: preciosNuevos,
+    );
+  }
+
   Future<void> updateStock({
     required final String itemId,
     required final int newStock,
@@ -185,6 +280,30 @@ class InventoryProvider extends ChangeNotifier {
     _notify();
   }
 
+  /// Suscripción al inventario completo.
+  ///
+  /// Un fallo aquí NO enciende [error] ni cambia [isLoading]: esta lista no
+  /// alimenta ninguna pantalla, solo mejora el emparejamiento del lector de
+  /// boletas. Si se cae, el lector propone fichas nuevas en vez de sumar
+  /// stock —que el usuario ve y corrige— y la pestaña de Inventario sigue
+  /// funcionando como si nada. Contaminar el estado de error de la pantalla
+  /// con un fallo de algo que ni se dibuja sería peor.
+  void _subscribeCompleto() {
+    _completoSub?.cancel();
+    _completoSub = _repository.watchAllItems().listen(
+      (final items) {
+        _inventarioCompleto = items;
+        _notify();
+      },
+      onError: (final Object error, final StackTrace stackTrace) {
+        debugPrint(
+          'InventoryProvider: error en el stream completo: '
+          '$error / $stackTrace',
+        );
+      },
+    );
+  }
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -194,6 +313,8 @@ class InventoryProvider extends ChangeNotifier {
     _disposed = true;
     _itemsSub?.cancel();
     _itemsSub = null;
+    _completoSub?.cancel();
+    _completoSub = null;
     super.dispose();
   }
 

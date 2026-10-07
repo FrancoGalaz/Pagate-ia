@@ -35,6 +35,11 @@ class FakeInventoryRepository implements InventoryRepository {
   Stream<List<InventoryItemEntity>> watchItems(final InventoryItemType type) =>
       _items.stream;
 
+  /// El mismo stream: en los tests no hay filtro por tipo en Firestore, así
+  /// que lo que emite [emitir] es a la vez "la pestaña" y "todo".
+  @override
+  Stream<List<InventoryItemEntity>> watchAllItems() => _items.stream;
+
   @override
   Future<void> addItem(final InventoryItemEntity item) async {
     final error = errorAlGuardar;
@@ -55,4 +60,29 @@ class FakeInventoryRepository implements InventoryRepository {
   @override
   Future<void> updateStock(final String itemId, final int newStock) async =>
       stocksEscritos.add(newStock);
+
+  /// Lo que el lote habría escrito, para que un test pueda comprobar QUÉ
+  /// se guarda de una boleta: las fichas nuevas, los stocks sumados y los
+  /// precios que el usuario aprobó sobrescribir.
+  final List<InventoryItemEntity> loteNuevos = [];
+  final List<Map<String, int>> loteStocks = [];
+  final List<Map<String, double>> lotePrecios = [];
+
+  /// Cuántas veces se llamó al lote. Es lo que prueba que 15 artículos son
+  /// UNA operación y no quince.
+  int lotes = 0;
+
+  @override
+  Future<void> applyScannedItems({
+    required final List<InventoryItemEntity> nuevos,
+    required final Map<String, int> stocksFinales,
+    required final Map<String, double> preciosNuevos,
+  }) async {
+    final error = errorAlGuardar;
+    if (error != null) throw error;
+    lotes++;
+    loteNuevos.addAll(nuevos);
+    loteStocks.add(stocksFinales);
+    lotePrecios.add(preciosNuevos);
+  }
 }

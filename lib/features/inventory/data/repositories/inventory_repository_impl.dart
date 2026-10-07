@@ -15,6 +15,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
       _dataSource.watchItems(type);
 
   @override
+  Stream<List<InventoryItemEntity>> watchAllItems() =>
+      _dataSource.watchAllItems();
+
+  @override
   Future<void> addItem(final InventoryItemEntity item) =>
       _dataSource.addItem(item);
 
@@ -28,4 +32,16 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<void> updateStock(final String itemId, final int newStock) =>
       _dataSource.updateStock(itemId, newStock);
+
+  @override
+  Future<void> applyScannedItems({
+    required final List<InventoryItemEntity> nuevos,
+    required final Map<String, int> stocksFinales,
+    required final Map<String, double> preciosNuevos,
+  }) =>
+      _dataSource.applyScannedItems(
+        nuevos: nuevos,
+        stocksFinales: stocksFinales,
+        preciosNuevos: preciosNuevos,
+      );
 }
