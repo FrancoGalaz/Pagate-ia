@@ -355,7 +355,7 @@ impuestos. Rellenar por defecto un «3,19 %» sería inventarle un dato al usuar
 Pegar tal cual. Play acepta un subconjunto de HTML en este campo; este texto está
 en texto plano a propósito, que es lo que se ve bien en todos los dispositivos.
 
-**3.931 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 69
+**3.984 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 16
 de margen: si hay que añadir una línea, hay que quitar otra, y el recuento se
 hace de verdad y no a ojo. Para volver a contarlo, copiar el bloque a un archivo
 y pedir su longitud en caracteres —no en bytes, que con las tildes no es lo
@@ -364,6 +364,36 @@ mismo—:
 ````sh
 python -c "print(len(open('descripcion.txt', encoding='utf-8').read().strip()))"
 ````
+
+**El lector de boletas entró en este texto, y se pagó con lo que se quitó.** El
+párrafo está dentro de *LLEVA TU INVENTARIO* y no en un bloque propio, porque el
+lector no es otra función: es la forma rápida de llenar el inventario. Lo que se
+quitó para hacerle sitio, porque el margen que había eran 69 caracteres:
+
+| Qué se quitó | Por qué no se echa de menos |
+|---|---|
+| «Para que no pierdas el tiempo si buscas otra cosa:» | El titular *QUÉ NO HACE PÁGATE-IA* ya dice eso mismo. |
+| «• No emite boletas ni facturas ante el SII.» | *PENSADA PARA CHILE* lo dice tres párrafos antes, con las mismas palabras: «no declara impuestos, no emite boletas». |
+| «• No es un software de contabilidad formal ni reemplaza a tu contador.» | El mismo párrafo cierra con «eso lo ve tu contador». |
+
+Y dos correcciones que no tienen que ver con el lector:
+
+- **`ventas`, en plural, no estaba.** La lista de palabras clave de más abajo la
+  daba por presente «comprobado buscándolas una por una», y el texto solo decía
+  «una venta». Ahora *ORDENA TUS INGRESOS Y GASTOS* abre con «Anotas tus ventas
+  y tus gastos en segundos», que además se lee mejor.
+- **El bloque `TUS DATOS` prometía que «el resto de la app funciona sin enviar
+  nada».** Con el lector eso es falso: el texto reconocido sí puede salir. Ahora
+  nombra las dos cosas que envían —el asistente y el lector— y añade la que de
+  verdad importa: la foto no sale del teléfono.
+
+> **El párrafo del lector describe una función que todavía no está en la app
+> publicada.** No se pega esta descripción hasta que el lector esté dentro; el
+> estado lo lleva `FUNCIONES_APP.lectorBoletas` en
+> `landing/src/content/legal-meta.ts`, que es la misma bandera que decide qué
+> dice la política de privacidad. Si se publica antes, hay que pegar la versión
+> sin ese párrafo: está en el historial de este archivo, en el commit anterior a
+> este.
 
 ```
 ¿Sabes cuánto vale realmente una hora de tu trabajo?
@@ -391,7 +421,7 @@ y la diferencia suele sorprender.
 
 ORDENA TUS INGRESOS Y GASTOS
 
-Anotas una venta o un gasto en segundos: cuánto, de qué y cuándo. La app arma
+Anotas tus ventas y tus gastos en segundos: cuánto, de qué y cuándo. La app arma
 sola el resumen del mes, con lo que entró, lo que salió y el balance. Y tus
 gastos fijos, para que no se te olviden al calcular.
 
@@ -419,6 +449,11 @@ Productos y materiales en un mismo lugar, con precio, stock y stock mínimo, y s
 quieres el proveedor y un código propio. Así sabes qué reponer antes de quedarte
 sin material a mitad de un pedido.
 
+Y si compraste con boleta, tómale una foto, elígela de la galería o compártela a
+la app, y te propone los artículos. Tú los revisas, los corriges y los
+confirmas, porque no lee perfecto. La imagen se lee en tu teléfono y no se
+guarda en ninguna parte.
+
 
 PREGÚNTALE AL ASISTENTE
 
@@ -442,22 +477,17 @@ Instagram o por encargo, está hecha para ese tamaño de emprendimiento.
 
 QUÉ NO HACE PÁGATE-IA
 
-Para que no pierdas el tiempo si buscas otra cosa:
-
 • No recibe pagos ni cobra a tus clientes. No es una billetera ni un medio de
   pago. Los montos que ves son los que tú anotas.
 • No se conecta a tu banco. No lee tus movimientos reales.
-• No emite boletas ni facturas ante el SII.
-• No es un software de contabilidad formal ni reemplaza a tu contador.
 
 
 TUS DATOS
 
 Tus números son tuyos. No vendemos tus datos, no hay publicidad dentro de la app
-y no hay seguimiento publicitario. Cuando usas el asistente, parte del contexto
-de tu negocio se envía al proveedor del modelo de lenguaje para poder
-responderte; está explicado campo por campo en nuestra política de privacidad, y
-el resto de la app funciona sin enviar nada.
+y no hay seguimiento publicitario. Cuando usas el asistente, o cuando lees una
+boleta, se envía texto al proveedor del modelo de lenguaje; está campo por campo
+en nuestra política de privacidad. La foto de la boleta no sale de tu teléfono.
 
 Y si te quieres ir, te vas: Perfil, Configuración, Eliminar cuenta. Se borra todo
 lo que guardaste, sin escribirle a nadie.
@@ -484,6 +514,12 @@ memoria:
 > estaban: `cuánto cobrar`, `emprendimiento` y `ganancias`. Las dos primeras se
 > metieron en esta revisión donde encajaban (el párrafo de presentación y el
 > bloque de trabajo independiente).
+>
+> Y seguía faltando una cuarta: `ventas`. El texto decía «una venta», en
+> singular, y la comprobación «una por una» no lo vio. Está arreglado en el
+> propio texto, no en esta nota. La moraleja es la de siempre en este
+> repositorio: una comprobación que se afirma y no se ejecuta es peor que no
+> afirmarla, porque la siguiente persona se la cree.
 
 **`ganancias` se queda fuera a propósito.** La app calcula un **balance**
 —ingresos menos gastos del mes— y eso no es la ganancia de un negocio: no
@@ -560,6 +596,15 @@ una. Nada de cifras que la app no pueda producir:
 
 Fuera quedó el detalle de un ítem de inventario, que repetía lo que ya cuenta la
 captura 7, para hacerle sitio al valor hora neto.
+
+**Cuando el lector de boletas esté en la app, una de las ocho es suya.** Play no
+admite una novena, así que entra en lugar de otra, y la candidata a salir es la 6
+(*Gastos fijos*): es la pantalla que más se parece a lo que ya cuenta la 5. Lo que
+tiene que verse es **la pantalla de revisión**, con la lista propuesta y los campos
+editables, no la cámara: el titular es «Fotografía la boleta y revisa», nunca
+«lee tu boleta automáticamente». La app propone y el usuario confirma, y la
+captura tiene que contar eso, porque es lo que la política de privacidad promete.
+Se toma con una boleta chilena de verdad, no con una inventada en un editor.
 
 **Las capturas se toman con la cuenta de demostración** (ver §9), para que los
 datos sean coherentes entre pantallas: que el balance del mes de la captura 1 sea
