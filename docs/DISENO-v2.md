@@ -487,7 +487,7 @@ El principio que ordena las tres es uno y no es estético: **la app propone, el 
 
 ### Hoja de origen — de dónde sale la ficha
 
-Cuelga del FAB de la pestaña de inventario y de la acción del estado vacío, los dos a través de `abrirAgregarAlInventario()`. Es el componente 14 (`PagateSheet`, alto máximo 90% de la pantalla) con tres filas del componente 5 (`PagateDataRow` navegable, 48 dp, chevron, presionado `sunken`).
+Cuelga del FAB de la pestaña de inventario y de la acción del estado vacío, los dos a través de `abrirAgregarAlInventario()`. Es el componente 14 (`PagateSheet`, alto máximo 90% de la pantalla) con cuatro filas del componente 5 (`PagateDataRow` navegable, 48 dp, chevron, presionado `sunken`).
 
 ```
 ┌──────────────────────────────────────────┐
@@ -499,19 +499,23 @@ Cuelga del FAB de la pestaña de inventario y de la acción del estado vacío, l
 │  Tomar una foto de la boleta          ›  │ 48
 │  Se abre la cámara del teléfono          │
 │  ────────────────────────────────────────│
-│  Elegir una imagen de la galería      ›  │ 48  última: sin divisor
+│  Elegir una imagen de la galería      ›  │ 48
 │  Una que ya tengas guardada              │
+│  ────────────────────────────────────────│
+│  Buscar el archivo en el teléfono     ›  │ 48  última: sin divisor
+│  Un PDF o una imagen, por ejemplo en     │     bodySmall 13 textMuted
+│  Descargas                               │
 │                                          │ 16
 │  También puedes compartir una boleta o   │     bodySmall 13 textMuted
-│  un PDF a Págate-IA desde WhatsApp, el   │     texto, NO un control
-│  correo o Archivos.                      │
+│  un PDF a Págate-IA desde WhatsApp o el  │     texto, NO un control
+│  correo, sin pasar por aquí.             │
 │                                          │ 16  bodyPadding
 └──────────────────────────────────────────┘
 ```
 
-**Tres entradas de lectura, no cuatro, y la cuenta importa porque los documentos de Play la copian.** Cámara, galería y compartir. Un archivo que ya está en el teléfono llega por la **tercera**, compartiéndolo desde Archivos: no hay una cuarta fila ni un selector de archivos propio, y el contrato del repositorio lo dice literalmente («Las tres entradas se reducen a `ReceiptDocument`»). Lo que lo fija es el manifiesto: `AndroidManifest.xml` declara `ACTION_SEND` y `ACTION_SEND_MULTIPLE` para `image/*` y `application/pdf`, y **ningún** `ACTION_VIEW`. Si alguien escribe «cuatro maneras» en la ficha de Play, está describiendo una app distinta.
+**Cuatro entradas de lectura, y la cuenta importa porque los documentos de Play la copian.** Cámara, galería, archivo guardado en el teléfono y compartir desde otra app. El contrato del repositorio lo dice literalmente («Las cuatro entradas se reducen a `ReceiptDocument`»). Las tres primeras son filas pulsables porque la app puede iniciarlas; la cuarta llega de fuera y por eso es texto. Lo que fija la de compartir es el manifiesto: `AndroidManifest.xml` declara `ACTION_SEND` y `ACTION_SEND_MULTIPLE` para `image/*` y `application/pdf`, y **ningún** `ACTION_VIEW`. La de archivo usa `file_picker` sobre el marco de acceso al almacenamiento de Android, que **no exige ningún permiso**: verificado con `aapt2 dump permissions` sobre el APK de release, que mantiene solo `INTERNET` y `ACCESS_NETWORK_STATE`.
 
-*Por qué compartir es una línea de texto y no una fila.* Las otras dos filas se pueden pulsar porque la app puede iniciar esos caminos. El de compartir empieza **fuera**: lo inicia WhatsApp, el correo o Archivos. Una fila pulsable que no puede hacer nada al pulsarla es un rótulo que no se cumple, así que informa y no promete. La entrega llega por `receive_sharing_intent` y la recoge `receipt_share_listener.dart`, que la convierte en la misma pantalla de revisión con un aviso de entrada («Llegaron 3 archivos. Leí el primero.»).
+*Por qué compartir es una línea de texto y no una fila.* Las otras tres filas se pueden pulsar porque la app puede iniciar esos caminos. El de compartir empieza **fuera**: lo inicia WhatsApp o el correo. Una fila pulsable que no puede hacer nada al pulsarla es un rótulo que no se cumple, así que informa y no promete. La entrega llega por `receive_sharing_intent` y la recoge `receipt_share_listener.dart`, que la convierte en la misma pantalla de revisión con un aviso de entrada («Llegaron 3 archivos. Leí el primero.»).
 
 *Por qué cuelga del FAB y no de un segundo control.* El principio 2 pide una sola acción dominante por pantalla y el 11 pide densidad. Un botón secundario bajo los chips le roba altura a la lista, que es lo que se viene a ver, y un segundo FAB serían dos controles flotantes. El coste es un toque extra en el camino manual, que se paga una vez por ficha.
 
