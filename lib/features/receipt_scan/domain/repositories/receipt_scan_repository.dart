@@ -60,9 +60,9 @@ class LocalParse {
 
 /// Contrato del lector de boletas.
 ///
-/// Las tres entradas se reducen a [ReceiptDocument]; la lectura es local y
-/// siempre produce una lista con [parseLocal]; [structure] solo la mejora y
-/// NUNCA es obligatoria. Esa separación es lo que hace que la función siga
+/// Las cuatro entradas se reducen a [ReceiptDocument]; la lectura es local
+/// y siempre produce una lista con [parseLocal]; [structure] solo la mejora
+/// y NUNCA es obligatoria. Esa separación es lo que hace que la función siga
 /// existiendo en una feria sin señal, que es justo donde se usa.
 abstract class ReceiptScanRepository {
   /// Abre la cámara del sistema. `null` si el usuario canceló.
@@ -70,6 +70,10 @@ abstract class ReceiptScanRepository {
 
   /// Abre el selector de imágenes del sistema. `null` si canceló.
   Future<ReceiptDocument?> elegirImagen();
+
+  /// Abre el selector de documentos del sistema para elegir un archivo que
+  /// ya está guardado en el teléfono. `null` si canceló.
+  Future<ReceiptDocument?> elegirDocumento();
 
   /// Reconoce el texto EN EL DISPOSITIVO y borra el archivo al terminar,
   /// haya ido bien o mal.

@@ -36,11 +36,33 @@ class FakeReceiptScanRepository implements ReceiptScanRepository {
   bool? pdfDeclarado;
   int lecturas = 0;
 
-  @override
-  Future<ReceiptDocument?> tomarFoto() async => null;
+  /// Lo que devuelve cada entrada cuando el test la activa. `null` = el
+  /// usuario canceló, que es lo que hacen los tres selectores de verdad.
+  ReceiptDocument? documentoDeLaCamara;
+  ReceiptDocument? documentoDeLaGaleria;
+  ReceiptDocument? documentoDelSelectorDeArchivos;
+
+  /// Qué entradas se usaron, en orden. Es lo que prueba que la fila de la
+  /// hoja de origen llama a la que dice su rótulo y no a otra.
+  final List<String> entradasUsadas = [];
 
   @override
-  Future<ReceiptDocument?> elegirImagen() async => null;
+  Future<ReceiptDocument?> tomarFoto() async {
+    entradasUsadas.add('camara');
+    return documentoDeLaCamara;
+  }
+
+  @override
+  Future<ReceiptDocument?> elegirImagen() async {
+    entradasUsadas.add('galeria');
+    return documentoDeLaGaleria;
+  }
+
+  @override
+  Future<ReceiptDocument?> elegirDocumento() async {
+    entradasUsadas.add('archivo');
+    return documentoDelSelectorDeArchivos;
+  }
 
   @override
   Future<ReceiptReading> leer(final ReceiptDocument documento) async {

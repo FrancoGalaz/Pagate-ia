@@ -33,6 +33,9 @@ class ReceiptScanRepositoryImpl implements ReceiptScanRepository {
   Future<ReceiptDocument?> elegirImagen() => _picker.elegirImagen();
 
   @override
+  Future<ReceiptDocument?> elegirDocumento() => _picker.elegirDocumento();
+
+  @override
   Future<ReceiptReading> leer(final ReceiptDocument documento) =>
       _reader.leer(documento);
 

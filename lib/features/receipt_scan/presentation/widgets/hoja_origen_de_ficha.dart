@@ -21,7 +21,7 @@ import '../providers/receipt_scan_provider.dart';
 // ═══════════════════════════════════════════════════════════════════════
 // DE DÓNDE SALE LA FICHA
 // ═══════════════════════════════════════════════════════════════════════
-// Tres filas, no tres botones: es el componente 5 del sistema
+// Cuatro filas, no cuatro botones: es el componente 5 del sistema
 // (`PagateDataRow` navegable, 48 dp, chevron, presionado `sunken`) dentro
 // del componente 14 (`PagateSheet`).
 //
@@ -38,10 +38,20 @@ import '../providers/receipt_scan_provider.dart';
 // (`MissingPluginException`) no lo entiende nadie.
 //
 // LA FILA DE LA GALERÍA DICE "UNA IMAGEN", NO "UNA IMAGEN O UN PDF".
-// `image_picker` no tiene ninguna API que devuelva un PDF, así que el
-// rótulo de la especificación habría ofrecido algo que el selector del
-// sistema no entrega. El PDF entra por el camino de compartir, que sí lo
-// da, y la línea del pie lo dice.
+// `image_picker` no tiene ninguna API que devuelva un PDF, así que ese
+// rótulo habría ofrecido algo que el selector de fotos no entrega.
+//
+// LA CUARTA FILA ES LA QUE SÍ DA EL PDF, y es la que pidió el dueño:
+// "Buscar el archivo en el teléfono" abre el selector de DOCUMENTOS del
+// sistema, el de Descargas y Archivos, no el de fotos. Hasta ahora la
+// única forma de leer un PDF guardado era salir de Págate, abrir Archivos
+// y compartirlo de vuelta; la línea del pie, que lo explicaba, seguía
+// siendo cierta pero ya no es el único camino.
+//
+// EL ORDEN DE LAS CUATRO ES EL DE USO ESPERADO, no el de implementación:
+// a mano primero (es lo que el usuario ya conocía), después la foto (el
+// caso corriente: la boleta está en el mostrador), y al final las dos
+// entradas de "algo que ya tengo guardado".
 // ═══════════════════════════════════════════════════════════════════════
 
 /// Punto de entrada único de "agregar al inventario".
@@ -51,8 +61,9 @@ import '../providers/receipt_scan_provider.dart';
 /// que ninguno de los dos llamadores tiene que saber de plataformas.
 Future<void> abrirAgregarAlInventario(
   final BuildContext context,
-  final InventoryItemType tipo,
-) {
+  final InventoryItemType tipo, {
+  final ReceiptScanRepository? repositorio,
+}) {
   if (!lecturaDeBoletasDisponible) return mostrarHojaDeItem(context, tipo);
 
   final inventario = context.read<InventoryProvider>();
@@ -60,15 +71,19 @@ Future<void> abrirAgregarAlInventario(
     context: context,
     builder: (final _) => ChangeNotifierProvider<InventoryProvider>.value(
       value: inventario,
-      child: HojaOrigenDeFicha(tipo: tipo),
+      child: HojaOrigenDeFicha(tipo: tipo, repositorio: repositorio),
     ),
   );
 }
 
 class HojaOrigenDeFicha extends StatelessWidget {
-  const HojaOrigenDeFicha({super.key, required this.tipo});
+  const HojaOrigenDeFicha({super.key, required this.tipo, this.repositorio});
 
   final InventoryItemType tipo;
+
+  /// Inyectable para los tests, que no tienen cámara ni selector nativo.
+  /// En la app va nulo y se usa [crearReceiptScanRepository].
+  final ReceiptScanRepository? repositorio;
 
   @override
   Widget build(final BuildContext context) => PagateSheet(
@@ -97,8 +112,14 @@ class HojaOrigenDeFicha extends StatelessWidget {
               label: 'Elegir una imagen de la galería',
               subtitle: 'Una que ya tengas guardada',
               value: '',
-              showDivider: false,
               onTap: () => _leer(context, _Origen.galeria),
+            ),
+            PagateDataRow(
+              label: 'Buscar el archivo en el teléfono',
+              subtitle: 'Un PDF o una imagen, por ejemplo en Descargas',
+              value: '',
+              showDivider: false,
+              onTap: () => _leer(context, _Origen.archivo),
             ),
             const SizedBox(height: AppSpacing.x4),
 
@@ -108,7 +129,7 @@ class HojaOrigenDeFicha extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
               child: Text(
                 'También puedes compartir una boleta o un PDF a $kAppName '
-                'desde WhatsApp, el correo o Archivos.',
+                'desde WhatsApp o el correo, sin pasar por aquí.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppPalette.textMuted,
                     ),
@@ -134,17 +155,20 @@ class HojaOrigenDeFicha extends StatelessWidget {
     final padre = navigator.context;
     navigator.pop();
 
-    final repositorio = crearReceiptScanRepository();
+    final lector = repositorio ?? crearReceiptScanRepository();
     final ReceiptDocument? documento;
     try {
-      documento = origen == _Origen.camara
-          ? await repositorio.tomarFoto()
-          : await repositorio.elegirImagen();
+      documento = switch (origen) {
+        _Origen.camara => await lector.tomarFoto(),
+        _Origen.galeria => await lector.elegirImagen(),
+        _Origen.archivo => await lector.elegirDocumento(),
+      };
     } on ReceiptScanException catch (e) {
-      // CANCELAR NO PASA POR AQUÍ (`image_picker` devuelve `null`), así que
-      // esto es un permiso denegado, un `SecurityException` por un permiso
-      // declarado y no concedido, o que no hay app de cámara. La app sigue
-      // entera: se dice qué pasó y qué se puede hacer.
+      // CANCELAR NO PASA POR AQUÍ: los dos selectores devuelven `null`.
+      // Esto es un permiso denegado, un `SecurityException` por un permiso
+      // declarado y no concedido, que no hay app de cámara, o un archivo
+      // elegido que no está en el disco local. La app sigue entera: se
+      // dice qué pasó y qué se puede hacer.
       if (!padre.mounted) return;
       AppFeedback.showError(
         padre,
@@ -162,12 +186,12 @@ class HojaOrigenDeFicha extends StatelessWidget {
       padre,
       documento: documento,
       inventario: inventario,
-      repositorio: repositorio,
+      repositorio: lector,
     );
   }
 }
 
-enum _Origen { camara, galeria }
+enum _Origen { camara, galeria, archivo }
 
 /// Monta el provider de la lectura y empuja la pantalla de revisión.
 ///

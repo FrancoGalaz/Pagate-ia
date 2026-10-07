@@ -19,13 +19,19 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// De dónde salió el documento. Solo se usa para el registro y para matizar
-/// el mensaje de error: el camino de lectura es el mismo para los tres.
+/// el mensaje de error: el camino de lectura es el mismo para las cuatro.
 enum ReceiptScanSource {
   /// Foto tomada con la cámara del sistema (`ACTION_IMAGE_CAPTURE`).
   camara,
 
   /// Imagen elegida con el selector de fotos del sistema.
   galeria,
+
+  /// Archivo elegido con el selector de documentos del sistema: un PDF en
+  /// Descargas, la boleta que llegó por correo y se bajó al teléfono. En
+  /// Android es el marco de acceso al almacenamiento
+  /// (`ACTION_OPEN_DOCUMENT`), que no exige ningún permiso.
+  archivo,
 
   /// Archivo compartido a Págate desde WhatsApp, el correo u otra app.
   compartido,
