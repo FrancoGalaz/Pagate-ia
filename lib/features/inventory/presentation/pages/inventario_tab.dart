@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../receipt_scan/presentation/widgets/hoja_origen_de_ficha.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../providers/inventory_provider.dart';
-import '../widgets/item_form_sheet.dart';
 import 'detalle_item_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -52,6 +52,14 @@ import 'detalle_item_screen.dart';
 // · EL FAB conserva su sitio (el paso 7 no toca el layout) pero pierde la
 //   elevación: el sistema no lleva sombra en ningún control. Gana el
 //   `tooltip` que le faltaba.
+//
+// QUÉ CAMBIÓ CON EL LECTOR DE BOLETAS. El FAB y la acción del estado vacío
+// ya no abren el formulario manual: abren [abrirAgregarAlInventario], que
+// es el punto de entrada único. En Android e iOS ofrece las tres formas de
+// crear una ficha (a mano, foto de la boleta, imagen de la galería) y en
+// web y escritorio va directo al formulario de siempre, porque allí los
+// plugins de lectura no están registrados. Esta pestaña no sabe de
+// plataformas: la decisión vive en un solo sitio.
 // ═══════════════════════════════════════════════════════════════════════
 
 class InventarioTab extends StatelessWidget {
@@ -110,7 +118,7 @@ class InventarioTab extends StatelessWidget {
             foregroundColor: AppPalette.textOnBrand,
             onPressed: provider.error != null
                 ? null
-                : () => mostrarHojaDeItem(context, provider.activeTab),
+                : () => abrirAgregarAlInventario(context, provider.activeTab),
             child: const Icon(Icons.add_rounded),
           ),
         ),
@@ -228,8 +236,10 @@ class _ItemList extends StatelessWidget {
                             'para saber qué te queda.'
                         : 'Anota lo que compras para producir, con su precio '
                             'y su stock.',
-                    actionLabel: esProducto ? 'Agregar producto' : 'Agregar material',
-                    onAction: () => mostrarHojaDeItem(context, activeTab),
+                    actionLabel:
+                        esProducto ? 'Agregar producto' : 'Agregar material',
+                    onAction: () =>
+                        abrirAgregarAlInventario(context, activeTab),
                   ),
           ),
         ],

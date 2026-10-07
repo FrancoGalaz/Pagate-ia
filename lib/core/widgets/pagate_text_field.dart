@@ -202,6 +202,15 @@ class _PagateTextFieldState extends State<PagateTextField> {
             hintText: widget.hintText,
             helperText: widget.helperText,
 
+            // TRES LÍNEAS, NO UNA. `InputDecoration` recorta la ayuda a una
+            // sola línea por defecto, y una ayuda recortada es peor que
+            // ninguna: en la hoja de revisión del lector de boletas la
+            // frase "En la boleta había un solo monto en esta línea. Lo
+            // tomé como el precio por unidad." se quedaba en "Lo tomé c…",
+            // justo antes de la parte que explica la consecuencia. Visto en
+            // emulator-5554.
+            helperMaxLines: 3,
+
             // Se apaga el contador de caracteres de Material: añade una
             // línea bajo cada campo con `maxLength` y no aporta nada en un
             // formulario de cuatro campos.

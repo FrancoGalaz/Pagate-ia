@@ -33,6 +33,13 @@ class PagateDataRow extends StatelessWidget {
   /// Valor ya formateado. Se dibuja en [AppText.amountRow], con cifras
   /// tabulares, aunque no sea un monto: así una columna de "3 meses" y
   /// "12 meses" tampoco baila.
+  ///
+  /// CADENA VACÍA = fila SIN columna de valor, y la etiqueta se queda con
+  /// todo el ancho. Hace falta para una fila que solo navega (la hoja de
+  /// "Agregar al inventario" tiene tres): sin esto, la columna del valor se
+  /// reservaba sus dos quintos de la fila para no dibujar nada y el
+  /// subtítulo se cortaba con puntos suspensivos a media frase. Medido en
+  /// emulator-5554.
   final String value;
 
   /// Segunda línea bajo la etiqueta, en `bodySmall` `textMuted`. Opcional.
@@ -107,7 +114,7 @@ class PagateDataRow extends StatelessWidget {
             // estar; y como las dos son tight, la fila no puede desbordar por
             // mucho que crezca la fuente del sistema.
             Expanded(
-              flex: 3,
+              flex: value.isEmpty ? 1 : 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -133,18 +140,20 @@ class PagateDataRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              flex: 2,
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                style: (emphasis
-                        ? theme.textTheme.displaySmall ?? AppText.displaySmall
-                        : AppText.amountRow)
-                    .copyWith(color: colorValor),
+            if (value.isNotEmpty) ...[
+              const SizedBox(width: AppSpacing.x3),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: (emphasis
+                          ? theme.textTheme.displaySmall ?? AppText.displaySmall
+                          : AppText.amountRow)
+                      .copyWith(color: colorValor),
+                ),
               ),
-            ),
+            ],
             ?trailing,
             if (onTap != null) ...[
               const SizedBox(width: AppSpacing.x2),

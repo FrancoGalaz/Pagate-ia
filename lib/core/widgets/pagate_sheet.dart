@@ -70,6 +70,16 @@ class PagateSheet extends StatelessWidget {
   /// formulario a medio escribir con el botón atrás.
   final Future<bool> Function()? onIntentarCerrar;
 
+  /// Relleno del cuerpo. Por defecto los 16 dp del sistema.
+  ///
+  /// Se expone para el único caso que no puede llevarlos: una hoja cuyo
+  /// cuerpo es una LISTA DE FILAS. Las filas del sistema
+  /// ([PagateDataRow], 48 dp, 16 dp de relleno propio) ya traen su margen y
+  /// sus divisores van a sangre; sumarles los 16 de la hoja las dejaría 16
+  /// dp más adentro que el título y los divisores no llegarían al borde.
+  /// Quien lo use pone el relleno a sus textos sueltos.
+  final EdgeInsetsGeometry? bodyPadding;
+
   const PagateSheet({
     super.key,
     required this.title,
@@ -77,6 +87,7 @@ class PagateSheet extends StatelessWidget {
     this.primaryAction,
     this.secondaryAction,
     this.onIntentarCerrar,
+    this.bodyPadding,
   });
 
   @override
@@ -120,7 +131,7 @@ class PagateSheet extends StatelessWidget {
         // ─── Cuerpo ─────────────────────────────────────────────────
         Flexible(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.x4),
+            padding: bodyPadding ?? const EdgeInsets.all(AppSpacing.x4),
             child: child,
           ),
         ),

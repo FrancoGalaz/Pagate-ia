@@ -17,6 +17,7 @@ import '../../../inventory/data/datasources/inventory_firebase_datasource.dart';
 import '../../../inventory/data/repositories/inventory_repository_impl.dart';
 import '../../../inventory/presentation/providers/inventory_provider.dart';
 import '../../../onboarding/presentation/pages/setup_inicial_screen.dart';
+import '../../../receipt_scan/presentation/widgets/receipt_share_listener.dart';
 import '../../../user_profile/data/datasources/user_profile_firebase_datasource.dart';
 import '../../../user_profile/data/repositories/user_profile_repository_impl.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
@@ -62,7 +63,17 @@ class UserScope extends StatelessWidget {
           create: (_) => createAiProvider(firestore: firestore, userId: uid),
         ),
       ],
-      child: AppShell(sessionKey: uid, home: const ProfileGate()),
+      // EL OYENTE DE "COMPARTIR A PÁGATE" VA DENTRO DEL `MaterialApp`, no
+      // alrededor. `AppShell` ES el `MaterialApp`, así que un widget por
+      // encima de él está por encima del Navigator y `Navigator.of` no
+      // encontraría ninguno con el que abrir la pantalla de lectura. Aquí
+      // ya tiene Navigator, y sigue por debajo del auth gate y dentro de
+      // este `MultiProvider`, que es lo que exige: necesita el inventario
+      // del usuario para emparejar y el perfil para saber si ya hay taller.
+      child: AppShell(
+        sessionKey: uid,
+        home: const ReceiptShareListener(child: ProfileGate()),
+      ),
     );
   }
 }
