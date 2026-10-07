@@ -479,6 +479,166 @@ Hoy la línea :292 afirma "Al continuar, aceptas nuestros Términos y Privacidad
 
 **Decisión de contenido que tomé y conviene saber**: descarté poner en la bienvenida un bloque de muestra con cifras de ejemplo rotuladas "Datos de ejemplo". Enseña mejor el producto, pero reintroduce exactamente la superficie de revisión que acabamos de quitar con el "+24%", por cero necesidad: la muestra del producto va en las **capturas de la ficha de Play**, tomadas de Inicio con datos reales después del rediseño, no dentro de la app.
 
+## Lector de boletas
+
+Tres superficies nuevas que entraron con el carril del lector y que este documento no describía: la **hoja de origen** (`lib/features/receipt_scan/presentation/widgets/hoja_origen_de_ficha.dart`), la **pantalla de revisión** (`…/pages/lectura_boleta_screen.dart`) y la **hoja de revisar el artículo** (`…/widgets/hoja_revisar_articulo.dart`). Se documentan aquí a posteriori, que es una deuda y conviene decirlo: entró una pantalla completa y dos hojas modales sin pasar por la especificación visual aprobada.
+
+El principio que ordena las tres es uno y no es estético: **la app propone, el usuario confirma**. Nada de lo que sale de una fotografía entra al inventario sin que una persona lo haya visto en una lista y pulsado un botón. De ahí salen las dos decisiones que más forma le dan al diseño: que la revisión sea una pantalla y no una hoja, y que la lista no sea editable en línea.
+
+### Hoja de origen — de dónde sale la ficha
+
+Cuelga del FAB de la pestaña de inventario y de la acción del estado vacío, los dos a través de `abrirAgregarAlInventario()`. Es el componente 14 (`PagateSheet`, alto máximo 90% de la pantalla) con tres filas del componente 5 (`PagateDataRow` navegable, 48 dp, chevron, presionado `sunken`).
+
+```
+┌──────────────────────────────────────────┐
+│  Agregar al inventario                ✕  │ 56  PagateSheet, titleLarge 16/600
+├──────────────────────────────────────────┤ hairline
+│  Escribir la ficha a mano             ›  │ 48  PagateDataRow navegable
+│  Como hasta ahora                        │     bodySmall 13 textMuted
+│  ────────────────────────────────────────│     hairline a sangre
+│  Tomar una foto de la boleta          ›  │ 48
+│  Se abre la cámara del teléfono          │
+│  ────────────────────────────────────────│
+│  Elegir una imagen de la galería      ›  │ 48  última: sin divisor
+│  Una que ya tengas guardada              │
+│                                          │ 16
+│  También puedes compartir una boleta o   │     bodySmall 13 textMuted
+│  un PDF a Págate-IA desde WhatsApp, el   │     texto, NO un control
+│  correo o Archivos.                      │
+│                                          │ 16  bodyPadding
+└──────────────────────────────────────────┘
+```
+
+**Tres entradas de lectura, no cuatro, y la cuenta importa porque los documentos de Play la copian.** Cámara, galería y compartir. Un archivo que ya está en el teléfono llega por la **tercera**, compartiéndolo desde Archivos: no hay una cuarta fila ni un selector de archivos propio, y el contrato del repositorio lo dice literalmente («Las tres entradas se reducen a `ReceiptDocument`»). Lo que lo fija es el manifiesto: `AndroidManifest.xml` declara `ACTION_SEND` y `ACTION_SEND_MULTIPLE` para `image/*` y `application/pdf`, y **ningún** `ACTION_VIEW`. Si alguien escribe «cuatro maneras» en la ficha de Play, está describiendo una app distinta.
+
+*Por qué compartir es una línea de texto y no una fila.* Las otras dos filas se pueden pulsar porque la app puede iniciar esos caminos. El de compartir empieza **fuera**: lo inicia WhatsApp, el correo o Archivos. Una fila pulsable que no puede hacer nada al pulsarla es un rótulo que no se cumple, así que informa y no promete. La entrega llega por `receive_sharing_intent` y la recoge `receipt_share_listener.dart`, que la convierte en la misma pantalla de revisión con un aviso de entrada («Llegaron 3 archivos. Leí el primero.»).
+
+*Por qué cuelga del FAB y no de un segundo control.* El principio 2 pide una sola acción dominante por pantalla y el 11 pide densidad. Un botón secundario bajo los chips le roba altura a la lista, que es lo que se viene a ver, y un segundo FAB serían dos controles flotantes. El coste es un toque extra en el camino manual, que se paga una vez por ficha.
+
+*En web y escritorio esta hoja no se abre.* `abrirAgregarAlInventario()` va directo al formulario manual cuando `lecturaDeBoletasDisponible` es falso. Ofrecer «tomar una foto» donde el plugin no está registrado produce un `MissingPluginException`, que es un error nativo que no entiende nadie.
+
+*La fila de la galería dice «una imagen», no «una imagen o un PDF».* `image_picker` no tiene ninguna API que devuelva un PDF. El PDF entra por el camino de compartir, que sí lo da, y el pie lo dice.
+
+### Pantalla de revisión — «Revisar la boleta»
+
+```
+┌──────────────────────────────────────────┐
+│ ←  Revisar la boleta                     │ 56  AppBar, leading tooltip 'Volver'
+├──────────────────────────────────────────┤
+│                                          │ 16
+│  ┌────────────────────────────────────┐  │     franja de avisos
+│  │ Saqué pocos artículos. Si la       │  │     warningSurface #FBF0DC
+│  │ boleta tenía más, no los leí.      │  │     borde 1 dp warning #B54708
+│  │                                    │  │  8  separación entre avisos
+│  │ Lo que no aparezca en esta lista   │  │     bodySmall 13 warning (4,81 ✅)
+│  │ no lo leí. Compara con la boleta   │  │     r8, padding 12
+│  │ antes de guardar.                  │  │
+│  └────────────────────────────────────┘  │
+│                                          │ 16
+├──────────────────────────────────────────┤     PagateSectionCard
+│ ☑  Arcilla gres 25 kg     2 × $18.990 ›  │ 48  titleMedium 15/600
+│    material · sacos · $37.980 en total   │     bodySmall 13 textMuted
+│  ────────────────────────────────────────│     hairline a sangre
+│ ☑  Esmalte celadón         1 × $8.500 ›  │ 48
+│    Ya existe · stock 3 → 4               │
+│  ────────────────────────────────────────│
+│ ☐  Pigmento de óxido       1 × $4.200 ›  │ 48  casilla DESMARCADA
+│    No encontré este nombre en la boleta  │     bodySmall 13 warning
+├──────────────────────────────────────────┤ 24
+│  Descartar la lectura                    │ 40  botón de texto destructivo
+│  ┌────────────────────────────────────┐  │
+│  │        Guardar 2 artículos         │  │ 48  PagatePrimaryButton
+│  └────────────────────────────────────┘  │     PagateActionBar + SafeArea
+└──────────────────────────────────────────┘
+```
+
+**Por qué cada zona es como es**
+
+*Es una pantalla y no una hoja modal.* La lista propuesta puede llevar 40 filas (`kMaxArticulosPorBoleta`). Necesita `Scaffold` propio, `AppBar` con botón de volver y una `PagateActionBar` fija abajo. Una hoja al 90% de alto con 40 filas dentro deja el botón de guardar fuera del alcance del pulgar, que es justo donde no puede estar el único control que confirma la operación.
+
+*Franja de avisos (`warningSurface` + borde `warning`).* No es decoración: es el sitio donde la app admite lo que no sabe. Puede acumular hasta seis avisos y **el último va siempre, en todos los casos**: «Lo que no aparezca en esta lista no lo leí. Compara con la boleta antes de guardar.» Ningún aviso condicional lo sustituye, porque lo que el reconocimiento no vio no aparece en ninguna lista y esa es la única forma honesta de decir que la lista puede estar incompleta. Los condicionales son el aviso de entrada, la degradación del ordenado (cuatro variantes: sin conexión, el modelo falló, no queda cuota, el modelo no reconoció nada), la confianza baja de ML Kit y el recorte por el tope de 40.
+
+*Dos avisos distintos para «salieron pocos», y no uno.* «El texto salió con poco contraste» solo se afirma cuando ML Kit informó una confianza baja de verdad. Decirlo porque salieron dos artículos sería inventar una causa: una boleta de dos materiales es perfectamente normal. Lo que sí se puede afirmar con pocos artículos es que salieron pocos.
+
+*Fila de artículo propuesto (`fila_articulo_propuesto.dart`), alto mín. 48.* Casilla con su propia caja táctil de 48 a la izquierda, y el resto de la fila es un `InkWell` que abre la hoja de revisión: dos zonas inequívocas y grandes, porque tocar el nombre y tocar la casilla hacen cosas distintas. Nombre en `titleMedium` 15/600, `maxLines: 1`, `ellipsis`. Subtítulo en `bodySmall` 13, `maxLines: 2`, en `textMuted` normalmente y en `warning` cuando hay algo que revisar. Chevron 20 dp `textMuted`.
+
+*La cifra de la derecha es `cantidad × precio unitario`, nunca abreviada y con figuras tabulares.* Es la que deja la consecuencia a la vista antes de guardar: con un solo monto en la línea, la diferencia entre leerlo como unitario o como total es el doble de dinero, y esta fila es el único sitio donde el usuario puede verlo antes de que entre al inventario.
+
+*La fila no es editable en línea, y es a propósito.* Cinco campos editables en una fila serían cinco cajas táctiles por debajo de los 48 dp que manda este documento. La fila muestra; la hoja edita.
+
+*El subtítulo carga la información que el color no puede dar.* «No encontré este nombre en la boleta», «Ya existe · stock 3 → 4», «un solo monto en la línea». El ámbar acompaña, nunca es el único portador (WCAG 1.4.1).
+
+*Guarda contra alucinación, y no es un descarte.* Si el nombre que devuelve el modelo no comparte suficientes palabras con el texto del OCR (`kUmbralDePalabrasEnTexto`, 0,6), el artículo **no se tira**: llega con la casilla desmarcada y con la etiqueta que lo dice. Descartarlo en silencio perdería lecturas correctas —el modelo expande legítimamente `ARC GRES` a «Arcilla gres»—; dejarlo marcado violaría «la app propone, el usuario confirma».
+
+*Pie (`PagateActionBar`).* Primario con el recuento vivo: «Guardar 1 artículo» / «Guardar 3 artículos», y con cero seleccionados queda **deshabilitado** y dice «Guardar artículos», no «Guardar 0». Secundario destructivo «Descartar la lectura», que se deshabilita mientras guarda.
+
+*El error de guardado va dentro de la pantalla, no en un aviso flotante.* `PagateInlineError` sobre `surface`, justo encima de la barra de acciones. Un aviso de seis segundos encima del botón que el usuario acaba de pulsar tapa exactamente lo que tiene que volver a pulsar, y el error en línea no se va solo.
+
+*Salir pierde trabajo, así que se pregunta.* `PopScope(canPop: false)` intercepta el gesto del sistema, la flecha de volver y el botón de descartar, y abre un diálogo: «¿Descartar la lectura? Se pierde la lista que revisaste. La boleta no se guardó en ningún sitio, así que tendrías que volver a leerla.» La segunda frase no es relleno: explica por qué no se puede recuperar.
+
+### Los cuatro estados, y ninguno promete lo que no sabe
+
+*Cargando — `ReceiptScanPhase.leyendo`.* «Leyendo la boleta…» en `bodyMedium` y un `PagateSkeleton.rows(4)` dentro de una `PagateSectionCard`. **Sin barra de progreso**: ni ML Kit ni el rasterizado de PDF informan de avance, así que una barra que se mueve afirmaría algo que el código no sabe (principio 7). El esqueleto dice dónde va a estar el contenido sin prometer cuándo. El pie desaparece entero (`SizedBox.shrink`): no hay nada que confirmar todavía.
+
+*Error de reconocimiento — `sinTexto`.* `PagateErrorState` con título «No pude leer nada de esa imagen» y una descripción que da las tres causas accionables: más luz, sin sombra encima, toda la boleta dentro del encuadre. Y cierra admitiendo el límite: «Si el papel está muy desvaído, escribir la ficha a mano va a ser más rápido.»
+
+*Error de archivo — `errorDeLectura`.* El título y la descripción salen de `ReceiptScanException`, que trae su propio texto ya escrito para el usuario y una pista de qué hacer. No hay un «ocurrió un error» genérico: «este PDF está protegido» y «la foto pesa demasiado» se arreglan de formas distintas, y un mensaje único obligaría a adivinar cuál es la tuya.
+
+En los dos errores el pie ofrece **dos salidas y ninguna es un callejón**: primario «Probar con otra foto», secundario «Escribir la ficha a mano».
+
+*Vacío — leyó pero no sacó artículos.* `PagateEmptyState` dentro de una `PagateSectionCard`: «Leí la boleta pero no saqué ningún artículo», con las dos causas posibles dichas como posibles («puede que la foto haya salido con poco contraste, o que esa boleta no tenga una lista de artículos que yo sepa reconocer»). Es un estado vacío de verdad y no un error disfrazado: el archivo se leyó.
+
+*Lectura pobre — hay lista, pero hay que desconfiar de ella.* No es una pantalla aparte: es la lista normal con la franja de avisos cargada y, cuando corresponde, filas con la casilla desmarcada. Esto es deliberado. Una pantalla de «lectura de baja calidad» invitaría a descartarla entera, cuando lo útil es casi siempre quedarse con tres de cinco artículos y corregir los otros dos.
+
+### Hoja de revisar el artículo
+
+Se abre tocando cualquier fila. Es el «el usuario confirma» de «la app propone, el usuario confirma»: todo lo que el reconocimiento pudo equivocar se arregla aquí.
+
+```
+┌──────────────────────────────────────────┐
+│  Revisar el artículo                  ✕  │ 56  PagateSheet
+├──────────────────────────────────────────┤
+│  ┌────────────────────────────────────┐  │     solo si notInText
+│  │ Este nombre no aparece en el texto │  │     warningSurface + borde warning
+│  │ que leí de la boleta. (…)          │  │
+│  └────────────────────────────────────┘  │
+│  Nombre                                  │ 48  PagateTextField
+│  [ Arcilla gres 25 kg                 ]  │
+│  Precio por unidad                       │ 48  PagateTextField.amount
+│  [ $18.990                            ]  │     tabular, teclado numérico
+│  En la boleta había un solo monto en     │     helperText, solo si ambiguous
+│  esta línea. Lo tomé como el precio…     │
+│  Cantidad          Unidad                │ 48  dos campos, gap 12
+│  [ 2          ]    [ sacos          ]    │
+│  Tipo                                    │     titleSmall 14/600
+│  (Material)  ( Producto )                │ 32  PagateChip, caja táctil 48
+│  ── solo si la ficha ya existe ──────────│ 24
+│  Ya tienes una ficha así                 │     titleSmall 14/600
+│  «Arcilla gres», con 3 sacos en stock.   │     bodySmall 13 textMuted
+│  (Sumar al stock)  ( Crear ficha nueva ) │ 32  PagateChip
+│  El stock queda en 5 sacos.              │     bodySmall 13 textSecondary
+│  Guardado $17.500 · en la boleta $18.990 │     bodySmall 13 textMuted
+│  [○──] Actualizar el precio guardado     │ 48  SwitchListTile, APAGADO
+│  ──────────────────────────────────────  │ 24
+│  Código (opcional)        Ej: GR-25      │ 48
+│  Proveedor (opcional)     Ej: Cerámicas… │ 48
+├──────────────────────────────────────────┤
+│  ┌────────────────────────────────────┐  │
+│  │          Guardar cambios           │  │ 48  primaryAction de la hoja
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+```
+
+**Cada cosa que el código sabe que puede estar mal lo dice en su propio campo**, con `helperText` y no con un aviso general: cantidad fraccionaria → el número que decía la boleta y el que se va a guardar, sin esconder el redondeo; un solo monto en la línea → que se tomó como precio por unidad; nombre que no estaba en el texto → la franja de arriba, con «compáralo con el papel antes de guardarlo».
+
+*El precio guardado no se actualiza por defecto, y no es pereza.* El precio de un producto es a cuánto lo **vende** el usuario; sobrescribirlo con un precio de compra le rompe sus propias finanzas en silencio. Para un material suele interesar, así que está a un toque —con los dos precios a la vista para poder decidir— pero el toque lo da él.
+
+*Los dos campos que el modelo de datos ya tenía y nadie rellenaba.* «Código» y «Proveedor», marcados `(opcional)`. Van al final porque son los únicos que no salen de la lectura. Que ahora se puedan escribir es lo que hace verdad la frase de la política de privacidad que los nombra, y lo que vigila `FUNCIONES_APP.fichaInventarioCompleta` en `landing/src/content/legal-meta.ts`.
+
+*El precio se lee con `parseCurrencyInput`, nunca con `double.tryParse`.* Es el defecto ya documentado en `currency_formatter.dart`: `150.000` escrito como lo escribe un chileno se guardaba como 150 pesos.
+
+*Cerrar con cambios sin guardar pregunta antes* («¿Descartar los cambios?»), por la misma razón que en la pantalla: lo que se pierde no se puede recuperar.
+
 ## Qué se elimina
 
 Todos los conteos son de grep verificado sobre `lib/` en la rama `arquitectura-segura`, no estimaciones.
