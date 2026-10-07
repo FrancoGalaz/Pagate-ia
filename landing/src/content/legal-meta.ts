@@ -196,16 +196,60 @@ export const FUNCIONES_APP = {
    * Señal en el código: `supplier:` y `updateItem(` en
    * `lib/features/inventory/presentation/`, fuera de `providers/`.
    */
-  fichaInventarioCompleta: false,
+  fichaInventarioCompleta: true,
 
   /**
-   * Lector de boletas: tomar una foto, elegir una imagen de la galería o
-   * compartir un PDF a la app, y que de ahí salgan los artículos para revisarlos
+   * Lector de boletas: tomar una foto, elegir una imagen de la galería, o
+   * compartir a la app una imagen o un PDF desde WhatsApp, el correo o la app
+   * de Archivos del teléfono, y que de ahí salgan los artículos para revisarlos
    * antes de meterlos al inventario. El reconocimiento de texto ocurre **en el
    * teléfono** y la imagen no se guarda en ninguna parte.
+   *
+   * Son TRES entradas, no cuatro: compartir es un único camino
+   * (`ACTION_SEND`/`ACTION_SEND_MULTIPLE` en `AndroidManifest.xml`), y un
+   * archivo del propio teléfono llega por él, desde Archivos. La app no tiene
+   * selector de archivos propio y el contrato del repositorio lo dice:
+   * «Las tres entradas se reducen a [ReceiptDocument]».
+   *
+   * EL ENVÍO DEL TEXTO A UN TERCERO DEPENDE DE QUE EL CALLABLE ESTÉ
+   * DESPLEGADO. Ordenar la lista lo hace `scanReceipt`, y hoy ese callable no
+   * está en producción. Mientras no lo esté, el texto no sale del teléfono:
+   * `remote_line_item_parser.dart` trata cualquier fallo —incluido «no está
+   * desplegado»— como degradación, conserva la lista que armó el propio
+   * teléfono y la pantalla lo dice en palabras. Por eso los documentos
+   * redactan la salida del texto como condicional, no como un hecho: esta
+   * bandera dice que la función existe, no que el envío esté activo.
    *
    * Señal en el código: la dependencia de reconocimiento de texto en
    * `pubspec.yaml`.
    */
-  lectorBoletas: false,
+  lectorBoletas: true,
+
+  /**
+   * ¿Está desplegado el paso que SACA EL TEXTO DEL TELÉFONO?
+   *
+   * Es una bandera aparte de [lectorBoletas] porque son dos hechos distintos y
+   * el documento legal necesita los dos. Que el lector exista (arriba) no
+   * implica que salga texto hacia un tercero: eso solo pasa cuando el callable
+   * `scanReceipt` está desplegado en producción, y hoy no lo está.
+   *
+   * Mientras siga en `false`, el texto reconocido NO sale del teléfono en
+   * ningún momento. `remote_line_item_parser.dart` trata cualquier fallo del
+   * callable —y «no está desplegado» es uno— como degradación: conserva la
+   * lista que armó el propio teléfono y la pantalla de revisión lo dice en
+   * palabras («Ordené la lista yo sola, sin el asistente»). La función no se
+   * cae; baja de calidad y lo admite.
+   *
+   * POR QUÉ ESTA NO LA VIGILA `FUNCIONES_DECLARADAS` de honestidad.test.ts.
+   * Las otras dos se comprueban leyendo `lib/`, porque son hechos del código.
+   * Esta no es un hecho del código: el cliente llama al callable igual, esté
+   * desplegado o no, así que no hay señal en el repositorio que un test pueda
+   * leer. Es un hecho del despliegue, y vive en la consola de Firebase.
+   *
+   * QUIÉN LA PONE EN `true`: quien despliegue `functions`. Un documento que
+   * dice «el texto no sale» con el callable ya sirviendo es exactamente la
+   * clase de mentira que este archivo existe para evitar, solo en la otra
+   * dirección: por defecto.
+   */
+  ordenadoDeBoletasEnServidor: false,
 } as const;
