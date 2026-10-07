@@ -29,6 +29,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../domain/entities/receipt_reading.dart';
 import '../../domain/entities/scanned_line_item.dart';
 import '../../domain/repositories/receipt_scan_repository.dart';
+import 'item_name_case.dart';
 
 /// Tope de artículos. El mismo que el esquema del backend.
 const int kMaxArticulosPorBoleta = 40;
@@ -173,7 +174,26 @@ const double _toleranciaDeTotal = 2;
 /// un error: la pantalla de revisión ya sabe decir "no pude leer nada" y
 /// ofrecer teclear.
 LocalParse parseLineasDeBoleta(final ReceiptReading lectura) {
-  final lineas = _desdeElEncabezado(_filasDeLaBoleta(_ordenadas(lectura.lines)));
+  final filas = _filasDeLaBoleta(_ordenadas(lectura.lines));
+
+  // LA CABECERA SE GUARDA, NO SE TIRA. Hasta ahora `_desdeElEncabezado`
+  // devolvía solo el cuerpo y las filas de arriba se perdían; ahí está el
+  // nombre del local, que es el proveedor de todo lo que viene debajo.
+  final corte = _indiceDelEncabezadoDeColumnas(filas);
+  final cabecera = corte == -1
+      ? filas.take(_maxFilasDeCabeceraSinEncabezado).toList()
+      : filas.sublist(0, corte);
+  final lineas = corte == -1 ? filas : filas.sublist(corte + 1);
+
+  // Sin fila de encabezado no se sabe dónde acaba la cabecera, así que solo
+  // se acepta un proveedor con forma social a la vista (`LTDA`, `SpA`...):
+  // adivinar con la primera línea de una boleta sin estructura conocida es
+  // justo "inventar" lo que el encargo prohíbe.
+  final proveedor = _proveedorDeLaCabecera(
+    cabecera,
+    exigeFormaSocial: corte == -1,
+  );
+
   final items = <ScannedLineItem>[];
   var truncado = false;
 
@@ -216,7 +236,11 @@ LocalParse parseLineasDeBoleta(final ReceiptReading lectura) {
         final anterior = items.removeLast();
         items.add(
           anterior.copyWith(
-            name: _recortar('${anterior.name} $texto'),
+            // Se vuelve a normalizar el nombre COMPLETO y no solo el trozo
+            // nuevo: `normalizarCajaDeNombre` es idempotente, así que la
+            // primera mitad (ya normalizada) pasa intacta y la segunda,
+            // que llega en mayúsculas del OCR, entra con la misma caja.
+            name: normalizarCajaDeNombre(_recortar('${anterior.name} $texto')),
           ),
         );
       }
@@ -257,11 +281,14 @@ LocalParse parseLineasDeBoleta(final ReceiptReading lectura) {
 
     items.add(
       ScannedLineItem(
-        name: nombre,
+        name: normalizarCajaDeNombre(nombre),
         rawQuantity: unidades,
         unit: cant?.unidad ?? 'unidades',
         unitPrice: precio.valor,
         ambiguous: precio.ambiguo,
+        // El mismo para todos los artículos del documento: la boleta la
+        // emite un solo local. `null` si no se pudo leer.
+        supplier: proveedor,
       ),
     );
     sangriaDelUltimo = linea.left;
@@ -376,17 +403,110 @@ double? _confianzaDeLaFila(final List<OcrLine> fila) {
   return cuantas == 0 ? null : suma / cuantas;
 }
 
-/// Descarta todo lo que está por encima del encabezado de columnas.
+/// Índice de la fila de encabezado de columnas, o -1 si no hay.
 ///
-/// Devuelve [filas] tal cual si no hay encabezado: la regla solo puede
-/// quitar lo que está antes de algo que existe.
-List<OcrLine> _desdeElEncabezado(final List<OcrLine> filas) {
+/// Lo que está POR ENCIMA es cabecera de la boleta (nombre del local, RUT,
+/// giro, dirección, folio, fecha) y lo que está por debajo es mercadería.
+/// Devolver el índice y no la sublista es lo que permite usar las dos
+/// mitades: el cuerpo para los artículos y la cabecera para el proveedor.
+int _indiceDelEncabezadoDeColumnas(final List<OcrLine> filas) {
   for (var i = 0; i < filas.length; i++) {
-    if (_encabezadoDeColumnas.hasMatch(filas[i].text)) {
-      return filas.sublist(i + 1);
-    }
+    if (_encabezadoDeColumnas.hasMatch(filas[i].text)) return i;
   }
-  return filas;
+  return -1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// EL PROVEEDOR
+// ═══════════════════════════════════════════════════════════════════════
+// EL DEFECTO: por el camino local el campo "Proveedor" de la hoja de
+// revisión quedaba SIEMPRE vacío, aunque la primera línea de la boleta de
+// prueba diga «CERAMICAS DEL SUR LTDA». El modelo sí lo devuelve, así que
+// sin red —que es justo cuando el camino local importa— el usuario tenía
+// que teclear a mano el mismo dato que estaba impreso arriba.
+//
+// Y POR QUÉ NO SE COGE SIEMPRE LA PRIMERA LÍNEA. Porque la primera línea
+// de una boleta también puede ser «BOLETA ELECTRONICA N 0004827» o el
+// logo partido en dos trozos, y una ficha de inventario con el proveedor
+// «Boleta electronica» es peor que una con el proveedor vacío: el usuario
+// no revisa un campo que ya parece relleno. El encargo lo dice con esas
+// palabras: si no se puede, queda vacío sin inventar nada.
+//
+// DOS REGLAS, EN ORDEN:
+//
+//   1. UNA FORMA SOCIAL A LA VISTA (`LTDA`, `LIMITADA`, `SpA`, `S.A.`,
+//      `EIRL`). Es prueba de que esa línea es una razón social y no un
+//      rótulo del documento. Gana sobre cualquier otra línea.
+//   2. SI NO HAY NINGUNA, la primera línea de la cabecera que no lleve ni
+//      un dígito, no sea ruido conocido y traiga al menos seis letras. Sin
+//      dígitos se cae la dirección («AV. LOS ALERCES 1842»), el folio y la
+//      fecha; el filtro de ruido se lleva RUT, GIRO, BOLETA y FACTURA.
+//
+// Esta segunda regla solo se aplica cuando la boleta TENÍA fila de
+// encabezado de columnas, porque solo entonces se sabe dónde acaba la
+// cabecera. Sin ella, se exige la forma social.
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Cuántas filas se miran como cabecera cuando la boleta no tiene fila de
+/// encabezado de columnas.
+///
+/// Seis: en una boleta chilena la razón social, el RUT, el giro, la
+/// dirección, el número de documento y la fecha caben de sobra ahí. Más
+/// abajo ya es mercadería, y buscar el proveedor dentro de la lista de
+/// artículos sacaría el nombre de un artículo.
+const int _maxFilasDeCabeceraSinEncabezado = 6;
+
+/// Mínimo de letras para que una línea de cabecera pueda ser un nombre de
+/// local. Seis deja fuera restos del OCR como `SII` o `N 4827`.
+const int _minLetrasDelProveedor = 6;
+
+/// Forma societaria chilena al final de una razón social.
+///
+/// La guarda de la derecha rechaza las letras para que `SPA` no case
+/// dentro de `SPANISH`, y la de la izquierda es un límite de palabra para
+/// que no case la cola de otra.
+final RegExp _formaSocial = RegExp(
+  r'\b(LTDA|LIMITADA|S\.?P\.?A|S\.?A|E\.?I\.?R\.?L|Y\s+C(?:IA|ÍA))\.?'
+  r'(?![A-Za-zÁÉÍÓÚÜÑáéíóúüñ])',
+  caseSensitive: false,
+);
+
+final RegExp _tieneDigito = RegExp(r'\d');
+
+/// El nombre del local, o `null` si no se puede afirmar.
+String? _proveedorDeLaCabecera(
+  final List<OcrLine> cabecera, {
+  required final bool exigeFormaSocial,
+}) {
+  String? primeraLimpia;
+
+  for (final fila in cabecera) {
+    final texto = fila.text.replaceAll(_espaciosRepetidos, ' ').trim();
+    if (texto.isEmpty) continue;
+    if (_esRuido(texto)) continue;
+    if (_letras.allMatches(texto).length < _minLetrasDelProveedor) continue;
+
+    // Un monto en la línea la descarta en los dos caminos: una cabecera con
+    // dinero dentro es el total anticipado o la dirección, no el nombre.
+    if (_tokenDeDinero.hasMatch(texto)) continue;
+
+    if (_formaSocial.hasMatch(texto)) return _comoProveedor(texto);
+    primeraLimpia ??= _tieneDigito.hasMatch(texto) ? null : texto;
+  }
+
+  if (exigeFormaSocial) return null;
+  return primeraLimpia == null ? null : _comoProveedor(primeraLimpia);
+}
+
+/// Recorta y pone en caja de nombre propio lo que se va a guardar.
+///
+/// Pasa por `normalizarCajaDeNombre` igual que los artículos: `LTDA` queda
+/// `Ltda` y `CERAMICAS` queda `Ceramicas`, sin ponerle la tilde que el
+/// reconocimiento no trajo. El tope es el mismo de un nombre de artículo y
+/// queda por debajo de los 200 caracteres que acepta `firestore.rules`.
+String? _comoProveedor(final String texto) {
+  final limpio = normalizarCajaDeNombre(_recortar(texto));
+  return limpio.isEmpty ? null : limpio;
 }
 
 bool _esRuido(final String texto) {

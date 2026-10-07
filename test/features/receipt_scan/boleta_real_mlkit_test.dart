@@ -87,12 +87,18 @@ void main() {
     expect(
       r.items.map((final i) => i.name).toList(),
       [
-        'ARCILLA GRES 25K',
-        'ESMALTE TRANSPARENTE',
-        'PINCEL CHINO N6',
-        'CAOLIN BLANCO 10.20O',
-        'OXIDO DE COBRE 250G',
-        'PAPEL DE LIJA',
+        // CAJA DE FRASE, NO LA MAYÚSCULA DE LA BOLETA. La boleta se imprime
+        // entera en mayúsculas y así entraban los nombres al inventario,
+        // al lado de las fichas que escribió el usuario. Lo que NO se toca
+        // son las medidas y los códigos (`25K`, `N6`, `250G`, `10.20O`), ni
+        // se inventa la tilde de `Óxido`, que el reconocimiento no trajo.
+        // Las reglas están en `item_name_case.dart`.
+        'Arcilla gres 25K',
+        'Esmalte transparente',
+        'Pincel chino N6',
+        'Caolin blanco 10.20O',
+        'Oxido de cobre 250G',
+        'Papel de lija',
       ],
     );
   });
@@ -121,13 +127,13 @@ void main() {
     final r = parseLineasDeBoleta(_boletaReal);
     final porNombre = {for (final i in r.items) i.name: i};
 
-    expect(porNombre['ARCILLA GRES 25K']!.ambiguous, isFalse);
-    expect(porNombre['PINCEL CHINO N6']!.ambiguous, isFalse);
+    expect(porNombre['Arcilla gres 25K']!.ambiguous, isFalse);
+    expect(porNombre['Pincel chino N6']!.ambiguous, isFalse);
 
     // En esta fila el OCR leyó `10.20O` con una letra O, así que el total
     // de línea no se pudo leer como número y solo quedó un monto. Eso SÍ es
     // ambiguo, y se dice.
-    expect(porNombre['CAOLIN BLANCO 10.20O']!.ambiguous, isTrue);
+    expect(porNombre['Caolin blanco 10.20O']!.ambiguous, isTrue);
   });
 
   test('la dirección del local NO entra al inventario', () {
@@ -137,14 +143,18 @@ void main() {
     final r = parseLineasDeBoleta(_boletaReal);
 
     expect(
-      r.items.map((final i) => i.name).where((final n) => n.contains('ALERCES')),
+      r.items
+          .map((final i) => i.name.toUpperCase())
+          .where((final n) => n.contains('ALERCES')),
       isEmpty,
     );
   });
 
   test('ni el total, ni el IVA, ni el efectivo, ni el vuelto', () {
     final r = parseLineasDeBoleta(_boletaReal);
-    final nombres = r.items.map((final i) => i.name).join(' | ');
+    // En mayúsculas para comparar: los nombres ya salen en caja de frase.
+    final nombres =
+        r.items.map((final i) => i.name.toUpperCase()).join(' | ');
 
     for (final prohibido in [
       'TOTAL',
@@ -168,11 +178,39 @@ void main() {
 
     expect(
       r.items.map((final i) => i.name),
-      contains('OXIDO DE COBRE 250G'),
+      contains('Oxido de cobre 250G'),
     );
   });
 
   test('nada se corta: seis artículos no es una lista truncada', () {
     expect(parseLineasDeBoleta(_boletaReal).truncated, isFalse);
+  });
+
+  test('el proveedor sale de la cabecera, con su forma social', () {
+    // EL DEFECTO: por el camino local este campo quedaba SIEMPRE vacío,
+    // aunque la primera línea de la boleta diga «CERAMICAS DEL SUR LTDA».
+    // El servidor sí lo devolvía, así que sin red —que es cuando el camino
+    // local importa— el usuario tecleaba a mano un dato impreso arriba.
+    final r = parseLineasDeBoleta(_boletaReal);
+
+    expect(r.items, isNotEmpty);
+    for (final item in r.items) {
+      expect(
+        item.supplier,
+        'Ceramicas del sur Ltda',
+        reason: 'la boleta la emite un solo local: es el mismo para todos',
+      );
+    }
+  });
+
+  test('ni la dirección ni el RUT se cuelan como proveedor', () {
+    // «AV. LOS ALERCES 1842» y «R.U.T. 76.432.198-5» están en la misma
+    // cabecera y las dos tienen más letras que el mínimo. Lo que las deja
+    // fuera es el monto y el filtro de ruido.
+    final proveedor = parseLineasDeBoleta(_boletaReal).items.first.supplier;
+
+    expect(proveedor, isNot(contains('ALERCES')));
+    expect(proveedor, isNot(contains('76.432')));
+    expect(proveedor, isNot(contains('GIRO')));
   });
 }

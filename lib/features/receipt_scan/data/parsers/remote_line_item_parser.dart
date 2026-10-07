@@ -30,6 +30,7 @@ import '../../../../core/services/receipt_scan_service.dart';
 import '../../domain/entities/receipt_reading.dart';
 import '../../domain/entities/scanned_line_item.dart';
 import '../../domain/repositories/receipt_scan_repository.dart';
+import 'item_name_case.dart';
 import 'item_name_matcher.dart';
 import 'local_line_item_parser.dart';
 
@@ -100,17 +101,31 @@ Future<StructuredReceipt> estructurarConElModelo({
 
   final palabrasDelTexto = _palabrasUtiles(lectura.rawText);
 
+  // EL PROVEEDOR DEL SERVIDOR MANDA, PERO SI NO LO TRAE SE CONSERVA EL QUE
+  // SACÓ LA HEURÍSTICA LOCAL. Los dos leen el MISMO texto, así que no es
+  // inventar nada: es no perder un dato que ya se tenía. Sin esto, una
+  // respuesta del modelo sin `supplier` borraba el «Ceramicas del sur Ltda»
+  // que la cabecera sí decía, y dejaba el campo vacío.
+  final proveedor = _primeroNoVacio([
+    respuesta.supplier,
+    for (final item in local) item.supplier,
+  ]);
+
   final items = <ScannedLineItem>[];
   for (final crudo in respuesta.items) {
     if (items.length >= kMaxArticulosPorBoleta) break;
     items.add(
       ScannedLineItem(
-        name: _recortarNombre(crudo.name),
+        // La misma caja que por el camino local: el modelo normalmente ya
+        // devuelve el nombre bien escrito y `normalizarCajaDeNombre` lo
+        // deja intacto, pero si contestara en mayúsculas la lista no
+        // quedaría con dos estilos según qué camino la armó.
+        name: normalizarCajaDeNombre(_recortarNombre(crudo.name)),
         rawQuantity: crudo.quantity,
         unit: crudo.unit.trim().isEmpty ? 'unidades' : crudo.unit.trim(),
         unitPrice: crudo.unitPrice,
         code: crudo.code,
-        supplier: respuesta.supplier,
+        supplier: proveedor,
         ambiguous: _eraAmbiguoEnLaLista(local, crudo.name),
         notInText: !_apareceEnElTexto(crudo.name, palabrasDelTexto),
         included: _apareceEnElTexto(crudo.name, palabrasDelTexto),
@@ -185,6 +200,15 @@ bool _eraAmbiguoEnLaLista(
     }
   }
   return mejorSolape >= kUmbralDePalabrasEnTexto && ambiguo;
+}
+
+/// El primer valor con algo escrito, o `null` si no hay ninguno.
+String? _primeroNoVacio(final List<String?> candidatos) {
+  for (final candidato in candidatos) {
+    final texto = candidato?.trim() ?? '';
+    if (texto.isNotEmpty) return texto;
+  }
+  return null;
 }
 
 String _recortarNombre(final String nombre) {

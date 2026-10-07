@@ -150,7 +150,7 @@ void main() {
         reason: 'si el modelo tarda, la lista local ya tiene que estar en '
             'pantalla',
       );
-      expect(provider.items.single.name, 'ARCILLA GRES');
+      expect(provider.items.single.name, 'Arcilla gres');
 
       await futuro;
       expect(provider.items.single.name, 'Arcilla gres');
@@ -208,7 +208,7 @@ void main() {
       await provider.guardar();
 
       expect(inventarioFalso.loteNuevos, hasLength(1));
-      expect(inventarioFalso.loteNuevos.single.name, 'ESMALTE TRANSPARENTE');
+      expect(inventarioFalso.loteNuevos.single.name, 'Esmalte transparente');
     });
 
     test('sin nada marcado no se guarda nada', () async {

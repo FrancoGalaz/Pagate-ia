@@ -107,9 +107,11 @@ void main() {
     await _montar(tester);
 
     expect(find.text('Revisar la boleta'), findsOneWidget);
-    expect(find.text('ARCILLA GRES'), findsOneWidget);
-    expect(find.text('ESMALTE TRANSPARENTE'), findsOneWidget);
-    expect(find.text('PINCEL CHINO'), findsOneWidget);
+    // En caja de frase: la boleta llega en mayúsculas y los nombres entran
+    // al inventario escritos como los escribiría el usuario.
+    expect(find.text('Arcilla gres'), findsOneWidget);
+    expect(find.text('Esmalte transparente'), findsOneWidget);
+    expect(find.text('Pincel chino'), findsOneWidget);
     // El total de la boleta no es mercadería.
     expect(find.text('TOTAL'), findsNothing);
   });
@@ -200,7 +202,7 @@ void main() {
       findsOneWidget,
     );
     // Y la lista sigue en pie: la cuota agotada es información, no un error.
-    expect(find.text('ARCILLA GRES'), findsOneWidget);
+    expect(find.text('Arcilla gres'), findsOneWidget);
     expect(find.text('Guardar 3 artículos'), findsOneWidget);
   });
 
@@ -281,7 +283,7 @@ void main() {
     // volver a leerlo con el botón que falló a la vista.
     expect(find.textContaining('No se pudieron guardar'), findsOneWidget);
     // Y la lista revisada no se pierde.
-    expect(find.text('ARCILLA GRES'), findsOneWidget);
+    expect(find.text('Arcilla gres'), findsOneWidget);
     expect(find.text('Guardar 3 artículos'), findsOneWidget);
   });
 
@@ -298,7 +300,7 @@ void main() {
     await tester.tap(find.text('Seguir revisando'));
     await tester.pumpAndSettle();
 
-    expect(find.text('ARCILLA GRES'), findsOneWidget);
+    expect(find.text('Arcilla gres'), findsOneWidget);
   });
 
   testWidgets('guardar escribe en el inventario y cierra la pantalla', (

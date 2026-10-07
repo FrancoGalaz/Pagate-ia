@@ -38,7 +38,8 @@ void main() {
 
       expect(r.items, hasLength(1));
       final item = r.items.single;
-      expect(item.name, 'ARCILLA GRES 25K');
+      // Caja de frase, con la medida intacta: ver `item_name_case.dart`.
+      expect(item.name, 'Arcilla gres 25K');
       expect(item.rawQuantity, 2);
       expect(item.unit, 'sacos');
       expect(item.unitPrice, 18990);
@@ -88,7 +89,7 @@ void main() {
       final r = parseLineasDeBoleta(_lectura(['500 GR HARINA SILICE 1.200']));
 
       final item = r.items.single;
-      expect(item.name, 'HARINA SILICE');
+      expect(item.name, 'Harina silice');
       expect(item.rawQuantity, 500);
       expect(item.unit, 'gr');
       expect(item.unitPrice, 1200);
@@ -98,7 +99,9 @@ void main() {
       final r = parseLineasDeBoleta(_lectura(['OXIDO DE COBRE 7.900']));
 
       final item = r.items.single;
-      expect(item.name, 'OXIDO DE COBRE');
+      // `Oxido` y no `Óxido`: el reconocimiento no trajo la tilde y no se
+      // inventa (`item_name_case.dart`).
+      expect(item.name, 'Oxido de cobre');
       expect(item.rawQuantity, 1);
       expect(item.unit, 'unidades');
       expect(item.unitPrice, 7900);
@@ -127,7 +130,7 @@ void main() {
 
       final item = r.items.single;
       expect(item.unit, 'unidades');
-      expect(item.name, 'TORNO PEQUENO');
+      expect(item.name, 'Torno pequeno');
       expect(item.rawQuantity, 4);
     });
   });
@@ -150,7 +153,7 @@ void main() {
       );
 
       expect(r.items, hasLength(1));
-      expect(r.items.single.name, 'ARCILLA GRES');
+      expect(r.items.single.name, 'Arcilla gres');
       expect(
         r.items.map((final i) => i.name),
         isNot(contains('TOTAL')),
@@ -179,7 +182,7 @@ void main() {
       );
 
       expect(r.items, hasLength(1));
-      expect(r.items.single.name, 'ARCILLA GRES PARA ALTA TEMPERATURA');
+      expect(r.items.single.name, 'Arcilla gres para alta temperatura');
     });
 
     test('NO se pega si la sangría es de otra columna', () {
@@ -190,7 +193,7 @@ void main() {
         ),
       );
 
-      expect(r.items.single.name, 'ARCILLA GRES');
+      expect(r.items.single.name, 'Arcilla gres');
     });
   });
 
@@ -208,7 +211,7 @@ void main() {
         ),
       );
 
-      expect(r.items.single.name, 'ARCILLA DE ALTA TEMPERATURA');
+      expect(r.items.single.name, 'Arcilla de alta temperatura');
     });
 
     test('corta en 40 artículos y lo dice', () {
@@ -237,6 +240,137 @@ void main() {
       final r = parseLineasDeBoleta(ReceiptReading.vacia);
       expect(r.items, isEmpty);
       expect(r.truncated, isFalse);
+    });
+  });
+
+  // ─── El proveedor ─────────────────────────────────────────────────
+  //
+  // EL DEFECTO: por el camino local el campo "Proveedor" quedaba SIEMPRE
+  // vacío, aunque la primera línea de la boleta diga el nombre del local.
+  // El servidor sí lo devolvía, así que sin red —que es justo cuando el
+  // camino local importa— el usuario tecleaba a mano un dato impreso
+  // arriba.
+  //
+  // Y LA OTRA MITAD, QUE ES LA QUE IMPORTA MÁS: cuando NO se puede
+  // afirmar, queda vacío. Una ficha con el proveedor «Boleta electronica»
+  // es peor que una con el proveedor vacío, porque el usuario no revisa un
+  // campo que ya parece relleno.
+  group('el proveedor', () {
+    test('una razón social con forma societaria se extrae', () {
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'CERAMICAS DEL SUR LTDA',
+          'R.U.T. 76.543.210-K',
+          'CANT DESCRIPCION P.UNIT',
+          '2 SACOS ARCILLA GRES 18.990',
+        ]),
+      );
+
+      expect(r.items.single.supplier, 'Ceramicas del sur Ltda');
+    });
+
+    test('es el MISMO para todos los artículos del documento', () {
+      // La boleta la emite un solo local.
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'INSUMOS AUSTRALES SPA',
+          'CANT DESCRIPCION P.UNIT',
+          '2 SACOS ARCILLA GRES 18.990',
+          '1 KG ESMALTE TRANSPARENTE 12.500',
+        ]),
+      );
+
+      expect(r.items, hasLength(2));
+      for (final item in r.items) {
+        expect(item.supplier, 'Insumos australes SpA');
+      }
+    });
+
+    test('con encabezado de columnas basta la primera línea limpia', () {
+      // Con encabezado se sabe dónde acaba la cabecera, así que la primera
+      // línea sin dígitos y sin ruido es el nombre del local.
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'FERRETERIA EL MARTILLO',
+          'R.U.T. 76.543.210-K',
+          'CANT DESCRIPCION P.UNIT',
+          '2 UN MARTILLO 8.990',
+        ]),
+      );
+
+      expect(r.items.single.supplier, 'Ferreteria el martillo');
+    });
+
+    test('SIN encabezado se exige la forma societaria', () {
+      // Sin encabezado no se sabe dónde acaba la cabecera, y adivinar con
+      // la primera línea de una boleta de estructura desconocida es justo
+      // inventar.
+      final sinForma = parseLineasDeBoleta(
+        _lectura(['INSUMOS DEL TALLER', '2 UN MARTILLO 8.990']),
+      );
+      expect(sinForma.items.single.supplier, isNull);
+
+      final conForma = parseLineasDeBoleta(
+        _lectura(['INSUMOS AUSTRALES SPA', '2 UN MARTILLO 8.990']),
+      );
+      expect(conForma.items.single.supplier, 'Insumos australes SpA');
+    });
+
+    test('el rótulo del documento NO se cuela como proveedor', () {
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'BOLETA ELECTRONICA N 0004827',
+          'CANT DESCRIPCION P.UNIT',
+          '2 UN MARTILLO 8.990',
+        ]),
+      );
+
+      expect(
+        r.items.single.supplier,
+        isNull,
+        reason: 'un proveedor llamado «Boleta electronica» es peor que vacío',
+      );
+    });
+
+    test('la dirección del local tampoco', () {
+      // Lleva un monto dentro (`1842`), y eso la descarta.
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'AV. LOS ALERCES 1842 - PUERTO VARAS',
+          'CANT DESCRIPCION P.UNIT',
+          '2 UN MARTILLO 8.990',
+        ]),
+      );
+
+      expect(r.items.single.supplier, isNull);
+    });
+
+    test('ni el giro, ni el RUT, ni la fecha', () {
+      final r = parseLineasDeBoleta(
+        _lectura([
+          'GIRO: VENTA DE MATERIALES PARA CERAMICA',
+          'R.U.T. 76.432.198-5',
+          'FECHA 06/10/2026 HORA 11:42',
+          'CANT DESCRIPCION P.UNIT',
+          '2 UN MARTILLO 8.990',
+        ]),
+      );
+
+      expect(r.items.single.supplier, isNull);
+    });
+
+    test('no se busca el proveedor dentro de la lista de artículos', () {
+      // Sin tope de cabecera, un artículo de más abajo con una forma
+      // societaria en el nombre pasaría a ser el proveedor.
+      final r = parseLineasDeBoleta(
+        _lectura([
+          for (var i = 0; i < 8; i++) 'LINEA DE RELLENO NUMERO ${i + 1}',
+          'DISTRIBUIDORA LOS ROBLES LTDA',
+          '2 UN MARTILLO 8.990',
+        ]),
+      );
+
+      expect(r.items.last.supplier, isNull);
     });
   });
 }

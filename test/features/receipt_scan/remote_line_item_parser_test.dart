@@ -106,6 +106,76 @@ void main() {
       expect(r.items.single.included, isTrue);
     });
 
+    test('si el modelo no trae proveedor, se conserva el de la heurística',
+        () async {
+      // Los dos leen el MISMO texto, así que no es inventar nada: es no
+      // perder un dato que ya se tenía. Antes, una respuesta sin
+      // `supplier` borraba el proveedor que la cabecera sí decía y dejaba
+      // el campo vacío.
+      final servicio = _ServicioFalso(
+        respuesta: ScanReceiptResult(items: [_item('Arcilla gres 25 kg')]),
+      );
+
+      final r = await estructurarConElModelo(
+        servicio: servicio,
+        lectura: _lectura,
+        local: [
+          const ScannedLineItem(
+            name: 'Arcilla gres 25K',
+            rawQuantity: 2,
+            unit: 'sacos',
+            unitPrice: 18990,
+            supplier: 'Ceramicas del sur Ltda',
+          ),
+        ],
+      );
+
+      expect(r.items.single.supplier, 'Ceramicas del sur Ltda');
+    });
+
+    test('el proveedor del servidor manda sobre el de la heurística',
+        () async {
+      final servicio = _ServicioFalso(
+        respuesta: ScanReceiptResult(
+          items: [_item('Arcilla gres 25 kg')],
+          supplier: 'Cerámicas del Sur Ltda.',
+        ),
+      );
+
+      final r = await estructurarConElModelo(
+        servicio: servicio,
+        lectura: _lectura,
+        local: [
+          const ScannedLineItem(
+            name: 'Arcilla gres 25K',
+            rawQuantity: 2,
+            unit: 'sacos',
+            unitPrice: 18990,
+            supplier: 'Ceramicas del sur Ltda',
+          ),
+        ],
+      );
+
+      expect(r.items.single.supplier, 'Cerámicas del Sur Ltda.');
+    });
+
+    test('si el modelo contestara en mayúsculas, la caja se normaliza igual',
+        () async {
+      // El modelo normalmente devuelve el nombre ya bien escrito, pero la
+      // lista no puede quedar con dos estilos según qué camino la armó.
+      final servicio = _ServicioFalso(
+        respuesta: ScanReceiptResult(items: [_item('ARCILLA GRES 25K')]),
+      );
+
+      final r = await estructurarConElModelo(
+        servicio: servicio,
+        lectura: _lectura,
+        local: _local,
+      );
+
+      expect(r.items.single.name, 'Arcilla gres 25K');
+    });
+
     test('solo viaja TEXTO, nunca la imagen, y con la fuente declarada',
         () async {
       final servicio = _ServicioFalso(
