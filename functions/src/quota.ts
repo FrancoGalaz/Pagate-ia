@@ -1,8 +1,17 @@
 /**
- * Cuotas del asistente de IA: reserva, devolución y tope global.
+ * Cuotas de la IA: reserva, devolución y tope global.
  *
- * Está separado de `chat.ts` para poder probarlo contra el emulador sin montar
- * una llamada `onCall` completa.
+ * Hay DOS cuotas independientes y dos gastos distintos:
+ *   - el asistente (`chat`), contadores `chatCountLifetime` / `chatCountDay`;
+ *   - el lector de boletas (`scanReceipt`), contadores `scanCountLifetime` /
+ *     `scanCountDay`.
+ *
+ * Son separadas a propósito: leer tres boletas no puede dejar a nadie sin
+ * asistente, ni al revés. Lo único que comparten es el tope GLOBAL del día, que
+ * es el freno de gasto del dueño y por tanto tiene que frenar TODO el gasto.
+ *
+ * Está separado de `chat.ts` y de `scan.ts` para poder probarlo contra el
+ * emulador sin montar una llamada `onCall` completa.
  *
  * ---------------------------------------------------------------------------
  * POR QUÉ LA CUOTA DEL PLAN FREE ES DE POR VIDA Y NO DIARIA
@@ -24,10 +33,15 @@
  *     ni ninguna integración de facturación. Sirve para que el dueño abra la
  *     mano con una cuenta concreta, no es un producto. Por eso ningún texto que
  *     lea el usuario lo ofrece (ver `freeQuotaExhaustedMessage`).
+ *   - lector de boletas: 40 lecturas DE POR VIDA en free
+ *     (`scanCountLifetime`) y 200 al día en pro (`scanCountDay`), con el mismo
+ *     razonamiento. Agotarlas no rompe la función: el teléfono ya ordenó la
+ *     lista sin conexión, así que solo se pierde la calidad del ordenado.
  *   - tope GLOBAL diario de llamadas con interruptor, en `system/aiConfig`, que
  *     el dueño puede cambiar desde la consola de Firestore sin desplegar nada.
  *     Es el freno de mano: si algo se descontrola, se corta todo el gasto de IA
- *     editando un documento.
+ *     editando un documento. Cuenta `calls` (chat) MÁS `scanCalls` (lector),
+ *     porque es el freno del gasto y el gasto es la suma de los dos.
  *
  * ---------------------------------------------------------------------------
  * QUÉ CUESTA CADA LLAMADA AL ASISTENTE
@@ -54,6 +68,21 @@
  * El recorte de `HISTORY_LIMIT` de 20 a 6 es el ajuste de coste más grande de
  * este cambio: el historial se reenvía completo en cada mensaje, así que su
  * tamaño multiplica los tokens de entrada de toda la conversación.
+ *
+ * ---------------------------------------------------------------------------
+ * QUÉ CUESTA CADA LECTURA DE BOLETA
+ * ---------------------------------------------------------------------------
+ * Por boleta leída, el dueño paga:
+ *   - 1 invocación de Cloud Functions (`scanReceipt`, 256 MiB, hasta 60 s).
+ *   - Firestore: 4 lecturas de documento (perfil, `meta/usage`, `aiConfig`,
+ *     contador global) y 2 escrituras. Despreciable.
+ *   - OpenRouter: el texto del OCR, con tope de `MAX_SCAN_TEXT_CHARS` = 8.000
+ *     caracteres, más el prompt del lector; del orden de 2.400 tokens de
+ *     entrada en el peor caso, y hasta `SCAN_MAX_TOKENS` = 1.500 de salida.
+ *   - Y NADA de visión ni de almacenamiento: la imagen no sale del teléfono.
+ *     El reconocimiento de texto corre en el dispositivo con ML Kit, gratis y
+ *     sin conexión; a este backend solo llega el texto. Por eso no hay Firebase
+ *     Storage en el proyecto.
  */
 
 import { HttpsError } from 'firebase-functions/v2/https';
@@ -67,6 +96,42 @@ export const FREE_LIFETIME_QUOTA = 25;
 
 /** Mensajes diarios del plan pro. */
 export const PRO_DAILY_QUOTA = 300;
+
+/**
+ * Lecturas de boleta que ordena el modelo, en total, en el plan free.
+ *
+ * ---------------------------------------------------------------------------
+ * DE DÓNDE SALE EL 40, CON LA ARITMÉTICA A LA VISTA
+ * ---------------------------------------------------------------------------
+ * Una lectura manda al modelo el texto del OCR (tope `MAX_SCAN_TEXT_CHARS` =
+ * 8.000 caracteres, del orden de 2.400 tokens contando el prompt) y recibe
+ * hasta `SCAN_MAX_TOKENS` = 1.500 tokens de JSON. Es decir que el peor caso de
+ * una lectura es del orden de la MITAD de tokens de entrada que el peor caso de
+ * un mensaje del asistente (~6.000) y algo más de salida (1.500 contra 1.024).
+ *
+ * Con eso, 40 lecturas cuestan aproximadamente lo mismo que los 25 mensajes de
+ * chat del plan free, y 40 boletas son varios meses de compras de un artesano
+ * que se abastece cada semana.
+ *
+ * NO se escribe aquí ninguna tarifa en dinero: los precios de OpenRouter
+ * cambian y una cifra fija en un comentario envejece mal. `scan.ts` registra en
+ * Cloud Logging los tokens REALES de cada lectura (`scan.usage`) para que el
+ * dueño los multiplique por la tarifa vigente de su modelo. Si quiere apretar,
+ * `freeLifetimeScanQuota` de `system/aiConfig` lo cambia sin desplegar.
+ *
+ * Es DE POR VIDA y no diaria por el mismo motivo que la del chat: el registro
+ * es abierto, así que una cuota diaria es un grifo que se reabre cada día por
+ * cada cuenta nueva.
+ *
+ * Y agotarla NO rompe la función: el cliente ya tiene en pantalla la lista que
+ * ordenó él solo en el teléfono, así que lo único que se pierde es la calidad
+ * del ordenado. Por eso el cliente trata `resource-exhausted` del lector como
+ * información y no como error.
+ */
+export const FREE_LIFETIME_SCAN_QUOTA = 40;
+
+/** Lecturas de boleta diarias del plan pro. */
+export const PRO_DAILY_SCAN_QUOTA = 200;
 
 /** Tope global de llamadas al día cuando el interruptor está activo. */
 export const DEFAULT_GLOBAL_DAILY_CAP = 2_000;
@@ -100,6 +165,10 @@ export function dayKeyOf(date: Date = new Date()): string {
 export interface AiLimits {
   freeLifetimeQuota: number;
   proDailyQuota: number;
+  /** Lecturas de boleta de por vida del plan free. */
+  freeLifetimeScanQuota: number;
+  /** Lecturas de boleta al día del plan pro. */
+  proDailyScanQuota: number;
   globalDailyCapEnabled: boolean;
   globalDailyCap: number;
 }
@@ -117,6 +186,8 @@ export function parseAiLimits(data: DocumentData | undefined): AiLimits {
   return {
     freeLifetimeQuota: positiveInt(data?.freeLifetimeQuota, FREE_LIFETIME_QUOTA),
     proDailyQuota: positiveInt(data?.proDailyQuota, PRO_DAILY_QUOTA),
+    freeLifetimeScanQuota: positiveInt(data?.freeLifetimeScanQuota, FREE_LIFETIME_SCAN_QUOTA),
+    proDailyScanQuota: positiveInt(data?.proDailyScanQuota, PRO_DAILY_SCAN_QUOTA),
     globalDailyCapEnabled: data?.globalDailyCapEnabled === true,
     globalDailyCap: positiveInt(data?.globalDailyCap, DEFAULT_GLOBAL_DAILY_CAP),
   };
@@ -159,27 +230,145 @@ export function freeQuotaExhaustedMessage(quota: number): string {
   );
 }
 
+/**
+ * Lo que lee el usuario del plan free cuando se le acaban las lecturas de
+ * boleta.
+ *
+ * Mismas tres restricciones que `freeQuotaExhaustedMessage`, y por los mismos
+ * motivos: no menciona ningún plan de pago (no existe ninguno que comprar, y
+ * anunciarlo dentro de la app incumpliría la política de pagos de Google Play),
+ * no manda a volver mañana (la cuota es un total, no se renueva) y está escrita
+ * para leerse bien con cualquier número, incluido 1, porque el dueño lo cambia
+ * desde `system/aiConfig` sin desplegar.
+ *
+ * Y dice la verdad sobre lo que PASA AHORA, que es lo que diferencia este texto
+ * del del chat: la lectura no se perdió. El teléfono ya ordenó la lista él solo,
+ * sin conexión y sin coste, y esa lista está en pantalla. Lo único que falta es
+ * el repaso del modelo, que ordena mejor. Por eso el cliente muestra este
+ * mensaje en una franja informativa y deja seguir, en vez de tratarlo como un
+ * error que corta el flujo.
+ */
+export function freeScanQuotaExhaustedMessage(quota: number): string {
+  return (
+    'Ya usaste todas las lecturas de boleta que ordena la IA: tu cuenta incluye ' +
+    `${quota} en total, no por día, así que no se renuevan mañana. ` +
+    'Esta lista la ordenó tu teléfono, así que revísala con más cuidado antes de guardar.'
+  );
+}
+
 export interface QuotaReservation {
   /** Perfil leído dentro de la transacción (evita una lectura extra). */
   profile: DocumentData | undefined;
   plan: Plan;
   dayKey: string;
-  /** Mensajes consumidos tras esta reserva, por si se quiere mostrar. */
+  /** Unidades consumidas tras esta reserva, por si se quieren mostrar. */
   usedLifetime: number;
   usedDay: number;
   limits: AiLimits;
 }
 
 /**
- * Reserva un mensaje de cuota de forma atómica.
+ * Lo que distingue a las dos cuotas. Todo lo demás —la transacción, el orden de
+ * las comprobaciones, el tope global y el cuidado con el cambio de día— es
+ * idéntico y vive una sola vez, en `reserve` y `refund`.
  *
- * Reserva primero y cobra después: si OpenRouter falla, `refundChatQuota`
- * devuelve el mensaje. Hacerlo al revés (llamar al modelo y después cobrar)
+ * NO son dos funciones copiadas. La parte delicada es el manejo del cambio de
+ * día (ver el comentario de `reserve`), y dos copias de eso se desincronizan.
+ */
+interface QuotaKind {
+  /** Campo del contador diario en `users/{uid}/meta/usage`. */
+  dayField: 'chatCountDay' | 'scanCountDay';
+  /** Campo del contador de por vida en `users/{uid}/meta/usage`. */
+  lifetimeField: 'chatCountLifetime' | 'scanCountLifetime';
+  /** El contador diario de LA OTRA cuota, que comparte `dayKey` con esta. */
+  otherDayField: 'chatCountDay' | 'scanCountDay';
+  /** Campo del contador global del día en `system/aiUsage/days/{dayKey}`. */
+  globalField: 'calls' | 'scanCalls';
+  freeLimitOf(limits: AiLimits): number;
+  proLimitOf(limits: AiLimits): number;
+  /** Mensaje del tope global del dueño. */
+  globalCapMessage: string;
+  freeExhaustedMessage(quota: number): string;
+  proExhaustedMessage(quota: number): string;
+}
+
+const CHAT_QUOTA: QuotaKind = {
+  dayField: 'chatCountDay',
+  lifetimeField: 'chatCountLifetime',
+  otherDayField: 'scanCountDay',
+  globalField: 'calls',
+  freeLimitOf: (l) => l.freeLifetimeQuota,
+  proLimitOf: (l) => l.proDailyQuota,
+  globalCapMessage:
+    'El asistente está temporalmente fuera de servicio por alcanzar el tope de uso del día. Intenta mañana.',
+  freeExhaustedMessage: freeQuotaExhaustedMessage,
+  proExhaustedMessage: (q) => `Alcanzaste el límite de ${q} mensajes del día. Vuelve mañana.`,
+};
+
+const SCAN_QUOTA: QuotaKind = {
+  dayField: 'scanCountDay',
+  lifetimeField: 'scanCountLifetime',
+  otherDayField: 'chatCountDay',
+  globalField: 'scanCalls',
+  freeLimitOf: (l) => l.freeLifetimeScanQuota,
+  proLimitOf: (l) => l.proDailyScanQuota,
+  // El tope global es el mismo freno para los dos gastos, pero el texto nombra
+  // la función que el usuario acaba de usar: decirle que "el asistente" está
+  // fuera de servicio cuando lo que hizo fue fotografiar una boleta no le
+  // explica nada.
+  globalCapMessage:
+    'El lector de boletas está temporalmente fuera de servicio por alcanzar el tope de uso de IA del día. ' +
+    'Esta lista la ordenó tu teléfono, así que revísala con más cuidado antes de guardar.',
+  freeExhaustedMessage: freeScanQuotaExhaustedMessage,
+  proExhaustedMessage: (q) => `Alcanzaste el límite de ${q} lecturas de boleta del día. Vuelve mañana.`,
+};
+
+function counterOf(data: DocumentData | undefined, field: string): number {
+  const value = data?.[field];
+  return typeof value === 'number' && value > 0 ? Math.floor(value) : 0;
+}
+
+/**
+ * Gasto de IA del día en total: mensajes del asistente MÁS lecturas de boleta.
+ *
+ * El tope global es el freno de gasto del dueño, así que tiene que frenar todo
+ * el gasto, no solo el del chat. Los dos campos se guardan por separado para
+ * que el registro (y un mensaje de error) puedan decir cuál de las dos cosas se
+ * disparó, pero el límite se evalúa sobre la suma.
+ */
+function globalTotalOf(data: DocumentData | undefined): number {
+  return counterOf(data, 'calls') + counterOf(data, 'scanCalls');
+}
+
+/**
+ * Reserva una unidad de cuota de forma atómica.
+ *
+ * Reserva primero y cobra después: si OpenRouter falla, el `refund` de la misma
+ * cuota la devuelve. Hacerlo al revés (llamar al modelo y después cobrar)
  * dejaría la puerta abierta a lanzar llamadas en paralelo sin límite.
+ *
+ * ---------------------------------------------------------------------------
+ * LA TRAMPA DEL `dayKey` COMPARTIDO
+ * ---------------------------------------------------------------------------
+ * `users/{uid}/meta/usage` tiene UN solo campo `dayKey`, y los dos contadores
+ * diarios (`chatCountDay` y `scanCountDay`) se interpretan contra él: un
+ * contador diario solo vale si `dayKey` es el día en curso.
+ *
+ * Eso significa que escribir `dayKey` por una de las dos cuotas AVALA también
+ * el contador de la otra. Si al cambiar el día una lectura de boleta
+ * escribiera `{ dayKey: hoy, scanCountDay: 1 }` sin tocar `chatCountDay`, el
+ * `chatCountDay: 300` de AYER pasaría a leerse como el de HOY y un usuario pro
+ * se quedaría sin asistente sin haber escrito un solo mensaje. Lo mismo al
+ * revés.
+ *
+ * Por eso, cuando el día cambia, se reinician LOS DOS contadores diarios en la
+ * misma escritura. Es la razón de que esto sea una función compartida y no dos
+ * copias: en dos copias, este detalle se arregla en una y se olvida en la otra.
  *
  * @throws HttpsError('resource-exhausted') si no queda cuota.
  */
-export async function reserveChatQuota(
+async function reserve(
+  kind: QuotaKind,
   db: Firestore,
   uid: string,
   now: Date = new Date(),
@@ -204,54 +393,57 @@ export async function reserveChatQuota(
     const usage = usageSnap.data();
 
     // El contador diario solo vale si corresponde al día en curso.
-    const usedDay =
-      usage?.dayKey === dayKey && typeof usage.chatCountDay === 'number' && usage.chatCountDay > 0
-        ? Math.floor(usage.chatCountDay)
-        : 0;
-    const usedLifetime =
-      typeof usage?.chatCountLifetime === 'number' && usage.chatCountLifetime > 0
-        ? Math.floor(usage.chatCountLifetime)
-        : 0;
-    const globalCalls = typeof globalSnap.data()?.calls === 'number' ? Math.floor(globalSnap.data()!.calls) : 0;
+    const sameDay = usage?.dayKey === dayKey;
+    const usedDay = sameDay ? counterOf(usage, kind.dayField) : 0;
+    const usedLifetime = counterOf(usage, kind.lifetimeField);
+    const globalTotal = globalTotalOf(globalSnap.data());
 
     // Freno de mano del dueño: se evalúa antes de la cuota del usuario para que
     // el mensaje de error diga la verdad sobre qué límite se alcanzó.
-    if (limits.globalDailyCapEnabled && globalCalls >= limits.globalDailyCap) {
-      throw new HttpsError(
-        'resource-exhausted',
-        'El asistente está temporalmente fuera de servicio por alcanzar el tope de uso del día. Intenta mañana.',
-      );
+    if (limits.globalDailyCapEnabled && globalTotal >= limits.globalDailyCap) {
+      throw new HttpsError('resource-exhausted', kind.globalCapMessage);
     }
 
-    if (plan === 'free' && usedLifetime >= limits.freeLifetimeQuota) {
-      throw new HttpsError('resource-exhausted', freeQuotaExhaustedMessage(limits.freeLifetimeQuota));
+    if (plan === 'free' && usedLifetime >= kind.freeLimitOf(limits)) {
+      throw new HttpsError('resource-exhausted', kind.freeExhaustedMessage(kind.freeLimitOf(limits)));
     }
-    if (plan === 'pro' && usedDay >= limits.proDailyQuota) {
-      throw new HttpsError(
-        'resource-exhausted',
-        `Alcanzaste el límite de ${limits.proDailyQuota} mensajes del día. Vuelve mañana.`,
-      );
+    if (plan === 'pro' && usedDay >= kind.proLimitOf(limits)) {
+      throw new HttpsError('resource-exhausted', kind.proExhaustedMessage(kind.proLimitOf(limits)));
     }
 
-    // Ambos contadores suben siempre: el diario sirve al plan pro y el de por
-    // vida al free, y mantenerlos los dos al día evita sorpresas si el usuario
-    // cambia de plan.
+    // Ambos contadores de esta cuota suben siempre: el diario sirve al plan pro
+    // y el de por vida al free, y mantenerlos los dos al día evita sorpresas si
+    // el usuario cambia de plan.
     //
     // `{ merge: true }` no es opcional. `meta/usage` es el único documento de
-    // `meta/` y mañana puede llevar más campos (marca del último uso, consumo de
-    // tokens, avisos ya mostrados). Un `set` sin merge BORRA todo lo que no esté
-    // en este objeto, así que cada mensaje del asistente se llevaría por delante
-    // cualquier otro campo del documento. `refundChatQuota` ya escribía con
-    // merge: la diferencia entre las dos escrituras del mismo documento era el
-    // olvido, no una decisión.
-    tx.set(
-      usageRef,
-      { dayKey, chatCountDay: usedDay + 1, chatCountLifetime: usedLifetime + 1 },
-      { merge: true },
-    );
+    // `meta/` y ahora lleva más campos que nunca (los dos contadores del chat,
+    // los dos del lector, la clave del día). Un `set` sin merge BORRA todo lo
+    // que no esté en este objeto, así que cada llamada se llevaría por delante
+    // los contadores de la otra cuota. `refund` ya escribía con merge: la
+    // diferencia entre las dos escrituras del mismo documento era el olvido, no
+    // una decisión.
+    const update: Record<string, unknown> = {
+      dayKey,
+      [kind.dayField]: usedDay + 1,
+      [kind.lifetimeField]: usedLifetime + 1,
+    };
+    // Había un contador de OTRO día y lo estamos avalando al escribir el
+    // `dayKey` de hoy: se reinicia también el contador diario de la otra cuota.
+    // Ver el comentario de cabecera.
+    //
+    // Solo si el documento EXISTÍA. Si no existe no hay contador viejo que
+    // invalidar, y escribir un `0` en el campo de la otra cuota sería tocar un
+    // campo que no es de esta función.
+    if (usage !== undefined && !sameDay) update[kind.otherDayField] = 0;
+    tx.set(usageRef, update, { merge: true });
+
     tx.set(
       globalRef,
-      { calls: globalCalls + 1, dayKey, updatedAt: FieldValue.serverTimestamp() },
+      {
+        [kind.globalField]: counterOf(globalSnap.data(), kind.globalField) + 1,
+        dayKey,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
       { merge: true },
     );
 
@@ -260,14 +452,14 @@ export async function reserveChatQuota(
 }
 
 /**
- * Devuelve el mensaje reservado cuando la llamada falla por algo que no es
- * culpa del usuario (OpenRouter caído, timeout). Sin esto, un fallo del
- * proveedor le gastaba cuota igual.
+ * Devuelve la unidad reservada cuando la llamada falla por algo que no es culpa
+ * del usuario (OpenRouter caído, timeout). Sin esto, un fallo del proveedor le
+ * gastaba cuota igual.
  *
  * Nunca lanza: si la devolución falla, el error se registra arriba y la
  * respuesta al usuario sigue siendo la del fallo original.
  */
-export async function refundChatQuota(db: Firestore, uid: string, dayKey: string): Promise<void> {
+async function refund(kind: QuotaKind, db: Firestore, uid: string, dayKey: string): Promise<void> {
   const usageRef = db.doc(`users/${uid}/meta/usage`);
   const globalRef = db.doc(AI_USAGE_DOC).collection(AI_USAGE_DAYS).doc(dayKey);
 
@@ -275,21 +467,46 @@ export async function refundChatQuota(db: Firestore, uid: string, dayKey: string
     const [usageSnap, globalSnap] = await Promise.all([tx.get(usageRef), tx.get(globalRef)]);
     const usage = usageSnap.data();
     if (usage) {
-      const day = typeof usage.chatCountDay === 'number' ? Math.floor(usage.chatCountDay) : 0;
-      const lifetime = typeof usage.chatCountLifetime === 'number' ? Math.floor(usage.chatCountLifetime) : 0;
+      const day = counterOf(usage, kind.dayField);
+      const lifetime = counterOf(usage, kind.lifetimeField);
       tx.set(
         usageRef,
         {
           // Solo se descuenta del día si el contador sigue siendo del mismo día.
-          chatCountDay: usage.dayKey === dayKey ? Math.max(0, day - 1) : day,
-          chatCountLifetime: Math.max(0, lifetime - 1),
+          [kind.dayField]: usage.dayKey === dayKey ? Math.max(0, day - 1) : day,
+          [kind.lifetimeField]: Math.max(0, lifetime - 1),
         },
         { merge: true },
       );
     }
-    const calls = typeof globalSnap.data()?.calls === 'number' ? Math.floor(globalSnap.data()!.calls) : 0;
+    const calls = counterOf(globalSnap.data(), kind.globalField);
     if (calls > 0) {
-      tx.set(globalRef, { calls: calls - 1 }, { merge: true });
+      tx.set(globalRef, { [kind.globalField]: calls - 1 }, { merge: true });
     }
   });
+}
+
+/** Reserva un mensaje del asistente. */
+export function reserveChatQuota(db: Firestore, uid: string, now: Date = new Date()): Promise<QuotaReservation> {
+  return reserve(CHAT_QUOTA, db, uid, now);
+}
+
+/** Devuelve un mensaje del asistente reservado que no se llegó a usar. */
+export function refundChatQuota(db: Firestore, uid: string, dayKey: string): Promise<void> {
+  return refund(CHAT_QUOTA, db, uid, dayKey);
+}
+
+/**
+ * Reserva una lectura de boleta.
+ *
+ * Es una cuota aparte de la del chat, con sus propios contadores: leer tres
+ * boletas no puede dejar al usuario sin asistente.
+ */
+export function reserveScanQuota(db: Firestore, uid: string, now: Date = new Date()): Promise<QuotaReservation> {
+  return reserve(SCAN_QUOTA, db, uid, now);
+}
+
+/** Devuelve una lectura de boleta reservada que el modelo no llegó a ordenar. */
+export function refundScanQuota(db: Firestore, uid: string, dayKey: string): Promise<void> {
+  return refund(SCAN_QUOTA, db, uid, dayKey);
 }

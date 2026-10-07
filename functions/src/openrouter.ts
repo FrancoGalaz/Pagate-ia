@@ -25,6 +25,20 @@ export interface OpenRouterOptions {
   timeoutMs?: number;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * `response_format` de la API, tal cual. Se manda solo si está presente, así
+   * que el chat (que quiere texto libre) no cambia de comportamiento.
+   *
+   * Lo usa `scanReceipt` con un `json_schema` en modo `strict` para que el
+   * modelo devuelva la lista de artículos y no un párrafo. Va como `unknown`
+   * porque el esquema es un documento JSON del proveedor, no un tipo nuestro:
+   * tipar aquí su gramática sería inventarse un contrato ajeno.
+   *
+   * No sustituye a validar la respuesta. Un proveedor puede ignorar este campo,
+   * y `scan.ts` valida campo por campo lo que llega, igual que `parseUsage` no
+   * se cree el bloque `usage` que manda la API.
+   */
+  responseFormat?: unknown;
 }
 
 /** Tokens consumidos por la llamada, tal como los reporta OpenRouter. */
@@ -93,6 +107,10 @@ export async function askOpenRouter(opts: OpenRouterOptions): Promise<OpenRouter
           messages: opts.messages,
           temperature: opts.temperature ?? 0.7,
           max_tokens: opts.maxTokens ?? 1024,
+          // Ausente cuando no se pide: `JSON.stringify` omite las claves con
+          // valor `undefined`, así que la llamada del chat viaja idéntica a
+          // antes de que este campo existiera.
+          response_format: opts.responseFormat ?? undefined,
         }),
         signal: controller.signal,
       });
