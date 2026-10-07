@@ -213,8 +213,10 @@ export default function PrivacidadPage() {
           Para que no tengas que teclear material por material lo que compraste, la
           app te deja leer una boleta o una factura de tres maneras: tomando una
           foto con la cámara de tu teléfono, eligiendo una imagen que ya tienes en
-          la galería, o compartiendo a la app un PDF o una imagen que te llegó por
-          WhatsApp o por correo.
+          la galería, o compartiendo a la app una imagen o un PDF desde donde lo
+          tengas: WhatsApp, el correo o la app de Archivos del propio teléfono. La
+          app no abre tus carpetas por su cuenta; eres tú quien le manda el
+          archivo desde la otra app.
         </p>
         <LegalList
           items={[
@@ -232,12 +234,35 @@ export default function PrivacidadPage() {
             </>,
             <>
               <strong>Lo único que puede salir del teléfono es el texto.</strong>{' '}
-              El reconocimiento devuelve líneas sueltas, y para convertirlas en
-              artículos con su cantidad, su nombre y su precio ese texto puede
-              viajar por el mismo camino que describe el punto 5.2: nuestro
-              servidor y, desde ahí, OpenRouter y el proveedor del modelo. Viaja el
-              texto; la imagen no.
+              El reconocimiento devuelve líneas sueltas, y ordenarlas en artículos
+              con su cantidad, su nombre y su precio es un paso aparte. Cuando ese
+              paso está activo lo hace nuestro servidor, por el mismo camino que
+              describe el punto 5.2: desde ahí, OpenRouter y el proveedor del
+              modelo. Viaja el texto; la imagen no sale nunca.
             </>,
+            // Dos hechos distintos, y el documento necesita los dos: que el
+            // lector exista no significa que salga texto hacia un tercero. Eso
+            // solo ocurre con el callable `scanReceipt` desplegado, y lo dice
+            // FUNCIONES_APP.ordenadoDeBoletasEnServidor, no una suposición.
+            // Escrito así, el apartado es cierto en los dos estados.
+            FUNCIONES_APP.ordenadoDeBoletasEnServidor ? (
+              <>
+                <strong>Ese paso está activo hoy.</strong> Cuando leas una boleta,
+                el texto reconocido saldrá hacia nuestro servidor para ordenarlo. Si
+                no quieres que salga, escribe los materiales a mano.
+              </>
+            ) : (
+              <>
+                <strong>Y hoy ese paso todavía no está activo</strong>, así que por
+                ahora el texto tampoco sale: la lista la arma tu propio teléfono, de
+                principio a fin, y no se envía nada a ninguna parte. Lo de arriba
+                describe lo que pasará el día que lo activemos, y lo contamos desde
+                ya para que nadie se lo encuentre sin avisar. Mientras tanto, cada
+                vez que la app no use ese paso —porque no esté disponible, porque no
+                tengas señal o porque hayas agotado tus lecturas— te lo dice en la
+                propia pantalla de revisión, con esas palabras.
+              </>
+            ),
             <>
               <strong>Nada entra a tu inventario sin que tú lo confirmes.</strong>{' '}
               La app te muestra la lista que entendió para que la corrijas, borres
@@ -264,9 +289,10 @@ export default function PrivacidadPage() {
           personales de un tercero, y la app no los separa por ti, igual que no
           separa el nombre de un cliente escrito en el título de una transacción. Si
           el texto reconocido sale para ordenarlo, esos datos salen con él. Si
-          prefieres evitarlo, escribe los materiales a mano: la pantalla de revisión
-          te deja corregir lo que entra a tu inventario, pero para poder proponerte
-          esa lista el texto ya habrá viajado.
+          prefieres evitarlo, escribe los materiales a mano
+          {FUNCIONES_APP.ordenadoDeBoletasEnServidor
+            ? ': la pantalla de revisión te deja corregir lo que entra a tu inventario, pero para poder proponerte esa lista el texto ya habrá viajado.'
+            : '. Mientras el paso de ordenado siga sin activarse, ese texto no sale del teléfono y la cuestión no se plantea; cuando se active, para poder proponerte la lista el texto ya habrá viajado.'}
         </p>
 
         <h3 className="font-semibold text-text-primary pt-2">2.7 Qué NO recogemos</h3>
@@ -413,19 +439,37 @@ export default function PrivacidadPage() {
           </a>
           .
         </p>
-        {FUNCIONES_APP.lectorBoletas && (
-          <p>
-            Por este mismo camino sale una segunda cosa, y solo si la pides: el{' '}
-            <strong>texto que la app lee de una boleta</strong> con el lector del
-            punto 2.6, para ordenarlo en artículos de inventario. Sale el texto
-            reconocido, nunca la imagen, y no se guarda como conversación.
-          </p>
-        )}
+        {/* El lector solo manda texto a un tercero con el callable desplegado.
+            Mientras no lo esté, prometer que «sale» sería falso en la dirección
+            contraria a la habitual: alarmar con un envío que no ocurre. */}
+        {FUNCIONES_APP.lectorBoletas &&
+          (FUNCIONES_APP.ordenadoDeBoletasEnServidor ? (
+            <p>
+              Por este mismo camino sale una segunda cosa, y solo si la pides: el{' '}
+              <strong>texto que la app lee de una boleta</strong> con el lector del
+              punto 2.6, para ordenarlo en artículos de inventario. Sale el texto
+              reconocido, nunca la imagen, y no se guarda como conversación.
+            </p>
+          ) : (
+            <p>
+              Por este mismo camino saldría una segunda cosa el día que activemos
+              el paso de ordenado del punto 2.6: el{' '}
+              <strong>texto que la app lee de una boleta</strong>, para convertirlo
+              en artículos de inventario. Saldría el texto reconocido, nunca la
+              imagen, y no se guardaría como conversación.{' '}
+              <strong>Hoy no sale</strong>: ese paso no está activo y el lector
+              trabaja entero dentro de tu teléfono.
+            </p>
+          ))}
         <p>
           Si no quieres que esta información salga hacia un tercero, no uses el
-          asistente{FUNCIONES_APP.lectorBoletas ? ' ni el lector de boletas' : ''}:
-          el resto de la app (transacciones, inventario, valor hora, resúmenes)
-          funciona sin {FUNCIONES_APP.lectorBoletas ? 'ellos' : 'él'} y no envía
+          asistente
+          {FUNCIONES_APP.ordenadoDeBoletasEnServidor
+            ? ' ni el lector de boletas'
+            : ''}
+          : el resto de la app (transacciones, inventario, valor hora, resúmenes)
+          funciona sin{' '}
+          {FUNCIONES_APP.ordenadoDeBoletasEnServidor ? 'ellos' : 'él'} y no envía
           nada a OpenRouter.
         </p>
 

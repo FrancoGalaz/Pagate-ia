@@ -155,13 +155,14 @@ web, rendimiento de la app (diagnósticos, bloqueos), identificadores de
 dispositivo e identificador de publicidad.
 
 **Las dos en negrita necesitan su propio razonamiento, y lo tienen en el §1.7.**
-Con el lector de boletas la app **accede** a una foto o a un PDF, y acceder no es
-recopilar: Play define recopilar como transmitir el dato fuera del dispositivo, y
-la imagen no sale. Mientras no exista el lector —hoy
-`FUNCIONES_APP.lectorBoletas` vale `false` en
-`landing/src/content/legal-meta.ts`— la app no accede ni a uno ni a otro, así que
-el «No» de estas dos filas es cierto por los dos motivos a la vez. Lo que el §1.7
-fija es que siga siendo cierto cuando el lector llegue.
+El lector de boletas **ya está en la app** (`FUNCIONES_APP.lectorBoletas` vale
+`true` en `landing/src/content/legal-meta.ts` desde que el carril aterrizó en
+`arquitectura-segura`), así que el «No» de estas dos filas ya no se sostiene en
+que la app no acceda: se sostiene en el único motivo que queda, y es el que
+importa. La app **accede** a una foto o a un PDF, y acceder no es recopilar: Play
+define recopilar como transmitir el dato fuera del dispositivo, y la imagen no
+sale. El §1.7 es ahora la justificación activa de estas dos filas, no una
+previsión.
 
 **Verificado, no supuesto.** `pubspec.yaml` no declara `firebase_analytics`,
 `firebase_crashlytics`, `firebase_messaging` ni ningún SDK de atribución o
@@ -169,10 +170,19 @@ publicidad. El manifiesto de release no pide ningún permiso de runtime (solo
 `INTERNET` y `ACCESS_NETWORK_STATE`, que no son de runtime). No hay `MobileAds`,
 `AppsFlyer`, `Facebook SDK` ni equivalente.
 
-> **Esta última frase hay que volver a comprobarla cuando entre el lector de
-> boletas**, y no sobre `AndroidManifest.xml` sino sobre el manifiesto
-> **fusionado**, que es lo que Play lee. El §1.7 explica por qué y con qué
-> comando.
+> **Comprobado ya con el lector dentro.** Los cuatro paquetes que entraron
+> —`google_mlkit_text_recognition`, `google_mlkit_commons`, `image_picker_android`
+> y `receive_sharing_intent`— no declaran ni un `uses-permission`, leído en el
+> caché de pub, y el manifiesto del proyecto sigue con **dos** permisos y tres
+> tachones: activos `INTERNET` y `ACCESS_NETWORK_STATE`, retirados con
+> `tools:node=remove` el `WAKE_LOCK`, el `c2dm.permission.RECEIVE` y el
+> `READ_GSERVICES`. El tachón de `CAMERA` está escrito y **comentado a
+> propósito**: es el remedio preparado por si alguna versión futura lo cuela, y
+> hoy no hace falta porque ningún paquete lo declara. Declararlo sin necesidad
+> rompería la captura —`SecurityException` con `ACTION_IMAGE_CAPTURE` y el
+> permiso no concedido—, que es justo la trampa que explica el §1.7. La
+> comprobación definitiva sigue siendo sobre el manifiesto **fusionado** y sobre
+> el APK, no sobre este archivo: el comando está en el §1.7.
 
 ### 1.6 Qué cruza exactamente hacia OpenRouter, y qué no
 
@@ -205,11 +215,26 @@ de `functions/src/prompt.ts` y `functions/src/chat.ts`.
 | La transacción número 11 hacia atrás, y los meses anteriores al último con movimientos | Los dos límites están arriba |
 | Los reportes de `aiReports/` | Nadie los lee para construir el prompt |
 
-**Hay un segundo camino, y solo uno más.** Cuando entre el lector de boletas, el
-**texto reconocido de una boleta** podrá salir por la misma ruta —nuestro
-servidor, OpenRouter, el proveedor del modelo— para convertir líneas sueltas en
-artículos con cantidad, nombre y precio. Sale el texto; la **imagen no sale
-nunca** (§1.7). Ese texto es contenido libre que puede llevar el nombre y el RUT
+**Hay un segundo camino, y solo uno más.** El **texto reconocido de una boleta**
+puede salir por la misma ruta —nuestro servidor, OpenRouter, el proveedor del
+modelo— para convertir líneas sueltas en artículos con cantidad, nombre y precio.
+Sale el texto; la **imagen no sale nunca** (§1.7).
+
+**«Puede», y hoy no lo hace.** Ese paso lo ejecuta el callable `scanReceipt`, que
+**no está desplegado** en producción. Mientras no lo esté, el texto no sale del
+teléfono en ningún momento: `remote_line_item_parser.dart` trata cualquier fallo
+del callable —y «no está desplegado» es uno— como degradación, conserva la lista
+que armó el propio teléfono y la pantalla de revisión lo dice en palabras. El
+estado lo lleva `FUNCIONES_APP.ordenadoDeBoletasEnServidor` en
+`landing/src/content/legal-meta.ts`, que es la bandera que decide si la política
+de privacidad redacta el envío en presente o en condicional.
+
+Para el formulario eso **no cambia nada, y conviene entender por qué**: las
+casillas se marcan por lo que la app hace, no por lo que hace esta semana, y el
+camino del asistente ya las tiene marcadas de todos modos. Declarar el envío del
+lector mientras el callable no está es declarar de más, y declarar de más no
+infringe ninguna política. Lo que no se puede hacer es lo contrario: desplegar el
+callable con el formulario diciendo que no sale nada. Ese texto es contenido libre que puede llevar el nombre y el RUT
 de quien emitió la boleta, igual que el título de una transacción puede llevar el
 de un cliente, y la política de privacidad lo advierte en su punto 2.6 con las
 mismas palabras. En el formulario **no abre ninguna casilla nueva**: lo que viaja
@@ -234,9 +259,19 @@ sobre qué parte, y la política de privacidad puede sostener su «sin excepció
 
 ### 1.7 Fotos, archivos y documentos: se acceden y NO se recopilan
 
-El lector de boletas deja al usuario tomar una foto, elegir una imagen de la
-galería o compartir a la app un PDF, y de ahí salen los materiales que compró para
-que los revise y los meta al inventario. La pregunta del formulario es si eso
+El lector de boletas tiene **tres entradas**: tomar una foto con la cámara del
+sistema, elegir una imagen con el selector de fotos, y recibir una imagen o un
+PDF **compartido** a la app desde WhatsApp, el correo o la app de Archivos del
+propio teléfono. De ahí salen los materiales que compró para que los revise y los
+meta al inventario.
+
+Son tres y no cuatro, aunque la última cubra dos casos que suenan distintos: un
+archivo que ya está guardado en el teléfono llega por el mismo camino de
+compartir, desde Archivos. No hay selector de archivos propio. Lo fija el
+manifiesto, que declara `ACTION_SEND` y `ACTION_SEND_MULTIPLE` para `image/*` y
+`application/pdf` y **ningún** `ACTION_VIEW`, y lo dice el contrato del
+repositorio del lector: «Las tres entradas se reducen a `ReceiptDocument`». Si la
+ficha de Play dijera cuatro, estaría describiendo otra app. La pregunta del formulario es si eso
 obliga a declarar **Fotos y vídeos** y **Archivos y documentos**.
 
 **No, y no es una interpretación generosa: es la regla literal.** Play define
@@ -281,19 +316,30 @@ procesamiento efímero sería declarar que viaja.
 No es un cheque en blanco. Si alguna de las tres deja de cumplirse, la respuesta
 cambia y hay que volver a enviar el formulario:
 
-1. **El reconocimiento tiene que ser en el dispositivo.** El plan es
-   `google_mlkit_text_recognition` (comprobado en pub.dev el 6 de octubre de 2026:
-   versión **0.17.1**, licencia **MIT**, `minSdkVersion` **21**, y el
-   procesamiento lo hacen las APIs nativas de ML Kit en el teléfono). Si alguien
-   lo cambia por una API de visión en la nube, o por OCR en nuestro servidor, la
-   imagen sale del dispositivo y entonces **Fotos y vídeos** pasa a recopilado
-   **y compartido**. Es el único cambio que daría la vuelta a toda esta sección.
+1. **El reconocimiento tiene que ser en el dispositivo.** Lo hace
+   `google_mlkit_text_recognition`, y el procesamiento corre en las APIs nativas
+   de ML Kit dentro del teléfono. **La versión que entró es la `^0.16.0`, no la
+   0.17.1** que esta sección daba por hecha: la 0.17.1 exige `flutter >=3.44.0` y
+   el proyecto está clavado en 3.42.0-0.0.pre, así que con ella el solucionador
+   falla antes de compilar. El motivo está escrito en `pubspec.yaml`, junto a la
+   dependencia. El cambio de versión no toca este razonamiento —las dos reconocen
+   en el dispositivo— pero una cita que no coincide con el `pubspec.yaml` es una
+   cita que deja de apuntar a nada. Si alguien lo cambia por una API de visión en
+   la nube, o por OCR en nuestro servidor, la imagen sale del dispositivo y
+   entonces **Fotos y vídeos** pasa a recopilado **y compartido**. Es el único
+   cambio que daría la vuelta a toda esta sección.
 2. **La imagen no puede quedarse en disco.** Una captura por intento del sistema
    escribe un archivo temporal; si no se borra, la app guarda una boleta aunque
    nadie quisiera. Eso no cambia el formulario —sigue siendo dato que no sale del
    teléfono— pero **sí deja mintiendo** a la política de privacidad («la imagen no
-   se guarda», punto 2.6) y a la página de eliminación de cuenta. Hay que
-   comprobar que el temporal se borra, y comprobarlo mirando, no suponiendo.
+   se guarda», punto 2.6) y a la página de eliminación de cuenta.
+   **Comprobado mirando el código, que era lo que pedía esta línea:**
+   `mlkit_text_reader.dart` borra en un `finally` que cubre los tres archivos —el
+   que eligió el usuario, el PNG intermedio de un PDF rasterizado y el documento
+   de entrada—, y lo hace haya ido bien o mal la lectura. Su propio comentario lo
+   dice: «el `finally` no es defensivo, es la función». Lo que queda pendiente es
+   verlo en el teléfono con un explorador de archivos, que es la comprobación que
+   el código no puede hacer por sí mismo.
 3. **El modelo de reconocimiento puede bajar de Google Play Services, y eso no es
    la imagen.** Según la variante que use el paquete, el reconocedor puede venir
    empaquetado en el APK o descargarse por los servicios de Play. Lo que viaja en
@@ -336,7 +382,11 @@ arrastra `firebase-iid`, y el `READ_GSERVICES` que arrastra
 `com.google.android.recaptcha`. El comentario de ese archivo explica el origen de
 cada uno y deja escrita la comprobación definitiva, que se hace sobre el APK con
 `aapt2 dump permissions` porque es lo que lee Play. Lo del lector de boletas es
-una entrada más en esa misma lista, si aparece.
+una entrada más en esa misma lista, si aparece. **Con el lector ya dentro no ha
+aparecido**: ninguno de los cuatro paquetes nuevos declara un `uses-permission`,
+así que la lista de tachones sigue siendo la de los tres de Firebase y reCAPTCHA.
+El de `CAMERA` está escrito y comentado, listo por si una versión futura lo
+cuela.
 
 Lo rápido, sobre el manifiesto **fusionado** y no sobre el del proyecto:
 

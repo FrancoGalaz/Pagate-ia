@@ -355,9 +355,12 @@ impuestos. Rellenar por defecto un «3,19 %» sería inventarle un dato al usuar
 Pegar tal cual. Play acepta un subconjunto de HTML en este campo; este texto está
 en texto plano a propósito, que es lo que se ve bien en todos los dispositivos.
 
-**3.984 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 16
+**3.990 caracteres de los 4.000**, contados sobre el bloque de abajo. Quedan 10
 de margen: si hay que añadir una línea, hay que quitar otra, y el recuento se
-hace de verdad y no a ojo. Para volver a contarlo, copiar el bloque a un archivo
+hace de verdad y no a ojo. Los dos tests de
+`landing/src/honestidad.test.ts` que miden este bloque lo comprueban en cada
+ejecución, así que una cuenta escrita a mano que no cuadre pone el carril en
+rojo. Para volver a contarlo, copiar el bloque a un archivo
 y pedir su longitud en caracteres —no en bytes, que con las tildes no es lo
 mismo—:
 
@@ -386,14 +389,35 @@ Y dos correcciones que no tienen que ver con el lector:
   nada».** Con el lector eso es falso: el texto reconocido sí puede salir. Ahora
   nombra las dos cosas que envían —el asistente y el lector— y añade la que de
   verdad importa: la foto no sale del teléfono.
+- **Y dice «puede enviarse», no «se envía», porque son dos hechos distintos.** El
+  lector existe en la app; el envío del texto a un tercero solo ocurre con el
+  callable `scanReceipt` desplegado, y hoy no lo está. Mientras no lo esté, la
+  lista la ordena el propio teléfono y no sale nada. «Puede enviarse» es cierto
+  en los dos estados; «se envía» solo lo sería en uno, y hoy es el otro. El
+  estado lo lleva `FUNCIONES_APP.ordenadoDeBoletasEnServidor` en
+  `landing/src/content/legal-meta.ts`.
 
-> **El párrafo del lector describe una función que todavía no está en la app
-> publicada.** No se pega esta descripción hasta que el lector esté dentro; el
-> estado lo lleva `FUNCIONES_APP.lectorBoletas` en
-> `landing/src/content/legal-meta.ts`, que es la misma bandera que decide qué
-> dice la política de privacidad. Si se publica antes, hay que pegar la versión
-> sin ese párrafo: está en el historial de este archivo, en el commit anterior a
-> este.
+> **El lector ya está en la app, así que este párrafo se pega tal cual.**
+> `FUNCIONES_APP.lectorBoletas` está en `true` desde que el carril del lector
+> aterrizó en `arquitectura-segura`, y lo comprueba contra `lib/` el test «lector
+> de boletas por foto, galería o documento compartido» de
+> `landing/src/honestidad.test.ts`: verificado en el cliente están la pantalla de
+> revisión, las dos hojas modales y las tres entradas. Si alguna vez hubiera que
+> publicar sin el lector, la versión sin este párrafo está en el historial de
+> este archivo.
+>
+> **Lo que sigue sin estar es el envío del texto**, que depende de que
+> `scanReceipt` esté desplegado. Por eso el bloque `TUS DATOS` dice «puede
+> enviarse». Ver la nota de más arriba.
+
+> **Lo único que se ha medido del lector es una boleta.** Una boleta sintética,
+> limpia, impresa: de ella salieron 6 de 6 artículos, 6 de 6 cantidades y 6 de 6
+> precios unitarios correctos, y 4 de 6 nombres exactos. **Eso no es una tasa de
+> acierto** y no se puede presentar como tal: es una medición sobre un caso
+> favorable. Lo que se puede afirmar, y es lo que dicen la ficha y la política, es
+> que funciona bien con una boleta limpia y que la lista siempre se revisa antes
+> de guardar. Ninguna cifra de precisión entra en la ficha de Play hasta que haya
+> boletas térmicas, arrugadas y desvaídas de verdad en la medición.
 
 ```
 ¿Sabes cuánto vale realmente una hora de tu trabajo?
@@ -486,8 +510,9 @@ TUS DATOS
 
 Tus números son tuyos. No vendemos tus datos, no hay publicidad dentro de la app
 y no hay seguimiento publicitario. Cuando usas el asistente, o cuando lees una
-boleta, se envía texto al proveedor del modelo de lenguaje; está campo por campo
-en nuestra política de privacidad. La foto de la boleta no sale de tu teléfono.
+boleta, puede enviarse texto al proveedor del modelo de lenguaje; está campo por
+campo en nuestra política de privacidad. La foto de la boleta no sale de tu
+teléfono.
 
 Y si te quieres ir, te vas: Perfil, Configuración, Eliminar cuenta. Se borra todo
 lo que guardaste, sin escribirle a nadie.
@@ -597,14 +622,16 @@ una. Nada de cifras que la app no pueda producir:
 Fuera quedó el detalle de un ítem de inventario, que repetía lo que ya cuenta la
 captura 7, para hacerle sitio al valor hora neto.
 
-**Cuando el lector de boletas esté en la app, una de las ocho es suya.** Play no
-admite una novena, así que entra en lugar de otra, y la candidata a salir es la 6
-(*Gastos fijos*): es la pantalla que más se parece a lo que ya cuenta la 5. Lo que
-tiene que verse es **la pantalla de revisión**, con la lista propuesta y los campos
-editables, no la cámara: el titular es «Fotografía la boleta y revisa», nunca
-«lee tu boleta automáticamente». La app propone y el usuario confirma, y la
+**El lector de boletas ya está en la app, así que una de las ocho es suya.** Play
+no admite una novena, así que entra en lugar de otra, y la candidata a salir es la
+6 (*Gastos fijos*): es la pantalla que más se parece a lo que ya cuenta la 5. Lo
+que tiene que verse es **la pantalla de revisión**, con la lista propuesta y los
+campos editables, no la cámara: el titular es «Fotografía la boleta y revisa»,
+nunca «lee tu boleta automáticamente». La app propone y el usuario confirma, y la
 captura tiene que contar eso, porque es lo que la política de privacidad promete.
-Se toma con una boleta chilena de verdad, no con una inventada en un editor.
+Se toma con una boleta chilena de verdad, no con una inventada en un editor: las
+capturas de `docs/capturas/` se tomaron con una boleta **sintética** para poder
+medir la lectura, y esas no sirven para la ficha.
 
 **Las capturas se toman con la cuenta de demostración** (ver §9), para que los
 datos sean coherentes entre pantallas: que el balance del mes de la captura 1 sea

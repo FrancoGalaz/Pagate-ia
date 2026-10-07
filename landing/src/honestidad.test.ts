@@ -28,6 +28,28 @@ import { FUNCIONES_APP } from './content/legal-meta';
 
 const SRC = join(import.meta.dirname, '.');
 
+/**
+ * Lee un archivo de texto con los saltos de linea normalizados a `\n`.
+ *
+ * NO es una comodidad de estilo: es el arreglo de un falso verde, el quinto de
+ * este repositorio. El repo se clona en Windows con `core.autocrlf=true` y
+ * hasta ahora no tenia `.gitattributes`, asi que los archivos salian del indice
+ * con CRLF. Todo lo que aqui busca un salto de linea concreto -el bloque
+ * delimitado por comillas invertidas de `docs/FICHA-PLAY.md`, el `split` por
+ * parrafos de su lista de palabras clave- no casaba nunca. Y la consecuencia no
+ * era un test quisquilloso de menos: eran CUATRO rojos en cualquier clon nuevo
+ * en Windows, dos de ellos los que vigilan que la descripcion de Play no pase
+ * de los 4.000 caracteres. En CI, sobre Linux, no se veia ninguno.
+ *
+ * El `.gitattributes` de la raiz ataca la causa y fija los `.md` a LF en el
+ * arbol de trabajo. Esto es el cinturon: un test que comprueba texto no puede
+ * depender de en que sistema se clono el repositorio, ni de que nadie vuelva a
+ * borrar ese archivo. `\r\n?` cubre tambien el CR solo.
+ */
+function leerTexto(...partes: string[]): string {
+  return readFileSync(join(...partes), 'utf8').replace(/\r\n?/g, '\n');
+}
+
 /** Devuelve todos los .ts/.tsx de src/, excepto los propios tests. */
 function sourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -174,7 +196,7 @@ const FUNCIONES_DECLARADAS: Array<{
       if (!existsSync(dir)) return false;
       const dart = dartSources(dir)
         .filter((f) => !f.includes(`${sep}providers${sep}`))
-        .map((f) => readFileSync(f, 'utf8'))
+        .map((f) => leerTexto(f))
         .join('\n');
       return dart.includes('supplier:') && dart.includes('updateItem(');
     },
@@ -187,7 +209,7 @@ const FUNCIONES_DECLARADAS: Array<{
     detectar: (repo) => {
       // La dependencia de reconocimiento de texto es la señal más estable: sin
       // ella no hay lector, y vive en un archivo que no se toca por accidente.
-      const pubspec = readFileSync(join(repo, 'pubspec.yaml'), 'utf8');
+      const pubspec = leerTexto(repo, 'pubspec.yaml');
       return /mlkit_text_recognition/.test(pubspec);
     },
   },
@@ -278,7 +300,7 @@ describe('lo que los documentos legales describen coincide con la app', () => {
     // honesto describirla por adelantado. Estas cinco frases son el núcleo: si
     // alguien recorta el apartado, lo que queda publicado es una app que lee
     // boletas sin explicar qué hace con la imagen.
-    const privacidad = readFileSync(join(SRC, 'pages', 'PrivacidadPage.tsx'), 'utf8');
+    const privacidad = leerTexto(SRC, 'pages', 'PrivacidadPage.tsx');
     expect(privacidad).toContain('La imagen no se guarda');
     expect(privacidad).toContain('El texto se lee dentro de tu teléfono');
     expect(privacidad).toContain('Lo único que puede salir del teléfono es el texto');
@@ -302,10 +324,7 @@ describe('la descripción de la ficha de Play cabe y dice lo que afirma', () => 
   // que se mide aquí: el límite, el número que el documento afirma y la lista de
   // palabras clave, que se LEE del propio documento en vez de copiarse, para que
   // el test siga afirmando lo que el documento afirma y no otra cosa.
-  const ficha = readFileSync(
-    join(SRC, '..', '..', 'docs', 'FICHA-PLAY.md'),
-    'utf8',
-  );
+  const ficha = leerTexto(SRC, '..', '..', 'docs', 'FICHA-PLAY.md');
 
   /** El bloque que se pega tal cual en Play Console. */
   const bloque = /```\n(¿Sabes cuánto vale realmente[\s\S]*?)\n```/.exec(ficha);
@@ -362,7 +381,7 @@ describe('la landing no vuelve a inventar datos', () => {
   for (const { needle, porque } of PROHIBIDAS) {
     it(`no contiene "${needle}" (${porque})`, () => {
       const culpables = files.filter((f) =>
-        stripComments(readFileSync(f, 'utf8')).includes(needle),
+        stripComments(leerTexto(f)).includes(needle),
       );
       expect(
         culpables.map((f) => relative(SRC, f)),
@@ -383,9 +402,9 @@ describe('la landing no vuelve a inventar datos', () => {
     // retira el contrato C-3 del cliente, el que queda mintiendo es un documento
     // legal publicado, y este es el único test que lo ve.
     const repo = join(SRC, '..', '..');
-    const entity = readFileSync(
-      join(repo, 'lib', 'features', 'finances', 'domain', 'entities', 'finances_transaction_entity.dart'),
-      'utf8',
+    const entity = leerTexto(
+      repo, 'lib', 'features', 'finances', 'domain', 'entities',
+      'finances_transaction_entity.dart',
     );
     const ausentes = CAMPOS_C3.filter(({ wire }) => !entity.includes(wire));
     expect(
@@ -395,20 +414,20 @@ describe('la landing no vuelve a inventar datos', () => {
 
     // Y que la política los siga nombrando: si se borran de la página, el
     // formulario de Seguridad de los datos de Play deja de coincidir con la app.
-    const privacidad = readFileSync(join(SRC, 'pages', 'PrivacidadPage.tsx'), 'utf8');
+    const privacidad = leerTexto(SRC, 'pages', 'PrivacidadPage.tsx');
     expect(privacidad).toContain('boleta de honorarios');
     expect(privacidad).toContain('comisión que te descontó el medio de pago');
   });
 
   it('no quedan enlaces muertos href="#" en los componentes', () => {
     const culpables = files.filter((f) =>
-      /href="#"/.test(stripComments(readFileSync(f, 'utf8'))),
+      /href="#"/.test(stripComments(leerTexto(f))),
     );
     expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
   });
 
   it('la portada enlaza a privacidad, términos y eliminación de cuenta', () => {
-    const footer = readFileSync(join(SRC, 'components', 'Footer.tsx'), 'utf8');
+    const footer = leerTexto(SRC, 'components', 'Footer.tsx');
     expect(footer).toContain('LEGAL_ROUTES.privacidad');
     expect(footer).toContain('LEGAL_ROUTES.terminos');
     expect(footer).toContain('LEGAL_ROUTES.eliminarCuenta');
@@ -421,7 +440,7 @@ describe('la landing no vuelve a inventar datos', () => {
     // de LegalLayout.tsx y las dos redacciones de cada página).
     const culpables = files
       .filter((f) => !/legal-meta\.ts$/.test(f))
-      .filter((f) => /\[[A-ZÁÉÍÓÚÑ][^\]]{4,}\]/.test(stripComments(readFileSync(f, 'utf8'))));
+      .filter((f) => /\[[A-ZÁÉÍÓÚÑ][^\]]{4,}\]/.test(stripComments(leerTexto(f))));
     expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
   });
 
@@ -430,7 +449,7 @@ describe('la landing no vuelve a inventar datos', () => {
     // inválido, que es peor que no ofrecer el enlace. Las páginas usan `BUZON`,
     // que vale `null` mientras el correo siga siendo un marcador.
     const culpables = files.filter((f) => {
-      const src = stripComments(readFileSync(f, 'utf8'));
+      const src = stripComments(leerTexto(f));
       return /mailto:\$\{CONTACT\./.test(src) || /mailto:\[/.test(src);
     });
     expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
@@ -440,7 +459,7 @@ describe('la landing no vuelve a inventar datos', () => {
     // `repeat: -1` en GSAP y `animate-ping` en Tailwind son bucles perpetuos.
     // La dirección visual del proyecto los prohíbe explícitamente.
     const culpables = files.filter((f) => {
-      const src = stripComments(readFileSync(f, 'utf8'));
+      const src = stripComments(leerTexto(f));
       return /repeat:\s*-1/.test(src) || /animate-ping/.test(src);
     });
     expect(culpables.map((f) => relative(SRC, f))).toEqual([]);
