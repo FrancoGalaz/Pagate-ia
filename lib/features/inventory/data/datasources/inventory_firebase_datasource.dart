@@ -105,8 +105,13 @@ class InventoryFirebaseDataSource {
   ///
   /// Tres detalles verificados, no supuestos:
   ///
-  /// · El tope de Firestore es de 500 operaciones por lote y el nuestro es
-  ///   de 40 fichas nuevas más 40 actualizaciones: holgado.
+  /// · El tope de Firestore es [FirestoreLimits.maxBatchWrites] y el del
+  ///   lector es `kMaxArticulosPorBoleta`: holgado. Las dos cifras estaban
+  ///   en archivos distintos y NADA las ataba, así que subir el tope de la
+  ///   boleta reventaba aquí sin que ningún test se quejara. Ahora el 500
+  ///   es una constante compartida, `InventoryProvider.applyScannedItems`
+  ///   cuenta las operaciones antes de llegar aquí, y un test fija que el
+  ///   tope del lector cabe en el presupuesto.
   /// · Cada escritura del lote se evalúa POR SEPARADO contra
   ///   `firestore.rules`, así que `validInventoryItem` sigue aplicando ficha
   ///   a ficha; el lote no es una puerta de atrás.

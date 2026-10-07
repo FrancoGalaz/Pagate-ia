@@ -37,4 +37,27 @@ class FirestoreLimits {
   /// colección pase de 200 documentos habrá que paginar, y el sitio donde se
   /// decide eso es este archivo.
   static const int maxList = 200;
+
+  /// Operaciones que caben en un `WriteBatch` de Firestore.
+  ///
+  /// POR QUÉ ESTÁ AQUÍ Y NO ESCRITO EN EL DATASOURCE. El lector de boletas
+  /// escribe todo lo que el usuario confirmó en UN lote atómico, y su tope
+  /// de artículos (`kMaxArticulosPorBoleta`, en
+  /// `features/receipt_scan/data/parsers/local_line_item_parser.dart`) vive
+  /// en otro archivo. Mientras el 500 estuviera solo en un comentario del
+  /// datasource, nada ataba las dos cifras: subir el tope de la boleta a
+  /// 600 compilaba, pasaba todos los tests y reventaba en producción con un
+  /// error del servidor, con la boleta entera sin guardar.
+  ///
+  /// Ahora los dos extremos están atados por código y por un test:
+  ///   · `InventoryProvider.applyScannedItems` cuenta las operaciones y se
+  ///     niega a mandar un lote que no quepa, con un mensaje propio en vez
+  ///     de un fallo opaco del servidor;
+  ///   · `test/features/inventory/inventory_provider_test.dart` fija que el
+  ///     tope de artículos por boleta cabe en este presupuesto, así que
+  ///     subirlo sin mirar pone el test rojo.
+  ///
+  /// El número es el de la documentación de Firestore: un lote admite hasta
+  /// 500 operaciones de escritura.
+  static const int maxBatchWrites = 500;
 }

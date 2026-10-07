@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
@@ -238,6 +239,29 @@ class InventoryProvider extends ChangeNotifier {
 
     if (limpios.isEmpty && stocksFinales.isEmpty && preciosNuevos.isEmpty) {
       throw ArgumentError('No hay nada que guardar');
+    }
+
+    // ─── EL PRESUPUESTO DEL LOTE ──────────────────────────────────────
+    // El datasource manda UN `WriteBatch`, y un lote de Firestore admite
+    // 500 operaciones. Hoy no se puede pasar porque el lector topa la
+    // boleta en 40 artículos, pero ese tope vive en el parser y el 500
+    // vivía en un comentario del datasource: NADA ataba las dos cifras.
+    // Subir el tope de la boleta a 600 compilaba, pasaba los tests y
+    // reventaba en producción con la boleta entera sin guardar.
+    //
+    // Se cuenta y se para aquí, antes de abrir el lote. Un error con
+    // mensaje propio es peor que guardar, pero mucho mejor que un fallo
+    // opaco del servidor; y trocear el lote no es la salida, porque
+    // perdería la atomicidad, que es lo que impide el estado de "media
+    // boleta guardada" (el usuario no sabe qué mitad le falta y volver a
+    // leer la boleta duplicaría la otra).
+    final fichasTocadas = {...stocksFinales.keys, ...preciosNuevos.keys};
+    final operaciones = limpios.length + fichasTocadas.length;
+    if (operaciones > FirestoreLimits.maxBatchWrites) {
+      throw ArgumentError(
+        'Son $operaciones escrituras y en un lote caben '
+        '${FirestoreLimits.maxBatchWrites}',
+      );
     }
 
     await _repository.applyScannedItems(
