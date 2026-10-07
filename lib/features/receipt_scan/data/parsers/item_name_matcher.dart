@@ -112,5 +112,9 @@ ScannedLineItem _conFicha(
     itemName: ficha.name,
     stock: ficha.stock,
     price: ficha.price,
+    // El tipo de la ficha GUARDADA, que puede no ser el que propuso el
+    // escáner: si el usuario tiene «Arcilla gres» como producto porque la
+    // revende, sumar stock la deja en Productos, no en Materiales.
+    tipoDeLaFicha: ficha.type,
   );
 }

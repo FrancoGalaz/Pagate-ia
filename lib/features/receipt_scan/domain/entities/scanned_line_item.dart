@@ -91,6 +91,16 @@ class ScannedLineItem {
   /// Precio guardado de la ficha que empareja.
   final double? matchedPrice;
 
+  /// Tipo de la ficha que empareja, tal como está guardada.
+  ///
+  /// NO ES LO MISMO QUE [type], y por eso hace falta. [type] es lo que el
+  /// escáner propone para una ficha NUEVA (`material` por defecto); esto es
+  /// en qué pestaña vive la ficha que YA existe. Al sumar stock no se
+  /// cambia el tipo de la ficha, así que es este el que dice dónde va a
+  /// aparecer el resultado, y es lo que la pantalla necesita para llevar al
+  /// usuario a la pestaña donde quedó lo que acaba de confirmar.
+  final InventoryItemType? matchedType;
+
   /// Sobrescribir el precio guardado con el de la boleta.
   ///
   /// APAGADO POR DEFECTO, y es una decisión de producto, no un descuido: el
@@ -115,6 +125,7 @@ class ScannedLineItem {
     this.matchedName,
     this.matchedStock,
     this.matchedPrice,
+    this.matchedType,
     this.updatePrice = false,
   });
 
@@ -149,6 +160,15 @@ class ScannedLineItem {
     if (actual == null) return null;
     return actual + quantity;
   }
+
+  /// La pestaña del inventario donde va a quedar este artículo.
+  ///
+  /// Al sumar stock a una ficha que ya existe, el tipo NO cambia: lo que
+  /// manda es el de la ficha guardada, no el que propuso el escáner. Al
+  /// crear una ficha nueva manda [type], que es lo que el usuario vio y
+  /// pudo cambiar en la hoja de revisión.
+  InventoryItemType get tipoResultante =>
+      matches && action == ScanAction.sumarStock ? (matchedType ?? type) : type;
 
   /// `true` si hay precio guardado y es distinto del de la boleta.
   bool get precioDifiere {
@@ -194,6 +214,7 @@ class ScannedLineItem {
         matchedName: matchedName,
         matchedStock: matchedStock,
         matchedPrice: matchedPrice,
+        matchedType: matchedType,
         updatePrice: updatePrice ?? this.updatePrice,
       );
 
@@ -203,6 +224,7 @@ class ScannedLineItem {
     final String? itemName,
     final int? stock,
     final double? price,
+    final InventoryItemType? tipoDeLaFicha,
   }) =>
       ScannedLineItem(
         name: name,
@@ -220,6 +242,7 @@ class ScannedLineItem {
         matchedName: itemName,
         matchedStock: stock,
         matchedPrice: price,
+        matchedType: tipoDeLaFicha,
         updatePrice: updatePrice,
       );
 

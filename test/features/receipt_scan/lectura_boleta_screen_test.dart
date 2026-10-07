@@ -45,8 +45,12 @@ const List<String> _boletaDeGreda = [
 ];
 
 /// Monta la pantalla con sus dos providers y espera a que acabe de leer.
-Future<({FakeReceiptScanRepository lector, FakeInventoryRepository inv})>
-    _montar(
+Future<
+    ({
+      FakeReceiptScanRepository lector,
+      FakeInventoryRepository inv,
+      InventoryProvider inventario,
+    })> _montar(
   final WidgetTester tester, {
   final ReceiptReading? lectura,
   final ReceiptScanException? error,
@@ -97,7 +101,7 @@ Future<({FakeReceiptScanRepository lector, FakeInventoryRepository inv})>
   );
   await tester.pumpAndSettle();
 
-  return (lector: lector, inv: inv);
+  return (lector: lector, inv: inv, inventario: inventoryProvider);
 }
 
 void main() {
@@ -314,6 +318,105 @@ void main() {
     expect(montaje.inv.lotes, 1);
     expect(montaje.inv.loteNuevos, hasLength(3));
     expect(find.text('Revisar la boleta'), findsNothing);
+  });
+
+  // ─── El aterrizaje después de confirmar ──────────────────────────
+  //
+  // DOS DEFECTOS QUE SE VIERON JUNTOS EN emulator-5554. El aviso decía
+  // "6 artículos agregados al inventario" cuando cinco fueron altas y una
+  // fue stock sumado a una ficha que ya existía; y la app devolvía al
+  // usuario a la pestaña Productos, vacía, porque los seis eran materiales.
+  // Confirmar seis cosas y aterrizar en una lista vacía de ellas.
+
+  testWidgets('el aviso dice la verdad: altas y stock sumado por separado', (
+    final tester,
+  ) async {
+    final montaje = await _montar(
+      tester,
+      inventario: const [
+        InventoryItemEntity(
+          id: 'a1',
+          name: 'Arcilla gres',
+          type: InventoryItemType.material,
+          price: 18990,
+          stock: 4,
+          minStock: 1,
+          unit: 'sacos',
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Guardar 3 artículos'));
+    // Dos pumps y no `pumpAndSettle`: el aviso flotante VIVE una animación
+    // de tres segundos, así que asentar el árbol lo deja ya retirado y el
+    // texto no se encuentra nunca. Es el patrón de
+    // `test/core/utils/app_feedback_test.dart`.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // Dos fichas nuevas y una que sube de stock: en el inventario entran
+    // DOS fichas, no tres.
+    expect(montaje.inv.loteNuevos, hasLength(2));
+    expect(montaje.inv.loteStocks.single, {'a1': 6});
+    expect(
+      find.text('Agregué 2 fichas nuevas y le sumé stock a 1 que ya tenías.'),
+      findsOneWidget,
+      reason: 'tres líneas confirmadas no son tres altas',
+    );
+
+    // Se deja morir el aviso: su tiempo de vida es una animación, no un
+    // `Timer`, y `pumpAndSettle` la resuelve.
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('sin ninguna coincidencia el aviso es el recuento simple', (
+    final tester,
+  ) async {
+    await _montar(tester);
+
+    await tester.tap(find.text('Guardar 3 artículos'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.text('3 artículos agregados al inventario.'),
+      findsOneWidget,
+    );
+
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('al confirmar materiales se cambia a la pestaña Materiales', (
+    final tester,
+  ) async {
+    final montaje = await _montar(tester);
+
+    expect(
+      montaje.inventario.activeTab,
+      InventoryItemType.product,
+      reason: 'la pestaña abre en Productos, que es de donde viene el usuario',
+    );
+
+    await tester.tap(find.text('Guardar 3 artículos'));
+    await tester.pumpAndSettle();
+
+    expect(
+      montaje.inventario.activeTab,
+      InventoryItemType.material,
+      reason: 'los tres artículos de la boleta son materiales',
+    );
+  });
+
+  testWidgets('un guardado que falla NO mueve al usuario de pestaña', (
+    final tester,
+  ) async {
+    final montaje = await _montar(tester);
+    montaje.inv.errorAlGuardar = StateError('sin red');
+
+    await tester.tap(find.text('Guardar 3 artículos'));
+    await tester.pumpAndSettle();
+
+    expect(montaje.inventario.activeTab, InventoryItemType.product);
   });
 
   testWidgets('no desborda con el ajuste de fuente Grande de Android', (

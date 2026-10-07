@@ -44,16 +44,27 @@ InventoryItemEntity _ficha(
   final String name, {
   final int stock = 4,
   final double price = 18990,
+  final InventoryItemType type = InventoryItemType.material,
 }) =>
     InventoryItemEntity(
       id: id,
       name: name,
-      type: InventoryItemType.material,
+      type: type,
       price: price,
       stock: stock,
       minStock: 1,
       unit: 'sacos',
     );
+
+/// Las seis líneas de la boleta de prueba, en el orden en que se imprimen.
+const List<String> _seisArticulos = [
+  '2 SACOS ARCILLA GRES 18.990',
+  '1 KG ESMALTE TRANSPARENTE 12.500',
+  '4 UN PINCEL CHINO 2.490',
+  '3 KG CAOLIN BLANCO 3.400',
+  '1 UN OXIDO DE COBRE 7.900',
+  '6 PLIEGOS PAPEL DE LIJA 890',
+];
 
 void main() {
   late FakeInventoryRepository inventarioFalso;
@@ -403,6 +414,181 @@ void main() {
       await provider.guardar();
 
       expect(inventarioFalso.loteNuevos.single.stock, 3);
+    });
+  });
+
+  // ─── El recuento y la pestaña de destino ───────────────────────────
+  //
+  // LOS DOS DEFECTOS QUE SE VIERON EN PANTALLA DE GOLPE: al confirmar seis
+  // artículos el aviso decía "6 artículos agregados al inventario" cuando
+  // en el inventario entraron CINCO fichas (la sexta fue stock sumado a una
+  // que ya existía), y la app devolvía al usuario a la pestaña Productos,
+  // que seguía vacía porque los seis eran materiales.
+  group('el recuento y la pestaña de destino', () {
+    test('cinco altas y una actualización NO son seis altas', () async {
+      inventarioFalso.emitir([_ficha('a1', 'ARCILLA GRES', stock: 4)]);
+      await Future<void>.delayed(Duration.zero);
+
+      lector.lectura = _lectura(_seisArticulos);
+      await provider.procesar(_foto);
+
+      expect(provider.seleccionados, 6, reason: 'seis líneas marcadas');
+
+      await provider.guardar();
+
+      expect(provider.altas, 5);
+      expect(provider.actualizadas, 1);
+      expect(
+        provider.mensajeDeLoGuardado,
+        'Agregué 5 fichas nuevas y le sumé stock a 1 que ya tenías.',
+      );
+    });
+
+    test('solo altas: el recuento es el de siempre', () async {
+      lector.lectura = _lectura(_seisArticulos);
+      await provider.procesar(_foto);
+
+      await provider.guardar();
+
+      expect(provider.altas, 6);
+      expect(provider.actualizadas, 0);
+      expect(
+        provider.mensajeDeLoGuardado,
+        '6 artículos agregados al inventario.',
+      );
+    });
+
+    test('una sola alta va en singular', () async {
+      lector.lectura = _lectura(['2 SACOS ARCILLA GRES 18.990']);
+      await provider.procesar(_foto);
+
+      await provider.guardar();
+
+      expect(
+        provider.mensajeDeLoGuardado,
+        '1 artículo agregado al inventario.',
+      );
+    });
+
+    test('solo actualizaciones: no se dice que se agregó nada', () async {
+      inventarioFalso.emitir([_ficha('a1', 'ARCILLA GRES', stock: 4)]);
+      await Future<void>.delayed(Duration.zero);
+
+      lector.lectura = _lectura(['2 SACOS ARCILLA GRES 18.990']);
+      await provider.procesar(_foto);
+
+      await provider.guardar();
+
+      expect(provider.altas, 0);
+      expect(
+        provider.mensajeDeLoGuardado,
+        'Le sumé stock a 1 ficha que ya tenías.',
+      );
+    });
+
+    test('dos líneas a la misma ficha cuentan UNA actualización', () async {
+      // Se cuentan FICHAS, no líneas: decir dos sería contar un documento
+      // que no existe.
+      inventarioFalso.emitir([_ficha('a1', 'ARCILLA GRES', stock: 4)]);
+      await Future<void>.delayed(Duration.zero);
+
+      lector.lectura = _lectura([
+        '2 SACOS ARCILLA GRES 18.990',
+        '3 SACOS ARCILLA GRES 18.990',
+      ]);
+      await provider.procesar(_foto);
+
+      await provider.guardar();
+
+      expect(provider.actualizadas, 1);
+      expect(provider.altas, 0);
+    });
+
+    test('antes de guardar no hay ni mensaje ni pestaña de destino',
+        () async {
+      lector.lectura = _lectura(['2 SACOS ARCILLA GRES 18.990']);
+      await provider.procesar(_foto);
+
+      expect(provider.mensajeDeLoGuardado, isNull);
+      expect(provider.tipoDeLoGuardado, isNull);
+    });
+
+    test('un guardado fallido no deja un recuento de algo que no entró',
+        () async {
+      lector.lectura = _lectura(['2 SACOS ARCILLA GRES 18.990']);
+      await provider.procesar(_foto);
+      inventarioFalso.errorAlGuardar = StateError('sin red');
+
+      expect(await provider.guardar(), isFalse);
+
+      expect(provider.altas, 0);
+      expect(provider.actualizadas, 0);
+      expect(provider.mensajeDeLoGuardado, isNull);
+      expect(provider.tipoDeLoGuardado, isNull);
+    });
+
+    test('seis materiales llevan a la pestaña de Materiales', () async {
+      lector.lectura = _lectura(_seisArticulos);
+      await provider.procesar(_foto);
+
+      await provider.guardar();
+
+      expect(provider.tipoDeLoGuardado, InventoryItemType.material);
+    });
+
+    test('si el usuario los marcó como productos, lleva a Productos',
+        () async {
+      lector.lectura = _lectura([
+        '2 SACOS ARCILLA GRES 18.990',
+        '1 KG ESMALTE TRANSPARENTE 12.500',
+      ]);
+      await provider.procesar(_foto);
+      for (var i = 0; i < provider.items.length; i++) {
+        provider.reemplazar(
+          i,
+          provider.items[i].copyWith(type: InventoryItemType.product),
+        );
+      }
+
+      await provider.guardar();
+
+      expect(provider.tipoDeLoGuardado, InventoryItemType.product);
+    });
+
+    test('sumar stock a una ficha de PRODUCTO lleva a Productos', () async {
+      // El tipo que manda es el de la ficha GUARDADA, no el que propuso el
+      // escáner: si el usuario tiene «Arcilla gres» como producto porque la
+      // revende, el stock sube en Productos y ahí hay que llevarlo.
+      inventarioFalso.emitir([
+        _ficha('p1', 'ARCILLA GRES', type: InventoryItemType.product),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      lector.lectura = _lectura(['2 SACOS ARCILLA GRES 18.990']);
+      await provider.procesar(_foto);
+
+      expect(provider.items.single.matchedType, InventoryItemType.product);
+      await provider.guardar();
+
+      expect(provider.tipoDeLoGuardado, InventoryItemType.product);
+    });
+
+    test('con empate manda el primer artículo de la boleta', () async {
+      // Criterio determinista: sin uno, la misma lectura llevaría a una
+      // pestaña distinta cada vez según el orden del recorrido.
+      lector.lectura = _lectura([
+        '2 SACOS ARCILLA GRES 18.990',
+        '1 KG ESMALTE TRANSPARENTE 12.500',
+      ]);
+      await provider.procesar(_foto);
+      provider.reemplazar(
+        0,
+        provider.items[0].copyWith(type: InventoryItemType.product),
+      );
+
+      await provider.guardar();
+
+      expect(provider.tipoDeLoGuardado, InventoryItemType.product);
     });
   });
 }

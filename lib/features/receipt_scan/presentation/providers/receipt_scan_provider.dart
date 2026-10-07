@@ -66,7 +66,9 @@ class ReceiptScanProvider extends ChangeNotifier {
   String? _saveError;
   bool _truncated = false;
   bool _confianzaBaja = false;
-  int _guardados = 0;
+  int _altas = 0;
+  int _actualizadas = 0;
+  InventoryItemType? _tipoDeLoGuardado;
   bool _disposed = false;
 
   // ─── Estado ───────────────────────────────────────────────────────
@@ -84,8 +86,55 @@ class ReceiptScanProvider extends ChangeNotifier {
   /// Artículos marcados para guardar.
   int get seleccionados => _items.where((final i) => i.included).length;
 
-  /// Cuántas fichas se guardaron en la última confirmación.
-  int get guardados => _guardados;
+  /// Fichas NUEVAS que entraron en la última confirmación.
+  int get altas => _altas;
+
+  /// Fichas que ya existían y a las que se les sumó stock.
+  ///
+  /// Se cuentan FICHAS, no líneas de la boleta: dos líneas del mismo
+  /// material son una sola ficha actualizada, y decir dos sería contar un
+  /// documento que no existe.
+  int get actualizadas => _actualizadas;
+
+  /// Pestaña del inventario donde quedó lo que se acaba de guardar, o
+  /// `null` si todavía no se ha guardado nada.
+  ///
+  /// EL DEFECTO QUE ARREGLA, VISTO EN PANTALLA. El usuario abría el lector
+  /// desde la pestaña Productos, confirmaba seis materiales y la app lo
+  /// devolvía a Productos, que seguía vacía: seis cosas confirmadas y una
+  /// lista vacía de ellas delante. Con esto, la pestaña pasa a ser la de lo
+  /// que acaba de guardar.
+  InventoryItemType? get tipoDeLoGuardado => _tipoDeLoGuardado;
+
+  /// Lo que se le dice al usuario cuando el guardado salió bien.
+  ///
+  /// EL RECUENTO DICE LA VERDAD, y antes no. El mensaje era
+  /// "6 artículos agregados al inventario" contando las líneas marcadas,
+  /// pero de esas seis cinco eran altas y una era stock sumado a una ficha
+  /// que ya existía: en el inventario entraron CINCO fichas. Un recuento
+  /// que no cuadra con lo que el usuario ve después es exactamente lo que
+  /// le hace desconfiar de la lectura entera.
+  ///
+  /// `null` mientras no haya nada guardado.
+  String? get mensajeDeLoGuardado {
+    if (_altas == 0 && _actualizadas == 0) return null;
+
+    if (_actualizadas == 0) {
+      return _altas == 1
+          ? '1 artículo agregado al inventario.'
+          : '$_altas artículos agregados al inventario.';
+    }
+    if (_altas == 0) {
+      return _actualizadas == 1
+          ? 'Le sumé stock a 1 ficha que ya tenías.'
+          : 'Le sumé stock a $_actualizadas fichas que ya tenías.';
+    }
+    final nuevas = _altas == 1 ? '1 ficha nueva' : '$_altas fichas nuevas';
+    final viejas = _actualizadas == 1
+        ? '1 que ya tenías'
+        : '$_actualizadas que ya tenías';
+    return 'Agregué $nuevas y le sumé stock a $viejas.';
+  }
 
   /// `true` si hay algo que el usuario pueda perder al salir.
   bool get hayTrabajoQuePerder =>
@@ -258,6 +307,13 @@ class ReceiptScanProvider extends ChangeNotifier {
     final elegidos = _items.where((final i) => i.included).toList();
     if (elegidos.isEmpty) return false;
 
+    // El recuento del intento ANTERIOR se borra aquí, no al final: si este
+    // guardado falla, `mensajeDeLoGuardado` tiene que quedar en `null` en
+    // vez de anunciar lo que entró la vez pasada.
+    _altas = 0;
+    _actualizadas = 0;
+    _tipoDeLoGuardado = null;
+
     _phase = ReceiptScanPhase.guardando;
     _saveError = null;
     _notify();
@@ -301,7 +357,9 @@ class ReceiptScanProvider extends ChangeNotifier {
         stocksFinales: stocks,
         preciosNuevos: precios,
       );
-      _guardados = elegidos.length;
+      _altas = nuevos.length;
+      _actualizadas = stocks.length;
+      _tipoDeLoGuardado = _pestanaDondeQuedo(elegidos);
       _phase = ReceiptScanPhase.guardado;
       _notify();
       return true;
@@ -315,6 +373,31 @@ class ReceiptScanProvider extends ChangeNotifier {
       _notify();
       return false;
     }
+  }
+
+  /// En qué pestaña del inventario quedó la mayor parte de lo guardado.
+  ///
+  /// Una boleta puede traer de los dos tipos (el usuario cambia el tipo de
+  /// una línea en la hoja de revisión), así que no hay una respuesta única:
+  /// se elige la pestaña donde quedó MÁS cosa. Con empate manda la del
+  /// primer artículo confirmado, que es el primero de la boleta: es un
+  /// criterio determinista, y sin uno la misma lectura llevaría a una
+  /// pestaña distinta cada vez según el orden del recorrido.
+  static InventoryItemType _pestanaDondeQuedo(
+    final List<ScannedLineItem> elegidos,
+  ) {
+    var productos = 0;
+    var materiales = 0;
+    for (final item in elegidos) {
+      if (item.tipoResultante == InventoryItemType.product) {
+        productos++;
+      } else {
+        materiales++;
+      }
+    }
+    if (productos > materiales) return InventoryItemType.product;
+    if (materiales > productos) return InventoryItemType.material;
+    return elegidos.first.tipoResultante;
   }
 
   void limpiarErrorDeGuardado() {

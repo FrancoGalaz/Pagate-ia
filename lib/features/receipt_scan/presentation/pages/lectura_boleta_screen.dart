@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../inventory/presentation/providers/inventory_provider.dart';
 import '../../domain/entities/receipt_document.dart';
 import '../../domain/entities/receipt_reading.dart';
 import '../providers/receipt_scan_provider.dart';
@@ -100,16 +101,26 @@ class _LecturaBoletaScreenState extends State<LecturaBoletaScreen> {
   Future<void> _guardar() async {
     final provider = context.read<ReceiptScanProvider>();
     final navigator = Navigator.of(context);
-    final cuantos = provider.seleccionados;
+
+    // El provider del inventario se toma ANTES de cerrar la pantalla: al
+    // volver, este contexto ya está desmontado y `context.read` desde ahí
+    // no encuentra ningún provider. La INSTANCIA sigue viva porque la
+    // dueña es la pestaña, no esta ruta.
+    final inventario = context.read<InventoryProvider>();
+
     if (!await provider.guardar()) return;
     if (!mounted) return;
+
+    // LLEVAR AL USUARIO A DONDE ESTÁ LO QUE ACABA DE GUARDAR. Sin esto, el
+    // lector abierto desde Productos devolvía a Productos aunque los seis
+    // artículos fueran materiales: el usuario confirmaba seis cosas y
+    // aterrizaba en una lista vacía de ellas.
+    final destino = provider.tipoDeLoGuardado;
+    if (destino != null) inventario.setActiveTab(destino);
+
+    final mensaje = provider.mensajeDeLoGuardado;
     navigator.pop();
-    AppFeedback.showMessage(
-      context,
-      cuantos == 1
-          ? '1 artículo agregado al inventario.'
-          : '$cuantos artículos agregados al inventario.',
-    );
+    if (mensaje != null) AppFeedback.showMessage(context, mensaje);
   }
 
   Future<void> _revisar(final int indice) async {
