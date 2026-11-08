@@ -64,19 +64,18 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   `npm --prefix functions test` 303 pasan (11 archivos, 80 de ellos de reglas).
   La landing no se corrió.
 
-## Tareas de código pendientes (decididas, sin hacer)
+## Tareas de código
 
-1. Quitar iOS de `lecturaDeBoletasDisponible`
-   (`lib/features/receipt_scan/domain/receipt_scan_availability.dart:18`) para
-   que sea coherente con iOS fuera de alcance.
-2. Borrar los `get()` sin uso: `getProfile()`
-   (`user_profile_firebase_datasource.dart:33`, `user_profile_repository.dart:8`,
-   `user_profile_repository_impl.dart:17`) y `getHourlyRate()` /
-   `hasConfiguration()` (`hourly_rate_local_datasource.dart:35,46`,
-   `hourly_rate_repository.dart:8,12`, `hourly_rate_repository_impl.dart:16,24`).
-   Solo los implementan los fakes de `test/features/hourly_value/`; nadie los
-   llama.
-3. Cambiar el saludo del asistente (`_welcomeText`,
-   `lib/features/dashboard/presentation/providers/ai_provider.dart:77`): hoy
-   dice que conoce el inventario, pero el backend solo envía el conteo de
-   productos y materiales, y los gastos fijos no viajan.
+Hechas:
+
+1. [x] Quitar iOS de `lecturaDeBoletasDisponible`
+   (`receipt_scan_availability.dart`) — commit `212abc5`.
+2. [x] Borrar los `get()` sin uso (`getProfile()`, `getHourlyRate()`,
+   `hasConfiguration()`) de datasources, interfaces y fakes — commit `5a5b346`.
+3. [x] Cambiar el saludo del asistente (`_welcomeText` en `ai_provider.dart`)
+   para que no prometa más de lo que ve — commit `2506b47`.
+
+Pendiente, bloqueada por consola:
+
+4. [ ] Activar `ENFORCE_APP_CHECK` (`functions/.env`) después de validar Play
+   Integrity. Es el último paso de `docs/CHECKLIST-PUBLICACION.md`; no antes.
