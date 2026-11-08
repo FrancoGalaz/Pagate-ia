@@ -51,18 +51,70 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
 - **Saludo del asistente:** se cambia para que no prometa más de lo que sabe
   (no se amplía el contexto del prompt).
 - **Ramas `int/*`:** se mantienen por ahora.
+- **Inicio de sesión:** Google solo existe en web (`isAvailable => kIsWeb`);
+  en Android todas las cuentas son de correo y contraseña.
+- **Correo verificado:** `chat` y `scanReceipt` lo exigen antes de reservar
+  cuota. Sin verificar, el lector de boletas se queda con la lista local.
+- **Historial del asistente:** se borra con `deleteChatHistory`; no toca la
+  cuota ni `aiReports`.
 
 ## Estado
 
 - **Consola de Firebase:** sin cambios desde el 2026-10-06 (Authentication sin
   habilitar, sin base de Firestore, sin plan Blaze, sin clave de OpenRouter,
-  nada desplegado). Lo que falta en consola está en `docs/PLAN.md`.
-- **Git:** `arquitectura-segura` tiene 144 commits que no están en GitHub.
-  `origin/main` solo recibió este CLAUDE.md (PR #1).
-- **Tests (2026-11-08, rama `docs/reglas-trabajo`):** `flutter analyze` sin
-  problemas; `flutter test` 497 pasan; functions `lint` y `build` OK y
-  `npm --prefix functions test` 303 pasan (11 archivos, 80 de ellos de reglas).
-  La landing no se corrió.
+  nada desplegado). Lo que falta en consola está en `docs/PLAN.md` y
+  `docs/CHECKLIST-PUBLICACION.md`.
+- **Git:** `arquitectura-segura` y `docs/reglas-trabajo` están en GitHub. El PR
+  `docs/reglas-trabajo` → `arquitectura-segura` está por abrir (`gh` sin
+  sesión). `origin/main` solo recibió este CLAUDE.md (PR #1).
+- **Tests (2026-11-08, rama `docs/reglas-trabajo`, commit `9be9618`):**
+  `flutter analyze` sin problemas; `flutter test` 532 pasan; functions `lint`
+  y `build` OK y `npm --prefix functions test` 316 pasan (12 archivos, con los
+  de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
+  `integration_test/cierre_sesion_test.dart` pasó en el emulador.
+
+## Hallazgos de la auditoría abiertos
+
+Revisados contra el código el 2026-11-08. No es un recuento de los 81 de
+`docs/AUDITORIA-2026-09-29.md` uno por uno: es la lista priorizada.
+
+Bloquean la publicación (todos son de consola o del dueño, no de código):
+
+- Proyecto de Firebase vacío: Authentication, Firestore, plan Blaze, despliegue.
+- Keystore de subida definitivo (`key.properties`).
+- Publicar la landing (privacidad, términos, eliminar cuenta).
+- Clave de OpenRouter nueva y revocar la antigua.
+- Datos del responsable y correos reales: `landing/src/content/legal-meta.ts`
+  sigue con marcadores (`[RUT DEL RESPONSABLE]`, `[CORREO DE SOPORTE…]`).
+- Formulario de Seguridad de los datos en Play Console, declarando OpenRouter
+  (el texto está en `docs/SEGURIDAD-DATOS-PLAY.md`).
+- Confirmar `com.pagate.apppagate` antes de la primera subida.
+
+Antes de publicar:
+
+- App Check: el código está listo; activar `ENFORCE_APP_CHECK` es la tarea 4.
+- Plantilla del correo de verificación en español (consola, paso en el
+  checklist).
+- Probar en un teléfono: el flujo de verificación de correo, contraste WCAG,
+  desbordes con letra grande y peso de los gráficos de Inicio y Finanzas.
+
+Después:
+
+- CI: no construye Android, `deploy-web` no corre tests, actions sin pin a SHA,
+  Flutter en `channel: beta` sin versión fija, `dev.sh` apunta al proyecto
+  real, sin pre-commit.
+- Higiene: `catch (_)` sin registro en `ai_provider.dart` (líneas 203 y 314),
+  cast sin comprobar nulos en `HourlyRateModel.fromJson`, `validHourlyRate`
+  acepta un mapa parcial, `describeFirebaseError` todavía muestra el error
+  crudo cuando no es de Firebase.
+- Producto: compra del plan Pro, stock decimal (decisión pendiente en
+  `docs/ARQUITECTURA.md`). Web e iOS fuera de alcance.
+
+Cerrados en `docs/reglas-trabajo`: `allowBackup` y reglas de extracción,
+caché de Firestore al cerrar sesión, borrar historial del asistente, aviso de
+privacidad en la lista de espera, Material en es_CL, error crudo en el arranque
+y en `SessionErrorView`, verificación de correo, mensaje genérico en
+`describeFirebaseError` y log único en `AuthGate`.
 
 ## Tareas de código
 
