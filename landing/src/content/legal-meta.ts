@@ -50,7 +50,7 @@ export const CONTACT = {
  */
 export const LEGAL_VERSION = {
   version: '1.0',
-  updatedAt: '6 de octubre de 2026',
+  updatedAt: '8 de noviembre de 2026',
 } as const;
 
 /**

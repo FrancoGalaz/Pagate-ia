@@ -499,6 +499,11 @@ Copias de seguridad de Android desactivadas (`allowBackup=false` y
 `android/app/src/main/AndroidManifest.xml` y
 `android/app/src/main/res/xml/data_extraction_rules.xml`.
 
+Los datos locales (la caché offline de Firestore) se descartan al cerrar sesión
+o borrar la cuenta: `FirebaseAuthService.cerrarSesion()` hace `terminate` →
+`clearPersistence` → `signOut`. Lo comprueba
+`integration_test/cierre_sesion_test.dart`.
+
 ### URLs que hay que pegar en Play Console
 
 | Campo de Play Console | Valor |

@@ -494,6 +494,7 @@ export default function PrivacidadPage() {
               Cuando pides la eliminación de tu cuenta, los borramos en un plazo máximo
               de {DELETION_SLA_DAYS} días.
             </>,
+            'La copia local que la app guarda en tu teléfono para funcionar sin conexión se descarta al cerrar sesión o al eliminar tu cuenta. La app tampoco permite que Android la incluya en copias de seguridad ni la traspase a otro teléfono.',
             <>
               Las copias de respaldo técnicas de la base de datos pueden tardar hasta{' '}
               {BACKUP_RETENTION_DAYS} días más en expirar. Durante ese tiempo los datos
