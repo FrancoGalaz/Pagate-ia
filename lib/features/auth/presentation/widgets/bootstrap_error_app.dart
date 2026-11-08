@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_brand.dart';
@@ -14,32 +15,45 @@ import '../../../../core/widgets/widgets.dart';
 ///
 /// Paso 7 de docs/DISENO-v2.md: el icono de 48 dp centrado y los tres
 /// bloques de texto a mano pasan a [PagateErrorState]. El detalle técnico
-/// del error se queda, debajo y en `textMuted`: es lo único que permite
-/// diagnosticar un arranque fallido en el teléfono de otra persona.
+/// del error solo se muestra en debug ([mostrarDetalle]); en release queda en
+/// el log (`main.dart` lo imprime con `debugPrint`), no en pantalla.
 class BootstrapErrorApp extends StatelessWidget {
   const BootstrapErrorApp({
     super.key,
     required this.error,
     required this.onRetry,
+    this.mostrarDetalle = kDebugMode,
   });
 
   final Object error;
   final VoidCallback onRetry;
+
+  /// Muestra la excepción debajo del mensaje. Por defecto solo en debug.
+  final bool mostrarDetalle;
 
   @override
   Widget build(final BuildContext context) => MaterialApp(
         title: kAppName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: _BootstrapErrorView(error: error, onRetry: onRetry),
+        home: _BootstrapErrorView(
+          error: error,
+          onRetry: onRetry,
+          mostrarDetalle: mostrarDetalle,
+        ),
       );
 }
 
 class _BootstrapErrorView extends StatelessWidget {
-  const _BootstrapErrorView({required this.error, required this.onRetry});
+  const _BootstrapErrorView({
+    required this.error,
+    required this.onRetry,
+    required this.mostrarDetalle,
+  });
 
   final Object error;
   final VoidCallback onRetry;
+  final bool mostrarDetalle;
 
   @override
   Widget build(final BuildContext context) => Scaffold(
@@ -57,18 +71,20 @@ class _BootstrapErrorView extends StatelessWidget {
                         'problema continúa, cierra la app y vuelve a abrirla.',
                     onRetry: onRetry,
                   ),
-                  const SizedBox(height: AppSpacing.x4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.x4,
+                  if (mostrarDetalle) ...[
+                    const SizedBox(height: AppSpacing.x4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x4,
+                      ),
+                      child: Text(
+                        'Detalle: $error',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppPalette.textMuted,
+                            ),
+                      ),
                     ),
-                    child: Text(
-                      'Detalle: $error',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppPalette.textMuted,
-                          ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
