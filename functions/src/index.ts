@@ -8,6 +8,7 @@ import { initializeApp } from 'firebase-admin/app';
 initializeApp();
 
 export { deleteAccount } from './account';
+export { deleteChatHistory } from './chatHistory';
 export { chat } from './chat';
 export { onTransactionWritten } from './months';
 export { scanReceipt } from './scan';
