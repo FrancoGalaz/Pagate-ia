@@ -67,6 +67,23 @@ npm --prefix landing run lint && npm --prefix landing test && npm --prefix landi
 
 CI (`.github/workflows/ci.yml`) ejecuta exactamente esos tres bloques en paralelo en cada push y pull request.
 
+### Test de integración (cierre de sesión)
+
+`integration_test/cierre_sesion_test.dart` comprueba, contra los emuladores de
+Firebase, que al cerrar sesión la caché offline del usuario A se borra y que B,
+en el mismo teléfono, sigue teniendo persistencia. No corre con `flutter test`
+ni en CI: necesita un emulador de Android encendido.
+
+```bash
+npm --prefix functions exec -- firebase emulators:start --only auth,firestore
+```
+
+```bash
+flutter test integration_test/cierre_sesion_test.dart -d emulator-5554 --dart-define=PAGATE_ENV=dev
+```
+
+`flutter devices` muestra el id del emulador si no es `emulator-5554`.
+
 ### Desplegar
 
 Manual, desde una máquina con sesión iniciada (`npm --prefix functions exec -- firebase login`):
