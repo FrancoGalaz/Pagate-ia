@@ -181,6 +181,10 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 - `.mcp.json` está ignorado por git (contiene tokens locales). No versionarlo.
 - Secretos y entornos locales ignorados: `*.env`, `.env.*`, `landing/.env*`,
   `functions/.npmrc`, `landing/.npmrc`, `.firebase/`, logs de emuladores.
+- Excepción intencional: `functions/.env` (parámetros no secretos de Functions)
+  y `landing/.env.production` (URL pública de `waitlist`) **sí se versionan**,
+  con su `!` en `.gitignore`. No contienen secretos y no deben contenerlos: los
+  secretos van a Secret Manager.
 
 ## Despliegue
 - Local: `APP_CHECK_SITE_KEY=... ./scripts/deploy-web.sh` (hosting +

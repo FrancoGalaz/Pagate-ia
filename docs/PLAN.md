@@ -62,7 +62,7 @@ Nada de esto es programación. Son tus cuentas.
 
 7. **Publicar la landing**. Hoy las tres URL legales dan 404 y Play **exige** que la de
    privacidad responda. Rechazo casi automático si no.
-8. **Cinco datos de identidad legal** en `landing/src/legal-meta.ts` y un correo de soporte
+8. **Cinco datos de identidad legal** en `landing/src/content/legal-meta.ts` y un correo de soporte
    atendido de verdad.
 9. **12 probadores durante 14 días seguidos** si tu cuenta de desarrollador es personal y
    posterior a noviembre de 2023. Son días de calendario: conviene empezar ya.

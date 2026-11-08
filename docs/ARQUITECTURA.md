@@ -13,7 +13,10 @@ y las convenciones del cliente. Cualquier cambio aquí debe reflejarse en
 3. **Los agregados se derivan, no se escriben desde el cliente.** Los totales
    mensuales los calcula un trigger de Firestore.
 4. **El cliente lee con streams** (`snapshots()`), no con `get()` puntuales.
-   Firestore entrega tiempo real y offline sin código extra.
+   Firestore entrega tiempo real y offline sin código extra. Excepción
+   aceptada: `AiProvider._loadLatestConversation` usa un `get()` para
+   localizar la última conversación una sola vez al abrir el chat; sus
+   mensajes se leen después por stream.
 5. **Los errores no se silencian.** Un fallo de red o de permisos se muestra con
    opción de reintentar. Nunca se devuelve una lista vacía como si fuera un
    estado válido.
@@ -572,7 +575,8 @@ de navegación que reescriben a `index.html`) sí quedan protegidas.
 - **Errores:** los providers exponen `error` (String?) y `retry()`. Las
   pantallas muestran un estado de error con botón de reintento.
 - **Tema claro único.** `AppTheme.lightTheme` es el único tema y lo aplica
-  `app_shell.dart`. **No existe `AppTheme.darkTheme`** ni `themeMode`: no hay
+  `app_shell.dart`, que además fija `themeMode: ThemeMode.light` para que la
+  app no siga al sistema. **No existe `AppTheme.darkTheme`**: no hay
   tema oscuro que mantener, así que ningún widget debe volver a consultar
   `Theme.of(context).brightness` ni `MediaQuery.platformBrightness` para decidir
   colores. Los tokens salen de `lib/core/constants/app_constants.dart`.
