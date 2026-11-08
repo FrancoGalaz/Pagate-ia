@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pagate_ia/core/services/firebase_auth_service.dart';
 import 'package:pagate_ia/features/auth/presentation/pages/auth_gate.dart';
 import 'package:pagate_ia/features/auth/presentation/pages/splash_screen.dart';
+import 'package:pagate_ia/features/auth/presentation/pages/welcome_screen.dart';
 import 'package:pagate_ia/features/auth/presentation/widgets/cerrar_sesion.dart';
 import 'package:pagate_ia/features/auth/presentation/widgets/user_scope.dart';
 import 'package:provider/provider.dart';
@@ -243,13 +244,41 @@ void main() {
     expect(find.byType(SplashScreen), findsOneWidget);
     expect(find.byType(UserScope), findsNothing);
   });
+
+  testWidgets(
+      'AuthGate muestra la bienvenida cuando llega el usuario null, aunque '
+      'cerrandoSesion siga en true', (final tester) async {
+    final eventos = StreamController<User?>();
+    addTearDown(eventos.close);
+    final s = _ServicioCerrando(eventos.stream);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<FirebaseAuthService>.value(
+        value: s,
+        child: const AuthGate(),
+      ),
+    );
+
+    eventos.add(_UsuarioFalso());
+    await tester.pump();
+    expect(find.byType(SplashScreen), findsOneWidget);
+
+    eventos.add(null);
+    await tester.pump();
+    expect(s.cerrandoSesion, isTrue);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.byType(SplashScreen), findsNothing);
+  });
 }
 
 /// Servicio con un usuario en el stream y [cerrandoSesion] en `true`: el
 /// estado que deja `cerrarSesion` antes de llamar a `terminate`.
 class _ServicioCerrando extends ChangeNotifier implements FirebaseAuthService {
+  _ServicioCerrando([this._eventos]);
+  final Stream<User?>? _eventos;
+
   @override
-  Stream<User?> get authStateChanges => Stream.value(_UsuarioFalso());
+  Stream<User?> get authStateChanges =>
+      _eventos ?? Stream.value(_UsuarioFalso());
 
   @override
   bool get cerrandoSesion => true;
