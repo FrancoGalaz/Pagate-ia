@@ -56,8 +56,7 @@ class _Query extends Fake implements Query<_Datos> {
   Stream<QuerySnapshot<_Datos>> snapshots({
     final bool includeMetadataChanges = false,
     final ListenSource source = ListenSource.defaultSource,
-  }) =>
-      StreamController<QuerySnapshot<_Datos>>().stream;
+  }) => StreamController<QuerySnapshot<_Datos>>().stream;
 }
 
 class _Vacio extends Fake implements QuerySnapshot<_Datos> {
@@ -120,21 +119,23 @@ void main() {
   });
 
   group('AiProvider.borrarHistorial', () {
-    test('vuelve al saludo y el siguiente envío no manda conversationId',
-        () async {
-      final p = await provider();
-      await p.sendMessage('¿Cuánto cobro?');
-      expect(p.conversationId, 'c1');
+    test(
+      'vuelve al saludo y el siguiente envío no manda conversationId',
+      () async {
+        final p = await provider();
+        await p.sendMessage('¿Cuánto cobro?');
+        expect(p.conversationId, 'c1');
 
-      expect(await p.borrarHistorial(), isTrue);
+        expect(await p.borrarHistorial(), isTrue);
 
-      expect(historial.llamadas, 1);
-      expect(p.conversationId, isNull);
-      expect(p.messages.map((final m) => m.id), ['welcome']);
+        expect(historial.llamadas, 1);
+        expect(p.conversationId, isNull);
+        expect(p.messages.map((final m) => m.id), ['welcome']);
 
-      await p.sendMessage('Otra pregunta');
-      expect(chat.enviados, [null, null]);
-    });
+        await p.sendMessage('Otra pregunta');
+        expect(chat.enviados, [null, null]);
+      },
+    );
 
     test('con una respuesta pendiente no llama al backend', () async {
       final p = await provider();

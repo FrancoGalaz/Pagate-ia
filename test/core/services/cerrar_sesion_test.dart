@@ -30,8 +30,7 @@ class _AuthFalso extends Fake implements FirebaseAuth {
   Future<UserCredential> signInWithEmailAndPassword({
     required final String email,
     required final String password,
-  }) async =>
-      _CredencialFalsa();
+  }) async => _CredencialFalsa();
 }
 
 class _CredencialFalsa extends Fake implements UserCredential {}
@@ -71,32 +70,33 @@ void main() {
   FirebaseAuthService servicio({
     final bool pendientes = false,
     final Object? fallaBorrar,
-  }) =>
-      FirebaseAuthService(
-        auth: _AuthFalso(registro),
-        firestore: _FirestoreFalso(
-          registro,
-          pendientes: pendientes,
-          fallaBorrar: fallaBorrar,
-        ),
-      );
+  }) => FirebaseAuthService(
+    auth: _AuthFalso(registro),
+    firestore: _FirestoreFalso(
+      registro,
+      pendientes: pendientes,
+      fallaBorrar: fallaBorrar,
+    ),
+  );
 
   setUp(() => registro = []);
 
   group('cerrarSesion', () {
     testWidgets(
-        'sin aviso (tras deleteAccount): no espera pendientes y borra la '
-        'caché antes de signOut', (final tester) async {
-      final s = servicio(pendientes: true);
+      'sin aviso (tras deleteAccount): no espera pendientes y borra la '
+      'caché antes de signOut',
+      (final tester) async {
+        final s = servicio(pendientes: true);
 
-      final cierre = s.cerrarSesion();
-      expect(s.cerrandoSesion, isTrue);
-      expect(registro, isEmpty, reason: 'espera un frame antes de terminate');
-      await tester.pump();
+        final cierre = s.cerrarSesion();
+        expect(s.cerrandoSesion, isTrue);
+        expect(registro, isEmpty, reason: 'espera un frame antes de terminate');
+        await tester.pump();
 
-      expect(await cierre, isTrue);
-      expect(registro, ['terminate', 'clearPersistence', 'signOut']);
-    });
+        expect(await cierre, isTrue);
+        expect(registro, ['terminate', 'clearPersistence', 'signOut']);
+      },
+    );
 
     testWidgets('signOut se ejecuta aunque clearPersistence falle', (
       final tester,
@@ -160,7 +160,9 @@ void main() {
     ) async {
       final s = servicio(pendientes: true);
 
-      final cierre = s.cerrarSesion(confirmarPerdidaDeCambios: () async => true);
+      final cierre = s.cerrarSesion(
+        confirmarPerdidaDeCambios: () async => true,
+      );
       await tester.pump(FirebaseAuthService.esperaEscriturasPendientes);
       await tester.pump();
 
@@ -230,44 +232,48 @@ void main() {
   });
 
   testWidgets(
-      'AuthGate muestra el splash y no monta UserScope mientras se cierra '
-      'la sesión', (final tester) async {
-    final s = _ServicioCerrando();
-    await tester.pumpWidget(
-      ChangeNotifierProvider<FirebaseAuthService>.value(
-        value: s,
-        child: const AuthGate(),
-      ),
-    );
-    await tester.pump();
+    'AuthGate muestra el splash y no monta UserScope mientras se cierra '
+    'la sesión',
+    (final tester) async {
+      final s = _ServicioCerrando();
+      await tester.pumpWidget(
+        ChangeNotifierProvider<FirebaseAuthService>.value(
+          value: s,
+          child: const AuthGate(),
+        ),
+      );
+      await tester.pump();
 
-    expect(find.byType(SplashScreen), findsOneWidget);
-    expect(find.byType(UserScope), findsNothing);
-  });
+      expect(find.byType(SplashScreen), findsOneWidget);
+      expect(find.byType(UserScope), findsNothing);
+    },
+  );
 
   testWidgets(
-      'AuthGate muestra la bienvenida cuando llega el usuario null, aunque '
-      'cerrandoSesion siga en true', (final tester) async {
-    final eventos = StreamController<User?>();
-    addTearDown(eventos.close);
-    final s = _ServicioCerrando(eventos.stream);
-    await tester.pumpWidget(
-      ChangeNotifierProvider<FirebaseAuthService>.value(
-        value: s,
-        child: const AuthGate(),
-      ),
-    );
+    'AuthGate muestra la bienvenida cuando llega el usuario null, aunque '
+    'cerrandoSesion siga en true',
+    (final tester) async {
+      final eventos = StreamController<User?>();
+      addTearDown(eventos.close);
+      final s = _ServicioCerrando(eventos.stream);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<FirebaseAuthService>.value(
+          value: s,
+          child: const AuthGate(),
+        ),
+      );
 
-    eventos.add(_UsuarioFalso());
-    await tester.pump();
-    expect(find.byType(SplashScreen), findsOneWidget);
+      eventos.add(_UsuarioFalso());
+      await tester.pump();
+      expect(find.byType(SplashScreen), findsOneWidget);
 
-    eventos.add(null);
-    await tester.pump();
-    expect(s.cerrandoSesion, isTrue);
-    expect(find.byType(WelcomeScreen), findsOneWidget);
-    expect(find.byType(SplashScreen), findsNothing);
-  });
+      eventos.add(null);
+      await tester.pump();
+      expect(s.cerrandoSesion, isTrue);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
+      expect(find.byType(SplashScreen), findsNothing);
+    },
+  );
 }
 
 /// Servicio con un usuario en el stream y [cerrandoSesion] en `true`: el

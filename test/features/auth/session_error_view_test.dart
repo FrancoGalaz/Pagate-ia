@@ -11,17 +11,16 @@ import 'package:provider/provider.dart';
 Future<void> _montar(
   final WidgetTester tester, {
   required final bool mostrarDetalle,
-}) =>
-    tester.pumpWidget(
-      MaterialApp(
-        home: SessionErrorView(
-          message: 'No pudimos comprobar tu sesión.',
-          detail: StateError('token roto'),
-          onRetry: () {},
-          mostrarDetalle: mostrarDetalle,
-        ),
-      ),
-    );
+}) => tester.pumpWidget(
+  MaterialApp(
+    home: SessionErrorView(
+      message: 'No pudimos comprobar tu sesión.',
+      detail: StateError('token roto'),
+      onRetry: () {},
+      mostrarDetalle: mostrarDetalle,
+    ),
+  ),
+);
 
 class _AuthConError extends ChangeNotifier implements FirebaseAuthService {
   @override

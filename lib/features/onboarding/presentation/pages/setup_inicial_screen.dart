@@ -122,12 +122,12 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
     setState(() => _isSaving = true);
     try {
       await context.read<UserProfileProvider>().updateFromSetup(
-            name: _nameController.text.trim(),
-            businessName: _businessController.text.trim(),
-            businessType: _selectedType.first,
-            currency: _selectedCurrency,
-            monthlyGoal: parseCurrencyInput(_goalController.text)!,
-          );
+        name: _nameController.text.trim(),
+        businessName: _businessController.text.trim(),
+        businessType: _selectedType.first,
+        currency: _selectedCurrency,
+        monthlyGoal: parseCurrencyInput(_goalController.text)!,
+      );
       // El gate reacciona al stream del perfil y muestra el dashboard.
     } catch (e) {
       if (!mounted) return;
@@ -188,7 +188,8 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
                         focusNode: _businessFocus,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        onFieldSubmitted: (final _) => _goalFocus.requestFocus(),
+                        onFieldSubmitted: (final _) =>
+                            _goalFocus.requestFocus(),
                         validator: (final v) => _validarObligatorio(
                           v,
                           'Escribe el nombre de tu taller',

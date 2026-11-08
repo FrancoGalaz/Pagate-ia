@@ -13,8 +13,8 @@ class HourlyRateLocalDataSource {
   HourlyRateLocalDataSource({
     required final FirebaseFirestore firestore,
     required final String userId,
-  })  : _firestore = firestore,
-        _userId = userId;
+  }) : _firestore = firestore,
+       _userId = userId;
 
   DocumentReference<Map<String, dynamic>> get _userDoc =>
       _firestore.collection('users').doc(_userId);
@@ -32,11 +32,8 @@ class HourlyRateLocalDataSource {
   Stream<HourlyRateModel?> watchHourlyRate() =>
       _userDoc.snapshots().map((snapshot) => _fromData(snapshot.data()));
 
-  Future<void> saveHourlyRate(final HourlyRateModel model) => _userDoc.set(
-        {
-          'hourlyRate': model.toJson(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+  Future<void> saveHourlyRate(final HourlyRateModel model) => _userDoc.set({
+    'hourlyRate': model.toJson(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
 }

@@ -18,8 +18,8 @@ class FirebaseAuthService extends ChangeNotifier {
   bool _cerrandoSesion = false;
 
   FirebaseAuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-      : _auth = auth ?? FirebaseAuth.instance,
-        _firestoreInyectado = firestore {
+    : _auth = auth ?? FirebaseAuth.instance,
+      _firestoreInyectado = firestore {
     _user = _auth.currentUser;
     _subscription = _auth.userChanges().listen((user) {
       _user = user;

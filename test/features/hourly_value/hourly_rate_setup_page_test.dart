@@ -48,14 +48,12 @@ class FakeHourlyRateRepository implements HourlyRateRepository {
 
 class FakeFinancesRepository implements FinancesRepository {
   @override
-  Stream<List<FinancesSummaryEntity>> watchMonths() =>
-      Stream.value(const []);
+  Stream<List<FinancesSummaryEntity>> watchMonths() => Stream.value(const []);
 
   @override
   Stream<List<FinancesTransactionEntity>> watchTransactions(
     final String monthKey,
-  ) =>
-      Stream.value(const []);
+  ) => Stream.value(const []);
 
   @override
   Stream<List<FixedExpenseEntity>> watchFixedExpenses() =>
@@ -124,12 +122,15 @@ void main() {
   /// `TextFormField` dentro de `PagateTextField`, no su ancestro, así que se
   /// busca por el widget y no por el texto.
   Finder campoConEtiqueta(final String label) => find.byWidgetPredicate(
-        (final w) => w is PagateTextField && w.labelText == label,
-      );
+    (final w) => w is PagateTextField && w.labelText == label,
+  );
 
   /// Texto que hay dentro del campo cuya etiqueta es [label].
   String valorDelCampo(final WidgetTester tester, final String label) =>
-      tester.widget<PagateTextField>(campoConEtiqueta(label)).controller?.text ??
+      tester
+          .widget<PagateTextField>(campoConEtiqueta(label))
+          .controller
+          ?.text ??
       '';
 
   testWidgets('precarga el sueldo y las horas que ya estaban guardados', (

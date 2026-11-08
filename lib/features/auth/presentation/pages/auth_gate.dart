@@ -46,37 +46,32 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(final BuildContext context) => StreamBuilder<User?>(
-        stream: _authState,
-        builder: (final context, final snapshot) {
-          if (snapshot.hasError) {
-            debugPrint('[AuthGate] Error de sesión: ${snapshot.error}');
-            return AppShell(
-              sessionKey: 'auth-error',
-              home: SessionErrorView(
-                message: 'No pudimos comprobar tu sesión. Revisa tu conexión '
-                    'e inténtalo de nuevo.',
-                detail: snapshot.error,
-                onRetry: _retry,
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppShell(sessionKey: 'boot', home: SplashScreen());
-          }
-          final user = snapshot.data;
-          if (user == null) {
-            return const AppShell(
-              sessionKey: 'signed-out',
-              home: WelcomeScreen(),
-            );
-          }
-          if (context.watch<FirebaseAuthService>().cerrandoSesion) {
-            return const AppShell(
-              sessionKey: 'signing-out',
-              home: SplashScreen(),
-            );
-          }
-          return UserScope(key: ValueKey(user.uid), uid: user.uid);
-        },
-      );
+    stream: _authState,
+    builder: (final context, final snapshot) {
+      if (snapshot.hasError) {
+        debugPrint('[AuthGate] Error de sesión: ${snapshot.error}');
+        return AppShell(
+          sessionKey: 'auth-error',
+          home: SessionErrorView(
+            message:
+                'No pudimos comprobar tu sesión. Revisa tu conexión '
+                'e inténtalo de nuevo.',
+            detail: snapshot.error,
+            onRetry: _retry,
+          ),
+        );
+      }
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const AppShell(sessionKey: 'boot', home: SplashScreen());
+      }
+      final user = snapshot.data;
+      if (user == null) {
+        return const AppShell(sessionKey: 'signed-out', home: WelcomeScreen());
+      }
+      if (context.watch<FirebaseAuthService>().cerrandoSesion) {
+        return const AppShell(sessionKey: 'signing-out', home: SplashScreen());
+      }
+      return UserScope(key: ValueKey(user.uid), uid: user.uid);
+    },
+  );
 }

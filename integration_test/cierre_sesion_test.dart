@@ -12,82 +12,92 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-      'otro usuario en el mismo teléfono no hereda la caché del anterior, '
-      'y conserva la persistencia offline', (final tester) async {
-    expect(Env.isDev, isTrue, reason: 'correr con --dart-define=PAGATE_ENV=dev');
-    await bootstrapFirebase();
-    final db = FirebaseFirestore.instance;
-    final auth = FirebaseAuthService();
-    final sufijo = DateTime.now().microsecondsSinceEpoch;
+    'otro usuario en el mismo teléfono no hereda la caché del anterior, '
+    'y conserva la persistencia offline',
+    (final tester) async {
+      expect(
+        Env.isDev,
+        isTrue,
+        reason: 'correr con --dart-define=PAGATE_ENV=dev',
+      );
+      await bootstrapFirebase();
+      final db = FirebaseFirestore.instance;
+      final auth = FirebaseAuthService();
+      final sufijo = DateTime.now().microsecondsSinceEpoch;
 
-    Future<void> cerrar() async {
-      final cierre = auth.cerrarSesion();
-      await tester.pump();
-      expect(await cierre, isTrue);
-    }
+      Future<void> cerrar() async {
+        final cierre = auth.cerrarSesion();
+        await tester.pump();
+        expect(await cierre, isTrue);
+      }
 
-    // 1. A inicia sesión y escribe.
-    final a = await auth.createUserWithEmailAndPassword(
-      email: 'a$sufijo@prueba.cl',
-      password: 'clave-123456',
-    );
-    final docA = db.doc('users/${a.user!.uid}/fixedExpenses/arriendo');
-    await docA.set({
-      'name': 'Arriendo de A',
-      'amount': 250000,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    final antes = await docA.get(const GetOptions(source: Source.cache));
-    expect(antes.data()?['name'], 'Arriendo de A',
-        reason: 'control: antes de cerrar, el dato sí está en caché');
+      // 1. A inicia sesión y escribe.
+      final a = await auth.createUserWithEmailAndPassword(
+        email: 'a$sufijo@prueba.cl',
+        password: 'clave-123456',
+      );
+      final docA = db.doc('users/${a.user!.uid}/fixedExpenses/arriendo');
+      await docA.set({
+        'name': 'Arriendo de A',
+        'amount': 250000,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      final antes = await docA.get(const GetOptions(source: Source.cache));
+      expect(
+        antes.data()?['name'],
+        'Arriendo de A',
+        reason: 'control: antes de cerrar, el dato sí está en caché',
+      );
 
-    // 2. A cierra sesión.
-    await cerrar();
+      // 2. A cierra sesión.
+      await cerrar();
 
-    // 3. La caché ya no tiene el documento de A.
-    await expectLater(
-      docA.get(const GetOptions(source: Source.cache)),
-      throwsA(isA<FirebaseException>()),
-    );
-    final cacheA = await db
-        .collection('users/${a.user!.uid}/fixedExpenses')
-        .get(const GetOptions(source: Source.cache));
-    expect(cacheA.docs, isEmpty);
+      // 3. La caché ya no tiene el documento de A.
+      await expectLater(
+        docA.get(const GetOptions(source: Source.cache)),
+        throwsA(isA<FirebaseException>()),
+      );
+      final cacheA = await db
+          .collection('users/${a.user!.uid}/fixedExpenses')
+          .get(const GetOptions(source: Source.cache));
+      expect(cacheA.docs, isEmpty);
 
-    // 4. B inicia sesión y lee lo suyo sin errores.
-    final b = await auth.createUserWithEmailAndPassword(
-      email: 'b$sufijo@prueba.cl',
-      password: 'clave-123456',
-    );
-    final gastosB = db.collection('users/${b.user!.uid}/fixedExpenses');
-    final servidorB = await gastosB
-        .limit(10)
-        .get(const GetOptions(source: Source.server));
-    expect(servidorB.docs, isEmpty);
+      // 4. B inicia sesión y lee lo suyo sin errores.
+      final b = await auth.createUserWithEmailAndPassword(
+        email: 'b$sufijo@prueba.cl',
+        password: 'clave-123456',
+      );
+      final gastosB = db.collection('users/${b.user!.uid}/fixedExpenses');
+      final servidorB = await gastosB
+          .limit(10)
+          .get(const GetOptions(source: Source.server));
+      expect(servidorB.docs, isEmpty);
 
-    // 5. B tiene persistencia activa: escribe sin conexión y lo lee de caché.
-    await db.disableNetwork();
-    final escrituraB = gastosB.doc('luz').set({
-      'name': 'Luz de B',
-      'amount': 30000,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    // El plugin de Android corre `set` y `get` en hilos distintos: sin esta
-    // espera, la lectura puede adelantarse a que la escritura entre en caché.
-    await gastosB
-        .doc('luz')
-        .snapshots()
-        .firstWhere((final s) => s.exists)
-        .timeout(const Duration(seconds: 10));
-    expect(db.settings.persistenceEnabled, isTrue);
-    final offline =
-        await gastosB.doc('luz').get(const GetOptions(source: Source.cache));
-    expect(offline.data()?['name'], 'Luz de B');
-    await db.enableNetwork();
-    await escrituraB.timeout(const Duration(seconds: 20));
+      // 5. B tiene persistencia activa: escribe sin conexión y lo lee de caché.
+      await db.disableNetwork();
+      final escrituraB = gastosB.doc('luz').set({
+        'name': 'Luz de B',
+        'amount': 30000,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      // El plugin de Android corre `set` y `get` en hilos distintos: sin esta
+      // espera, la lectura puede adelantarse a que la escritura entre en caché.
+      await gastosB
+          .doc('luz')
+          .snapshots()
+          .firstWhere((final s) => s.exists)
+          .timeout(const Duration(seconds: 10));
+      expect(db.settings.persistenceEnabled, isTrue);
+      final offline = await gastosB
+          .doc('luz')
+          .get(const GetOptions(source: Source.cache));
+      expect(offline.data()?['name'], 'Luz de B');
+      await db.enableNetwork();
+      await escrituraB.timeout(const Duration(seconds: 20));
 
-    await cerrar();
-  });
+      await cerrar();
+    },
+  );
 }

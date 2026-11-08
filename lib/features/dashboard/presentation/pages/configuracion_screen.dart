@@ -253,11 +253,9 @@ class ConfiguracionScreen extends StatelessWidget {
 
   /// Las tres filas de "Negocio" y la meta llevan al mismo formulario.
   void _abrirEdicion(final BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (final _) => const EditarPerfilScreen(),
-        ),
-      );
+    context,
+    MaterialPageRoute<void>(builder: (final _) => const EditarPerfilScreen()),
+  );
 
   Future<void> _resetPassword(final BuildContext context) async {
     final auth = context.read<FirebaseAuthService>();

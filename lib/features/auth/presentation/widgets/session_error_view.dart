@@ -33,46 +33,48 @@ class SessionErrorView extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PagateErrorState(
-                    title: 'No pudimos cargar tus datos',
-                    message: message,
-                    onRetry: onRetry,
-                  ),
-                  if (mostrarDetalle && detail != null) ...[
-                    const SizedBox(height: AppSpacing.x4),
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-                      child: Text(
-                        'Detalle: $detail',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppPalette.textMuted,
-                            ),
-                      ),
-                    ),
-                  ],
-                  if (onSignOut != null) ...[
-                    const SizedBox(height: AppSpacing.x4),
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-                      child: PagatePrimaryButton.text(
-                        label: 'Cerrar sesión',
-                        onPressed: onSignOut,
-                      ),
-                    ),
-                  ],
-                ],
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PagateErrorState(
+                title: 'No pudimos cargar tus datos',
+                message: message,
+                onRetry: onRetry,
               ),
-            ),
+              if (mostrarDetalle && detail != null) ...[
+                const SizedBox(height: AppSpacing.x4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                  ),
+                  child: Text(
+                    'Detalle: $detail',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+              if (onSignOut != null) ...[
+                const SizedBox(height: AppSpacing.x4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                  ),
+                  child: PagatePrimaryButton.text(
+                    label: 'Cerrar sesión',
+                    onPressed: onSignOut,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-      );
+      ),
+    ),
+  );
 }

@@ -50,12 +50,10 @@ class FakeFinancesRepository implements FinancesRepository {
   @override
   Stream<List<FinancesTransactionEntity>> watchTransactions(
     final String monthKey,
-  ) =>
-      transactions.stream;
+  ) => transactions.stream;
 
   @override
-  Stream<List<FixedExpenseEntity>> watchFixedExpenses() =>
-      const Stream.empty();
+  Stream<List<FixedExpenseEntity>> watchFixedExpenses() => const Stream.empty();
 
   @override
   Future<void> addTransaction(
@@ -88,17 +86,16 @@ class FakeFinancesRepository implements FinancesRepository {
 FinancesTransactionEntity _ingreso(
   final double amount, {
   final double platformFee = 0,
-}) =>
-    FinancesTransactionEntity(
-      id: 'tx-$amount-$platformFee',
-      title: 'Venta por Instagram',
-      description: '',
-      amount: amount,
-      type: TransactionType.income,
-      date: DateTime.now(),
-      category: 'Venta por Instagram',
-      platformFee: platformFee,
-    );
+}) => FinancesTransactionEntity(
+  id: 'tx-$amount-$platformFee',
+  title: 'Venta por Instagram',
+  description: '',
+  amount: amount,
+  type: TransactionType.income,
+  date: DateTime.now(),
+  category: 'Venta por Instagram',
+  platformFee: platformFee,
+);
 
 FinancesTransactionEntity _gasto(final double amount) =>
     FinancesTransactionEntity(

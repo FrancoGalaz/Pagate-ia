@@ -33,15 +33,15 @@ class BootstrapErrorApp extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => MaterialApp(
-        title: kAppName,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: _BootstrapErrorView(
-          error: error,
-          onRetry: onRetry,
-          mostrarDetalle: mostrarDetalle,
-        ),
-      );
+    title: kAppName,
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme,
+    home: _BootstrapErrorView(
+      error: error,
+      onRetry: onRetry,
+      mostrarDetalle: mostrarDetalle,
+    ),
+  );
 }
 
 class _BootstrapErrorView extends StatelessWidget {
@@ -57,38 +57,39 @@ class _BootstrapErrorView extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.x6),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PagateErrorState(
-                    title: 'No pudimos iniciar la app',
-                    message: 'Revisa tu conexión e inténtalo de nuevo. Si el '
-                        'problema continúa, cierra la app y vuelve a abrirla.',
-                    onRetry: onRetry,
-                  ),
-                  if (mostrarDetalle) ...[
-                    const SizedBox(height: AppSpacing.x4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x4,
-                      ),
-                      child: Text(
-                        'Detalle: $error',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppPalette.textMuted,
-                            ),
-                      ),
-                    ),
-                  ],
-                ],
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.x6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PagateErrorState(
+                title: 'No pudimos iniciar la app',
+                message:
+                    'Revisa tu conexión e inténtalo de nuevo. Si el '
+                    'problema continúa, cierra la app y vuelve a abrirla.',
+                onRetry: onRetry,
               ),
-            ),
+              if (mostrarDetalle) ...[
+                const SizedBox(height: AppSpacing.x4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x4,
+                  ),
+                  child: Text(
+                    'Detalle: $error',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-      );
+      ),
+    ),
+  );
 }

@@ -10,8 +10,8 @@ import '../../../../core/widgets/pagate_primary_button.dart';
 /// Tras `deleteAccount` no se usa esto sino `cerrarSesion()` sin aviso.
 Future<void> cerrarSesionConAviso(final BuildContext context) =>
     context.read<FirebaseAuthService>().cerrarSesion(
-          confirmarPerdidaDeCambios: () => confirmarCierreSinSincronizar(context),
-        );
+      confirmarPerdidaDeCambios: () => confirmarCierreSinSincronizar(context),
+    );
 
 /// `true` si el usuario elige cerrar igual.
 Future<bool> confirmarCierreSinSincronizar(final BuildContext context) async {
