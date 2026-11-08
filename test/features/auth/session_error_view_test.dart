@@ -68,4 +68,34 @@ void main() {
     );
     expect(find.textContaining('sesión: '), findsNothing);
   });
+
+  testWidgets('AuthGate registra el error una sola vez, no en cada build', (
+    final tester,
+  ) async {
+    final registro = <String?>[];
+    final original = debugPrint;
+    debugPrint = (final message, {final wrapWidth}) => registro.add(message);
+    try {
+      final auth = _AuthConError();
+      Future<void> montar() => tester.pumpWidget(
+        ChangeNotifierProvider<FirebaseAuthService>.value(
+          value: auth,
+          // Sin const: cada pumpWidget vuelve a construir el AuthGate.
+          // ignore: prefer_const_constructors
+          child: AuthGate(),
+        ),
+      );
+      await montar();
+      await tester.pump();
+      await montar();
+      await montar();
+    } finally {
+      debugPrint = original;
+    }
+
+    expect(
+      registro.where((final m) => m!.contains('[AuthGate]')),
+      hasLength(1),
+    );
+  });
 }

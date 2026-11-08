@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,21 +37,32 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    _authState = context.read<FirebaseAuthService>().authStateChanges;
+    _authState = _escuchar();
   }
 
   void _retry() {
     setState(() {
-      _authState = context.read<FirebaseAuthService>().authStateChanges;
+      _authState = _escuchar();
     });
   }
+
+  /// El stream de sesión, registrando cada error una sola vez cuando llega
+  /// (no en cada `build`).
+  Stream<User?> _escuchar() =>
+      context.read<FirebaseAuthService>().authStateChanges.transform(
+        StreamTransformer.fromHandlers(
+          handleError: (final error, final stack, final sink) {
+            debugPrint('[AuthGate] Error de sesión: $error');
+            sink.addError(error, stack);
+          },
+        ),
+      );
 
   @override
   Widget build(final BuildContext context) => StreamBuilder<User?>(
     stream: _authState,
     builder: (final context, final snapshot) {
       if (snapshot.hasError) {
-        debugPrint('[AuthGate] Error de sesión: ${snapshot.error}');
         return AppShell(
           sessionKey: 'auth-error',
           home: SessionErrorView(
