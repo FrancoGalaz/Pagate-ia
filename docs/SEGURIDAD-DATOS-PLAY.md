@@ -494,6 +494,11 @@ web, que no es el binario de la ficha.
 | ¿Compromiso con la Política de Familias? | **No aplica** | La app no se dirige a menores y así lo dicen los términos. |
 | ¿Hay recopilación efímera que no se declara? | Sí, una | La IP de la landing (§2.2), que además no es de la app. **La imagen de una boleta no es este caso**: no sale del dispositivo, así que le aplica la exención de procesamiento local del §1.7, no la de procesamiento efímero. Declararla aquí sería afirmar que viaja. |
 
+Copias de seguridad de Android desactivadas (`allowBackup=false` y
+`dataExtractionRules` excluyendo nube y transferencia entre dispositivos), en
+`android/app/src/main/AndroidManifest.xml` y
+`android/app/src/main/res/xml/data_extraction_rules.xml`.
+
 ### URLs que hay que pegar en Play Console
 
 | Campo de Play Console | Valor |
