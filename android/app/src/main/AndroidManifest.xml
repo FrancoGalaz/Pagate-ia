@@ -88,8 +88,17 @@
 
     <!-- `android:label` apunta a res/values/strings.xml en vez de llevar el
          texto escrito aquí: ese archivo explica por qué el nombre visible es
-         «Págate-IA» con tilde y qué otros archivos del proyecto lo fijan. -->
+         «Págate-IA» con tilde y qué otros archivos del proyecto lo fijan.
+
+         Copias de seguridad apagadas: `allowBackup="false"` corta la copia a
+         Google Drive, pero en Android 12+ no la transferencia entre
+         dispositivos; eso lo cortan las reglas de res/xml/data_extraction_rules.xml.
+         Lo local (sesión de Auth, caché de Firestore con datos financieros,
+         tokens de App Check) no debe sobrevivir a un borrado de cuenta ni
+         viajar a otro teléfono; los datos reales se descargan al iniciar sesión. -->
     <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
