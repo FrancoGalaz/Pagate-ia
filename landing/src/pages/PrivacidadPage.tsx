@@ -175,7 +175,7 @@ export default function PrivacidadPage() {
           ]}
         />
 
-        <h3 className="font-semibold text-text-primary pt-2">
+        <h3 id="lista-de-espera" className="font-semibold text-text-primary pt-2">
           2.5 Lista de espera de este sitio web
         </h3>
         <LegalList

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { LEGAL_ROUTES, siteUrl } from '../content/legal-meta';
 import { saveWaitlistEntry } from '../services/waitlist-service';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
@@ -107,7 +108,12 @@ export default function WaitlistForm() {
       )}
 
       <p className="mt-3 text-xs text-text-muted">
-        Sin spam. Solo te escribiremos cuando lancemos.
+        Usamos tu nombre y correo solo para avisarte del lanzamiento. Puedes pedir
+        que los borremos cuando quieras. Más detalle en la{' '}
+        <a className="underline" href={`${siteUrl(LEGAL_ROUTES.privacidad)}#lista-de-espera`}>
+          política de privacidad
+        </a>
+        .
       </p>
     </form>
   );

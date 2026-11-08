@@ -30,6 +30,7 @@ window.matchMedia = ((query: string) => ({
 
 const ContextoChile = (await import('./ContextoChile')).default;
 const Features = (await import('./Features')).default;
+const WaitlistForm = (await import('./WaitlistForm')).default;
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -94,5 +95,17 @@ describe('Sección de funcionalidades', () => {
     // Y la maqueta de la conversación lleva su propio rótulo, porque una
     // captura de chat sin él se lee como una afirmación de la app.
     expect(texto).toContain('Respuesta generada por IA');
+  });
+});
+
+describe('Formulario de la lista de espera', () => {
+  it('avisa para qué se usan los datos y enlaza a la política de privacidad', () => {
+    render(<WaitlistForm />);
+    const texto = (document.body.textContent ?? '').replace(/\s+/g, ' ');
+    expect(texto).toContain('Usamos tu nombre y correo solo para avisarte del lanzamiento');
+    expect(texto).toContain('Puedes pedir que los borremos cuando quieras');
+
+    const enlace = screen.getByRole('link', { name: 'política de privacidad' });
+    expect(enlace.getAttribute('href')).toMatch(/privacidad\/#lista-de-espera$/);
   });
 });
