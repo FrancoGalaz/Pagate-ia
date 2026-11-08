@@ -50,6 +50,12 @@ Sin `PAGATE_ENV=dev` la app usa el proyecto real (`prod`). En el emulador de And
 
 Para el chat en local hay que definir el secreto también en el emulador: crea `functions/.secret.local` con `OPENROUTER_API_KEY=sk-or-...` (está ignorado por git).
 
+Copia también `functions/.env.local.example` a `functions/.env.local` (ignorado por git). El emulador carga ese archivo por encima de `functions/.env` y deja `ENFORCE_APP_CHECK=false`, así que en local los callables siguen funcionando cuando producción exija App Check:
+
+```bash
+cp functions/.env.local.example functions/.env.local
+```
+
 ### Verificar
 
 ```bash

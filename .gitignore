@@ -66,6 +66,7 @@ functions/node_modules/
 functions/lib/
 functions/.secret.local
 !functions/.env
+!functions/.env.local.example
 
 # Firebase CLI / emuladores
 .firebase/
