@@ -14,6 +14,8 @@ import 'welcome_screen.dart';
 ///
 /// - Esperando el primer evento → splash.
 /// - Sin usuario → [WelcomeScreen] (de ahí se llega a login / registro).
+/// - Cerrando sesión ([FirebaseAuthService.cerrandoSesion]) → splash, sin
+///   [UserScope]: así sus providers sueltan Firestore antes de borrar la caché.
 /// - Con usuario → [UserScope] con `key: ValueKey(uid)`, que crea los
 ///   providers del usuario y decide entre onboarding y dashboard.
 ///
@@ -63,6 +65,12 @@ class _AuthGateState extends State<AuthGate> {
             return const AppShell(
               sessionKey: 'signed-out',
               home: WelcomeScreen(),
+            );
+          }
+          if (context.watch<FirebaseAuthService>().cerrandoSesion) {
+            return const AppShell(
+              sessionKey: 'signing-out',
+              home: SplashScreen(),
             );
           }
           return UserScope(key: ValueKey(user.uid), uid: user.uid);

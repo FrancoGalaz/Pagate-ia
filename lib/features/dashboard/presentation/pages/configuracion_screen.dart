@@ -233,7 +233,7 @@ class ConfiguracionScreen extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (final _) => EliminarCuentaScreen(
                         email: auth.email,
-                        onDeleted: auth.signOut,
+                        onDeleted: auth.cerrarSesion,
                       ),
                     ),
                   );

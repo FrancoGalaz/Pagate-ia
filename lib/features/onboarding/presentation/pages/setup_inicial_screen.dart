@@ -11,6 +11,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../auth/presentation/widgets/cerrar_sesion.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // ONBOARDING — CONFIGURAR EL TALLER
@@ -252,8 +253,7 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
                       const SizedBox(height: AppSpacing.x6),
                       PagatePrimaryButton.text(
                         label: 'Usar otra cuenta',
-                        onPressed: () =>
-                            context.read<FirebaseAuthService>().signOut(),
+                        onPressed: () => cerrarSesionConAviso(context),
                       ),
                       const SizedBox(height: AppSpacing.x6),
                     ],

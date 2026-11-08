@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 /// Envuelve [FirebaseAuth] y expone el usuario actual de forma reactiva.
 ///
@@ -10,11 +12,14 @@ import 'package:flutter/foundation.dart';
 /// que solo emite al iniciar o cerrar sesión.
 class FirebaseAuthService extends ChangeNotifier {
   final FirebaseAuth _auth;
+  final FirebaseFirestore? _firestoreInyectado;
   late final StreamSubscription<User?> _subscription;
   User? _user;
+  bool _cerrandoSesion = false;
 
-  FirebaseAuthService({FirebaseAuth? auth})
-      : _auth = auth ?? FirebaseAuth.instance {
+  FirebaseAuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+      : _auth = auth ?? FirebaseAuth.instance,
+        _firestoreInyectado = firestore {
     _user = _auth.currentUser;
     _subscription = _auth.userChanges().listen((user) {
       _user = user;
@@ -33,11 +38,26 @@ class FirebaseAuthService extends ChangeNotifier {
   String? get email => _user?.email;
   String? get displayName => _user?.displayName;
 
+  /// `true` desde que empieza [cerrarSesion] hasta el próximo inicio de
+  /// sesión. Mientras dura, el `AuthGate` no monta el `UserScope` aunque su
+  /// stream todavía traiga al usuario anterior.
+  ///
+  /// Se baja al iniciar sesión o registrarse, y no al recibir el evento de
+  /// `signOut`: el orden entre ese evento y el del `AuthGate` no está
+  /// garantizado, y bajarlo antes remontaría un instante la sesión cerrada.
+  bool get cerrandoSesion => _cerrandoSesion;
+
+  /// Cuánto se espera a que Firestore confirme las escrituras pendientes
+  /// antes de avisar que se perderán.
+  static const esperaEscriturasPendientes = Duration(seconds: 5);
+
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
-  }) =>
-      _auth.signInWithEmailAndPassword(email: email, password: password);
+  }) {
+    _cerrandoSesion = false;
+    return _auth.signInWithEmailAndPassword(email: email, password: password);
+  }
 
   /// Crea la cuenta y, si se indica, guarda [displayName] en el perfil de
   /// Auth para que el onboarding pueda precargar el nombre.
@@ -46,6 +66,7 @@ class FirebaseAuthService extends ChangeNotifier {
     required String password,
     String? displayName,
   }) async {
+    _cerrandoSesion = false;
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -57,7 +78,46 @@ class FirebaseAuthService extends ChangeNotifier {
     return credential;
   }
 
-  Future<void> signOut() => _auth.signOut();
+  /// Cierra la sesión y borra la caché offline de Firestore del usuario.
+  ///
+  /// Orden:
+  /// 1. Si se pasa [confirmarPerdidaDeCambios] y Firestore no confirma las
+  ///    escrituras pendientes en [esperaEscriturasPendientes], se pregunta.
+  ///    Si la respuesta es `false`, no se cierra nada y devuelve `false`.
+  ///    Tras `deleteAccount` no se pasa: esas escrituras ya no tienen dueño.
+  /// 2. [cerrandoSesion] pasa a `true` y se espera un frame: el `AuthGate`
+  ///    desmonta el `UserScope` y sus providers cancelan los streams.
+  /// 3. `terminate` → `clearPersistence`. No hace falta volver a fijar los
+  ///    `Settings`: los guarda el lado Dart y el plugin de Android se los
+  ///    aplica a la instancia nueva (`getFirestoreFromPigeon`).
+  /// 4. `signOut`, siempre, aunque falle el paso 3.
+  Future<bool> cerrarSesion({
+    Future<bool> Function()? confirmarPerdidaDeCambios,
+  }) async {
+    final firestore = _firestoreInyectado ?? FirebaseFirestore.instance;
+
+    if (confirmarPerdidaDeCambios != null) {
+      final sincronizado = await firestore
+          .waitForPendingWrites()
+          .then((_) => true, onError: (final Object _) => false)
+          .timeout(esperaEscriturasPendientes, onTimeout: () => false);
+      if (!sincronizado && !await confirmarPerdidaDeCambios()) return false;
+    }
+
+    _cerrandoSesion = true;
+    notifyListeners();
+    await WidgetsBinding.instance.endOfFrame;
+
+    try {
+      await firestore.terminate();
+      await firestore.clearPersistence();
+    } catch (e) {
+      debugPrint('[Sesión] No se pudo borrar la caché de Firestore: $e');
+    } finally {
+      await _auth.signOut();
+    }
+    return true;
+  }
 
   Future<void> sendPasswordReset({required String email}) =>
       _auth.sendPasswordResetEmail(email: email);

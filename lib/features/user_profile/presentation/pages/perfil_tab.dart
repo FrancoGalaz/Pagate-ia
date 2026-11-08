@@ -3,13 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../dashboard/presentation/pages/ayuda_screen.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
 import '../../domain/entities/user_profile_entity.dart';
 import '../providers/user_profile_provider.dart';
+import '../../../auth/presentation/widgets/cerrar_sesion.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // PESTAÑA DE PERFIL
@@ -170,7 +170,7 @@ class PerfilTab extends StatelessWidget {
           child: PagatePrimaryButton.secondary(
             label: 'Cerrar sesión',
             leadingIcon: Icons.logout_rounded,
-            onPressed: () => context.read<FirebaseAuthService>().signOut(),
+            onPressed: () => cerrarSesionConAviso(context),
           ),
         ),
 
