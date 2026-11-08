@@ -15,7 +15,8 @@ import 'package:flutter/foundation.dart';
 /// `kIsWeb` se consulta ANTES de `defaultTargetPlatform` a propósito: en el
 /// navegador `defaultTargetPlatform` devuelve el sistema anfitrión, así que
 /// Chrome en Android diría `TargetPlatform.android` y pasaría la guarda.
+///
+/// Solo Android: iOS está fuera de alcance (`firebase_options.dart` no lo
+/// configura y la app no arranca ahí).
 bool get lecturaDeBoletasDisponible =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS);
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
