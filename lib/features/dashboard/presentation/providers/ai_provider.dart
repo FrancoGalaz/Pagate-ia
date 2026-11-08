@@ -76,7 +76,8 @@ enum AiReportReason {
 class AiProvider extends ChangeNotifier {
   static const String _welcomeText =
       'Hola, soy tu asistente financiero de $kAppName.\n\n'
-      'Conozco tus finanzas, tu inventario y tu valor hora. '
+      'Veo tu valor hora, el resumen de tu último mes, tus movimientos '
+      'más recientes y cuántos productos y materiales tienes. '
       'Pregúntame sobre precios, gastos, metas o pide un consejo '
       'para hacer crecer tu negocio.';
 
