@@ -66,14 +66,13 @@ ScanReceiptItem _item(
   final double unitPrice = 18990,
   final String unit = 'sacos',
   final String? code,
-}) =>
-    ScanReceiptItem(
-      name: name,
-      quantity: quantity,
-      unit: unit,
-      unitPrice: unitPrice,
-      code: code,
-    );
+}) => ScanReceiptItem(
+  name: name,
+  quantity: quantity,
+  unit: unit,
+  unitPrice: unitPrice,
+  code: code,
+);
 
 void main() {
   group('camino bueno', () {
@@ -106,35 +105,36 @@ void main() {
       expect(r.items.single.included, isTrue);
     });
 
-    test('si el modelo no trae proveedor, se conserva el de la heurística',
-        () async {
-      // Los dos leen el MISMO texto, así que no es inventar nada: es no
-      // perder un dato que ya se tenía. Antes, una respuesta sin
-      // `supplier` borraba el proveedor que la cabecera sí decía y dejaba
-      // el campo vacío.
-      final servicio = _ServicioFalso(
-        respuesta: ScanReceiptResult(items: [_item('Arcilla gres 25 kg')]),
-      );
+    test(
+      'si el modelo no trae proveedor, se conserva el de la heurística',
+      () async {
+        // Los dos leen el MISMO texto, así que no es inventar nada: es no
+        // perder un dato que ya se tenía. Antes, una respuesta sin
+        // `supplier` borraba el proveedor que la cabecera sí decía y dejaba
+        // el campo vacío.
+        final servicio = _ServicioFalso(
+          respuesta: ScanReceiptResult(items: [_item('Arcilla gres 25 kg')]),
+        );
 
-      final r = await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: [
-          const ScannedLineItem(
-            name: 'Arcilla gres 25K',
-            rawQuantity: 2,
-            unit: 'sacos',
-            unitPrice: 18990,
-            supplier: 'Ceramicas del sur Ltda',
-          ),
-        ],
-      );
+        final r = await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: [
+            const ScannedLineItem(
+              name: 'Arcilla gres 25K',
+              rawQuantity: 2,
+              unit: 'sacos',
+              unitPrice: 18990,
+              supplier: 'Ceramicas del sur Ltda',
+            ),
+          ],
+        );
 
-      expect(r.items.single.supplier, 'Ceramicas del sur Ltda');
-    });
+        expect(r.items.single.supplier, 'Ceramicas del sur Ltda');
+      },
+    );
 
-    test('el proveedor del servidor manda sobre el de la heurística',
-        () async {
+    test('el proveedor del servidor manda sobre el de la heurística', () async {
       final servicio = _ServicioFalso(
         respuesta: ScanReceiptResult(
           items: [_item('Arcilla gres 25 kg')],
@@ -159,39 +159,43 @@ void main() {
       expect(r.items.single.supplier, 'Cerámicas del Sur Ltda.');
     });
 
-    test('si el modelo contestara en mayúsculas, la caja se normaliza igual',
-        () async {
-      // El modelo normalmente devuelve el nombre ya bien escrito, pero la
-      // lista no puede quedar con dos estilos según qué camino la armó.
-      final servicio = _ServicioFalso(
-        respuesta: ScanReceiptResult(items: [_item('ARCILLA GRES 25K')]),
-      );
+    test(
+      'si el modelo contestara en mayúsculas, la caja se normaliza igual',
+      () async {
+        // El modelo normalmente devuelve el nombre ya bien escrito, pero la
+        // lista no puede quedar con dos estilos según qué camino la armó.
+        final servicio = _ServicioFalso(
+          respuesta: ScanReceiptResult(items: [_item('ARCILLA GRES 25K')]),
+        );
 
-      final r = await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: _local,
-      );
+        final r = await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: _local,
+        );
 
-      expect(r.items.single.name, 'Arcilla gres 25K');
-    });
+        expect(r.items.single.name, 'Arcilla gres 25K');
+      },
+    );
 
-    test('solo viaja TEXTO, nunca la imagen, y con la fuente declarada',
-        () async {
-      final servicio = _ServicioFalso(
-        respuesta: ScanReceiptResult(items: [_item('Arcilla gres 25 kg')]),
-      );
+    test(
+      'solo viaja TEXTO, nunca la imagen, y con la fuente declarada',
+      () async {
+        final servicio = _ServicioFalso(
+          respuesta: ScanReceiptResult(items: [_item('Arcilla gres 25 kg')]),
+        );
 
-      await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: _local,
-        source: 'pdf',
-      );
+        await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: _local,
+          source: 'pdf',
+        );
 
-      expect(servicio.textoRecibido, _textoDeBoleta);
-      expect(servicio.fuenteRecibida, 'pdf');
-    });
+        expect(servicio.textoRecibido, _textoDeBoleta);
+        expect(servicio.fuenteRecibida, 'pdf');
+      },
+    );
 
     test('la ambigüedad que midió la heurística se conserva', () async {
       // El modelo recibe el texto entero, no línea a línea, así que no
@@ -211,33 +215,37 @@ void main() {
   });
 
   group('guarda contra alucinación', () {
-    test('un nombre que no está en el texto se marca y llega desmarcado',
-        () async {
-      final servicio = _ServicioFalso(
-        respuesta: ScanReceiptResult(items: [_item('Despacho a domicilio')]),
-      );
+    test(
+      'un nombre que no está en el texto se marca y llega desmarcado',
+      () async {
+        final servicio = _ServicioFalso(
+          respuesta: ScanReceiptResult(items: [_item('Despacho a domicilio')]),
+        );
 
-      final r = await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: _local,
-      );
+        final r = await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: _local,
+        );
 
-      final item = r.items.single;
-      expect(item.notInText, isTrue);
-      expect(
-        item.included,
-        isFalse,
-        reason: 'dejarlo marcado violaría "la app propone, el usuario '
-            'confirma"',
-      );
-      expect(
-        r.items,
-        hasLength(1),
-        reason: 'NO se descarta: descartarlo en silencio perdería lecturas '
-            'correctas',
-      );
-    });
+        final item = r.items.single;
+        expect(item.notInText, isTrue);
+        expect(
+          item.included,
+          isFalse,
+          reason:
+              'dejarlo marcado violaría "la app propone, el usuario '
+              'confirma"',
+        );
+        expect(
+          r.items,
+          hasLength(1),
+          reason:
+              'NO se descarta: descartarlo en silencio perdería lecturas '
+              'correctas',
+        );
+      },
+    );
 
     test('una expansión legítima del nombre NO se marca', () async {
       // El texto dice "ARCILLA GRES 25K"; el modelo devuelve "Arcilla gres
@@ -274,25 +282,27 @@ void main() {
   });
 
   group('la lista local nunca se pierde', () {
-    test('cuota agotada: lista local, bandera de cuota y mensaje del servidor',
-        () async {
-      final servicio = _ServicioFalso(
-        error: ReceiptScanServiceException.from(
-          'resource-exhausted',
-          'Usaste las 40 lecturas de boleta de tu plan.',
-        ),
-      );
+    test(
+      'cuota agotada: lista local, bandera de cuota y mensaje del servidor',
+      () async {
+        final servicio = _ServicioFalso(
+          error: ReceiptScanServiceException.from(
+            'resource-exhausted',
+            'Usaste las 40 lecturas de boleta de tu plan.',
+          ),
+        );
 
-      final r = await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: _local,
-      );
+        final r = await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: _local,
+        );
 
-      expect(r.items, same(_local));
-      expect(r.degradation, ScanDegradation.sinCuota);
-      expect(r.serverMessage, 'Usaste las 40 lecturas de boleta de tu plan.');
-    });
+        expect(r.items, same(_local));
+        expect(r.degradation, ScanDegradation.sinCuota);
+        expect(r.serverMessage, 'Usaste las 40 lecturas de boleta de tu plan.');
+      },
+    );
 
     test('correo sin verificar: lista local, sin error ni mensaje', () async {
       final servicio = _ServicioFalso(
@@ -328,7 +338,8 @@ void main() {
       expect(
         r.serverMessage,
         isNull,
-        reason: 'el respaldo local no se muestra como si lo hubiera dicho el '
+        reason:
+            'el respaldo local no se muestra como si lo hubiera dicho el '
             'servidor',
       );
     });
@@ -362,21 +373,23 @@ void main() {
       expect(r.degradation, ScanDegradation.modeloFallo);
     });
 
-    test('el modelo contesta bien y sin artículos: lista local y aviso',
-        () async {
-      final servicio = _ServicioFalso(
-        respuesta: const ScanReceiptResult(items: []),
-      );
+    test(
+      'el modelo contesta bien y sin artículos: lista local y aviso',
+      () async {
+        final servicio = _ServicioFalso(
+          respuesta: const ScanReceiptResult(items: []),
+        );
 
-      final r = await estructurarConElModelo(
-        servicio: servicio,
-        lectura: _lectura,
-        local: _local,
-      );
+        final r = await estructurarConElModelo(
+          servicio: servicio,
+          lectura: _lectura,
+          local: _local,
+        );
 
-      expect(r.items, same(_local));
-      expect(r.degradation, ScanDegradation.modeloVacio);
-    });
+        expect(r.items, same(_local));
+        expect(r.degradation, ScanDegradation.modeloVacio);
+      },
+    );
 
     test('con texto vacío no se gasta una llamada', () async {
       final servicio = _ServicioFalso();

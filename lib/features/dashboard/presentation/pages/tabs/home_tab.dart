@@ -109,35 +109,35 @@ class HomeTab extends StatelessWidget {
     );
 
     return CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _BarraIdentidad(onAyuda: onAyuda)),
+      slivers: [
+        SliverToBoxAdapter(child: _BarraIdentidad(onAyuda: onAyuda)),
 
-          // El selector queda pegado arriba al desplazarse: es el filtro
-          // global de la app y tiene que estar siempre a la vista.
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SelectorPegajoso(visible: meses > 1),
-          ),
+        // El selector queda pegado arriba al desplazarse: es el filtro
+        // global de la app y tiene que estar siempre a la vista.
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _SelectorPegajoso(visible: meses > 1),
+        ),
 
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const VerificarCorreoBanner(),
-                const _BloqueSaldo(),
-                _Registrar(
-                  onIngreso: onRegistrarIngreso,
-                  onGasto: onRegistrarGasto,
-                ),
-                const _GastosFijos(),
-                _ValorHora(onTap: onVerValorHora),
-                _Movimientos(onVerTodos: onVerFinanzas),
-                const _StockBajo(),
-                const SizedBox(height: AppSpacing.x8),
-              ],
-            ),
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const VerificarCorreoBanner(),
+              const _BloqueSaldo(),
+              _Registrar(
+                onIngreso: onRegistrarIngreso,
+                onGasto: onRegistrarGasto,
+              ),
+              const _GastosFijos(),
+              _ValorHora(onTap: onVerValorHora),
+              _Movimientos(onVerTodos: onVerFinanzas),
+              const _StockBajo(),
+              const SizedBox(height: AppSpacing.x8),
+            ],
           ),
-        ],
+        ),
+      ],
     );
   }
 }
@@ -471,31 +471,31 @@ class _Registrar extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.x4,
-          AppSpacing.x6,
-          AppSpacing.x4,
-          0,
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.x4,
+      AppSpacing.x6,
+      AppSpacing.x4,
+      0,
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: PagatePrimaryButton.secondary(
+            label: '+ Ingreso',
+            onPressed: onIngreso,
+          ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: PagatePrimaryButton.secondary(
-                label: '+ Ingreso',
-                onPressed: onIngreso,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: PagatePrimaryButton.secondary(
-                // U+2212, el mismo signo que la columna de montos.
-                label: '− Gasto',
-                onPressed: onGasto,
-              ),
-            ),
-          ],
+        const SizedBox(width: AppSpacing.x3),
+        Expanded(
+          child: PagatePrimaryButton.secondary(
+            // U+2212, el mismo signo que la columna de montos.
+            label: '− Gasto',
+            onPressed: onGasto,
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 // ─── Valor de tu hora ──────────────────────────────────────────────────
@@ -548,9 +548,9 @@ class _GastosFijos extends StatelessWidget {
                   'Referencia de lo que pagas todos los meses. No se resta '
                   'del balance: cada pago entra cuando lo registras como '
                   'gasto.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppPalette.textMuted),
                 ),
               ),
             ],
@@ -609,9 +609,7 @@ class _Movimientos extends StatelessWidget {
             actionLabel: movimientos.isEmpty ? null : 'Ver todos',
             onAction: movimientos.isEmpty ? null : onVerTodos,
           ),
-          PagateSectionCard(
-            child: _cuerpo(context, finances, movimientos),
-          ),
+          PagateSectionCard(child: _cuerpo(context, finances, movimientos)),
         ],
       ),
     );

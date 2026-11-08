@@ -149,16 +149,15 @@ FinancesTransactionEntity _tx({
   required final bool ingreso,
   required final String categoria,
   required final int dia,
-}) =>
-    FinancesTransactionEntity(
-      id: 'tx-$title',
-      title: title,
-      description: '',
-      amount: amount,
-      type: ingreso ? TransactionType.income : TransactionType.expense,
-      date: DateTime(2026, 10, dia),
-      category: categoria,
-    );
+}) => FinancesTransactionEntity(
+  id: 'tx-$title',
+  title: title,
+  description: '',
+  amount: amount,
+  type: ingreso ? TransactionType.income : TransactionType.expense,
+  date: DateTime(2026, 10, dia),
+  category: categoria,
+);
 
 // ─── Montaje ────────────────────────────────────────────────────────────
 
@@ -236,41 +235,41 @@ Future<_Acciones> _montar(
 }
 
 _FinanzasFalsas _conDatos() => _FinanzasFalsas(
-      months: [
-        const FinancesSummaryEntity(
-          monthKey: '2026-10',
-          totalIncome: 1240000,
-          totalExpenses: 860000,
-          transactionCount: 3,
-        ),
-        const FinancesSummaryEntity(
-          monthKey: '2026-09',
-          totalIncome: 900000,
-          totalExpenses: 700000,
-          transactionCount: 2,
-        ),
-      ],
-      transactions: [
-        _tx(
-          title: 'Venta feria Lastarria',
-          amount: 120000,
-          ingreso: true,
-          categoria: 'Venta en feria',
-          dia: 12,
-        ),
-        _tx(
-          title: 'Greda 25 kg',
-          amount: 35000,
-          ingreso: false,
-          categoria: 'Insumos y materiales',
-          dia: 11,
-        ),
-      ],
-      fixedExpenses: const [
-        FixedExpenseEntity(id: 'fx1', name: 'Arriendo', amount: 320000),
-      ],
-      monthlyGoal: 500000,
-    );
+  months: [
+    const FinancesSummaryEntity(
+      monthKey: '2026-10',
+      totalIncome: 1240000,
+      totalExpenses: 860000,
+      transactionCount: 3,
+    ),
+    const FinancesSummaryEntity(
+      monthKey: '2026-09',
+      totalIncome: 900000,
+      totalExpenses: 700000,
+      transactionCount: 2,
+    ),
+  ],
+  transactions: [
+    _tx(
+      title: 'Venta feria Lastarria',
+      amount: 120000,
+      ingreso: true,
+      categoria: 'Venta en feria',
+      dia: 12,
+    ),
+    _tx(
+      title: 'Greda 25 kg',
+      amount: 35000,
+      ingreso: false,
+      categoria: 'Insumos y materiales',
+      dia: 11,
+    ),
+  ],
+  fixedExpenses: const [
+    FixedExpenseEntity(id: 'fx1', name: 'Arriendo', amount: 320000),
+  ],
+  monthlyGoal: 500000,
+);
 
 void main() {
   testWidgets('la cifra dominante es el balance, en tinta y sin abreviar', (
@@ -350,8 +349,11 @@ void main() {
   testWidgets('el acceso de la esquina dice Ayuda y no tiene punto rojo', (
     final tester,
   ) async {
-    final acciones =
-        await _montar(tester, finanzas: _conDatos(), perfil: _perfil);
+    final acciones = await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+    );
 
     // Era una campana con un punto rojo de 8 dp SIEMPRE encendido, sin
     // sistema de notificaciones detrás, cuyo destino era la Ayuda.
@@ -440,15 +442,10 @@ void main() {
     expect(find.text(r'$320.000'), findsOneWidget);
 
     // Y lo dice con palabras, no solo con la maquetación.
-    expect(
-      find.textContaining('No se resta del balance'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('No se resta del balance'), findsOneWidget);
   });
 
-  testWidgets('sin gastos fijos la sección no se dibuja', (
-    final tester,
-  ) async {
+  testWidgets('sin gastos fijos la sección no se dibuja', (final tester) async {
     await _montar(tester, finanzas: _FinanzasFalsas(), perfil: _perfil);
 
     expect(find.text('Gastos fijos'), findsNothing);
@@ -456,7 +453,9 @@ void main() {
   });
 
   testWidgets('un fallo NO se dibuja como un cero', (final tester) async {
-    final finanzas = _FinanzasFalsas(error: 'No tienes permiso para leer esto.');
+    final finanzas = _FinanzasFalsas(
+      error: 'No tienes permiso para leer esto.',
+    );
     await _montar(tester, finanzas: finanzas, perfil: _perfil);
 
     // El bloque de saldo no consultaba `error` ni `isLoading` en ninguna
@@ -486,8 +485,11 @@ void main() {
   testWidgets('los dos botones de registrar llaman a su acción', (
     final tester,
   ) async {
-    final acciones =
-        await _montar(tester, finanzas: _conDatos(), perfil: _perfil);
+    final acciones = await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+    );
 
     await tester.tap(find.text('+ Ingreso'));
     await tester.tap(find.text('− Gasto'));
@@ -633,10 +635,20 @@ void main() {
   });
 
   testWidgets('no desborda a 1,3x ni a 2,0x', (final tester) async {
-    await _montar(tester, finanzas: _conDatos(), perfil: _perfil, textScale: 1.3);
+    await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+      textScale: 1.3,
+    );
     expect(tester.takeException(), isNull);
 
-    await _montar(tester, finanzas: _conDatos(), perfil: _perfil, textScale: 2.0);
+    await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+      textScale: 2.0,
+    );
     expect(tester.takeException(), isNull);
   });
 }
