@@ -490,6 +490,7 @@ export default function PrivacidadPage() {
         <LegalList
           items={[
             'Los datos de tu cuenta, tu perfil, tus transacciones, tu inventario y tus conversaciones se conservan mientras tu cuenta exista.',
+            'Puedes borrar tu historial del asistente cuando quieras, desde Perfil → Configuración → Asistente. Los reportes de respuestas que hayas enviado se conservan para mejorar la calidad del asistente hasta que eliminas tu cuenta, y el contador de mensajes no se reinicia.',
             <>
               Cuando pides la eliminación de tu cuenta, los borramos en un plazo máximo
               de {DELETION_SLA_DAYS} días.

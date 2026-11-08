@@ -137,6 +137,12 @@ elemento del tipo sea obligatorio.*
 
 *Opcional: la app funciona completa sin tocar el asistente.*
 
+*Borrado:* el usuario puede borrar su historial del asistente cuando quiera
+(Configuración → Asistente, callable `deleteChatHistory` en
+`functions/src/chatHistory.ts`). Los reportes de respuestas (`aiReports`) se
+conservan para mejorar la calidad hasta que se elimina la cuenta, y el contador
+de cuota (`meta/usage`) no se reinicia; los dos los borra `deleteAccount`.
+
 ### 1.4 Actividad en la aplicación
 
 | Tipo de dato | Rec. | Comp. | Oblig. | Finalidad | Trán. | Borr. | Fuente en el código |
