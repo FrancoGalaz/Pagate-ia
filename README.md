@@ -48,6 +48,8 @@ flutter run --dart-define=PAGATE_ENV=dev
 
 Sin `PAGATE_ENV=dev` la app usa el proyecto real (`prod`). En el emulador de Android los emuladores se resuelven en `10.0.2.2`.
 
+El asistente y la lectura ordenada de boletas exigen correo verificado. En local, el emulador de Auth no envía correos: el enlace de verificación aparece en la terminal de los emuladores (y en la UI, `http://localhost:4000/auth`). Ábrelo y toca «Ya lo verifiqué» en Inicio.
+
 Para el chat en local hay que definir el secreto también en el emulador: crea `functions/.secret.local` con `OPENROUTER_API_KEY=sk-or-...` (está ignorado por git).
 
 Copia también `functions/.env.local.example` a `functions/.env.local` (ignorado por git). El emulador carga ese archivo por encima de `functions/.env` y deja `ENFORCE_APP_CHECK=false`, así que en local los callables siguen funcionando cuando producción exija App Check:

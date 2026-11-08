@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/constants/app_constants.dart';
+import '../../../../../core/services/firebase_auth_service.dart';
 import '../../../../../core/utils/app_feedback.dart';
 import '../../../../../core/widgets/widgets.dart';
+import '../../../../auth/presentation/widgets/verificar_correo_banner.dart';
 import '../../providers/ai_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -84,6 +88,19 @@ class _IaTabState extends State<IaTab> {
     _controller.clear();
   }
 
+  /// Si `chat` rechazó por correo sin verificar, primero se pide un token
+  /// nuevo: el viejo seguiría diciendo `email_verified: false`.
+  Future<void> _reintentar(final AiProvider ai) async {
+    if (ai.faltaVerificarCorreo) {
+      try {
+        await context.read<FirebaseAuthService>().comprobarVerificacion();
+      } catch (_) {
+        // Sin conexión: el reintento fallará y lo dirá.
+      }
+    }
+    await ai.retry();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((final _) {
       if (!_scrollController.hasClients) return;
@@ -147,8 +164,13 @@ class _IaTabState extends State<IaTab> {
         if (ai.error != null)
           _ErrorBanner(
             message: ai.error!,
-            onRetry: ai.canRetry && !isSending ? ai.retry : null,
+            onRetry: ai.canRetry && !isSending
+                ? () => unawaited(_reintentar(ai))
+                : null,
             onDismiss: ai.clearError,
+            onReenviarCorreo: ai.faltaVerificarCorreo
+                ? () => unawaited(reenviarCorreo(context))
+                : null,
           ),
         _Composer(
           controller: _controller,
@@ -356,11 +378,15 @@ class _ErrorBanner extends StatelessWidget {
     required this.message,
     required this.onRetry,
     required this.onDismiss,
+    this.onReenviarCorreo,
   });
 
   final String message;
   final VoidCallback? onRetry;
   final VoidCallback onDismiss;
+
+  /// Solo cuando `chat` rechazó por correo sin verificar.
+  final VoidCallback? onReenviarCorreo;
 
   @override
   Widget build(final BuildContext context) => Padding(
@@ -398,6 +424,12 @@ class _ErrorBanner extends StatelessWidget {
                       ),
                 ),
               ),
+              if (onReenviarCorreo != null)
+                PagatePrimaryButton.text(
+                  label: 'Reenviar correo',
+                  isDestructive: true,
+                  onPressed: onReenviarCorreo,
+                ),
               if (onRetry != null)
                 PagatePrimaryButton.text(
                   label: 'Reintentar',

@@ -38,6 +38,10 @@ class FirebaseAuthService extends ChangeNotifier {
   String? get email => _user?.email;
   String? get displayName => _user?.displayName;
 
+  /// `false` hasta que la persona abre el enlace del correo de verificación.
+  /// `chat` y `scanReceipt` lo exigen; el resto de la app funciona igual.
+  bool get correoVerificado => _user?.emailVerified ?? false;
+
   /// `true` desde que empieza [cerrarSesion] hasta el próximo inicio de
   /// sesión. Mientras dura, el `AuthGate` no monta el `UserScope` aunque su
   /// stream todavía traiga al usuario anterior.
@@ -75,7 +79,33 @@ class FirebaseAuthService extends ChangeNotifier {
     if (name != null && name.isNotEmpty) {
       await credential.user?.updateDisplayName(name);
     }
+    // Si el envío falla, la cuenta queda creada igual: el aviso de Inicio
+    // ofrece reenviarlo.
+    try {
+      await credential.user?.sendEmailVerification();
+    } catch (e) {
+      debugPrint('[Auth] No se pudo enviar el correo de verificación: $e');
+    }
     return credential;
+  }
+
+  /// Vuelve a enviar el correo de verificación.
+  Future<void> reenviarVerificacion() async =>
+      _auth.currentUser?.sendEmailVerification();
+
+  /// Recarga el usuario y fuerza un token nuevo, que es el que lleva
+  /// `email_verified` al backend. Devuelve si el correo ya está verificado.
+  Future<bool> comprobarVerificacion() async {
+    final actual = _auth.currentUser;
+    if (actual == null) return false;
+    await actual.reload();
+    final recargado = _auth.currentUser;
+    if (recargado?.emailVerified ?? false) {
+      await recargado!.getIdToken(true);
+    }
+    _user = recargado;
+    notifyListeners();
+    return correoVerificado;
   }
 
   /// Cierra la sesión y borra la caché offline de Firestore del usuario.

@@ -120,6 +120,7 @@ class AiProvider extends ChangeNotifier {
   String? _error;
   String? _lastFailedText;
   bool _historyFailed = false;
+  bool _faltaVerificarCorreo = false;
 
   /// Ids de mensajes ya reportados en esta sesión. Solo sirve para que el
   /// botón no invite a reportar dos veces lo mismo; no se persiste.
@@ -152,6 +153,10 @@ class AiProvider extends ChangeNotifier {
   bool get isSending => _isSending;
   bool get isLoadingHistory => _isLoadingHistory;
   String? get error => _error;
+
+  /// `true` si el último envío lo rechazó `chat` por correo sin verificar
+  /// (`failed-precondition`): el chat ofrece "Reenviar correo".
+  bool get faltaVerificarCorreo => _faltaVerificarCorreo;
 
   /// `true` cuando hay algo que reintentar con [retry].
   bool get canRetry => _lastFailedText != null || _historyFailed;
@@ -256,6 +261,7 @@ class AiProvider extends ChangeNotifier {
 
     _error = null;
     _lastFailedText = null;
+    _faltaVerificarCorreo = false;
 
     final optimistic = ChatMessage(
       id: 'local-${DateTime.now().microsecondsSinceEpoch}',
@@ -304,6 +310,7 @@ class AiProvider extends ChangeNotifier {
       _messages = _messages.where((m) => m.id != optimistic.id).toList();
       _error = e.message;
       _lastFailedText = trimmed;
+      _faltaVerificarCorreo = e.code == 'failed-precondition';
     } catch (_) {
       if (_disposed || generation != _generation) return;
       _messages = _messages.where((m) => m.id != optimistic.id).toList();
@@ -380,6 +387,7 @@ class AiProvider extends ChangeNotifier {
   void clearError() {
     if (_error == null) return;
     _error = null;
+    _faltaVerificarCorreo = false;
     _notify();
   }
 
@@ -408,6 +416,7 @@ class AiProvider extends ChangeNotifier {
     _historyFailed = false;
     _error = null;
     _lastFailedText = null;
+    _faltaVerificarCorreo = false;
     _notify();
   }
 

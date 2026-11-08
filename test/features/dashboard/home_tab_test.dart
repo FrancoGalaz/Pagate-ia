@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
+import 'package:pagate_ia/core/services/firebase_auth_service.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
 import 'package:pagate_ia/features/dashboard/presentation/pages/tabs/home_tab.dart';
@@ -169,6 +170,16 @@ class _Acciones {
   int ayuda = 0;
 }
 
+/// Correo ya verificado: el aviso de verificación tiene su propio test.
+class _AuthVerificada extends ChangeNotifier implements FirebaseAuthService {
+  @override
+  bool get correoVerificado => true;
+
+  @override
+  dynamic noSuchMethod(final Invocation invocation) =>
+      super.noSuchMethod(invocation);
+}
+
 Future<_Acciones> _montar(
   final WidgetTester tester, {
   required final _FinanzasFalsas finanzas,
@@ -200,6 +211,9 @@ Future<_Acciones> _montar(
           ),
           ChangeNotifierProvider<InventoryProvider>.value(
             value: inventario ?? _InventarioFalso(),
+          ),
+          ChangeNotifierProvider<FirebaseAuthService>.value(
+            value: _AuthVerificada(),
           ),
         ],
         child: MaterialApp(

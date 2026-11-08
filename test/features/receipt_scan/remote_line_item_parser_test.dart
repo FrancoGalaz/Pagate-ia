@@ -294,6 +294,24 @@ void main() {
       expect(r.serverMessage, 'Usaste las 40 lecturas de boleta de tu plan.');
     });
 
+    test('correo sin verificar: lista local, sin error ni mensaje', () async {
+      final servicio = _ServicioFalso(
+        error: ReceiptScanServiceException.from(
+          'failed-precondition',
+          'Verifica tu correo para leer boletas con el asistente.',
+        ),
+      );
+
+      final r = await estructurarConElModelo(
+        servicio: servicio,
+        lectura: _lectura,
+        local: _local,
+      );
+
+      expect(r.items, same(_local));
+      expect(r.degradation, ScanDegradation.modeloFallo);
+    });
+
     test('sin red: lista local y bandera de fallo', () async {
       final servicio = _ServicioFalso(
         error: ReceiptScanServiceException.from('unavailable', null),

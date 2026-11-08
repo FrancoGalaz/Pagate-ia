@@ -5,6 +5,7 @@ import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/utils/currency_formatter.dart';
 import '../../../../../core/utils/month_labels.dart';
 import '../../../../../core/widgets/widgets.dart';
+import '../../../../auth/presentation/widgets/verificar_correo_banner.dart';
 import '../../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../../finances/presentation/providers/finances_provider.dart';
 import '../../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
@@ -122,6 +123,7 @@ class HomeTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const VerificarCorreoBanner(),
                 const _BloqueSaldo(),
                 _Registrar(
                   onIngreso: onRegistrarIngreso,
