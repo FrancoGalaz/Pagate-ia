@@ -44,3 +44,15 @@ adb shell bmgr backupnow com.pagate.apppagate
 
 No debe respaldar nada: el paquete no tiene que terminar con una copia
 correcta (`Success`).
+
+## Correo de verificación
+
+`chat` y `scanReceipt` exigen el correo verificado, y la app envía el correo al
+registrarse.
+
+1. **Plantilla en español.** Firebase → Authentication → Plantillas →
+   Verificación de dirección de correo electrónico: cambiar el idioma de la
+   plantilla a español y revisar el remitente y el asunto.
+2. **Probar.** Registrar una cuenta nueva en un build de prueba, abrir el
+   enlace del correo y tocar «Ya lo verifiqué» en Inicio: el aviso desaparece y
+   el asistente responde.
