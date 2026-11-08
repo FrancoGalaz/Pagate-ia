@@ -49,10 +49,13 @@ class _AuthGateState extends State<AuthGate> {
         stream: _authState,
         builder: (final context, final snapshot) {
           if (snapshot.hasError) {
+            debugPrint('[AuthGate] Error de sesión: ${snapshot.error}');
             return AppShell(
               sessionKey: 'auth-error',
               home: SessionErrorView(
-                message: 'No pudimos comprobar tu sesión: ${snapshot.error}',
+                message: 'No pudimos comprobar tu sesión. Revisa tu conexión '
+                    'e inténtalo de nuevo.',
+                detail: snapshot.error,
                 onRetry: _retry,
               ),
             );
