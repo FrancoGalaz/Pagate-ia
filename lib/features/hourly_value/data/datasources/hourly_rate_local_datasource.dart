@@ -32,9 +32,6 @@ class HourlyRateLocalDataSource {
   Stream<HourlyRateModel?> watchHourlyRate() =>
       _userDoc.snapshots().map((snapshot) => _fromData(snapshot.data()));
 
-  Future<HourlyRateModel?> getHourlyRate() async =>
-      _fromData((await _userDoc.get()).data());
-
   Future<void> saveHourlyRate(final HourlyRateModel model) => _userDoc.set(
         {
           'hourlyRate': model.toJson(),
@@ -42,6 +39,4 @@ class HourlyRateLocalDataSource {
         },
         SetOptions(merge: true),
       );
-
-  Future<bool> hasConfiguration() async => await getHourlyRate() != null;
 }

@@ -36,13 +36,7 @@ class FakeHourlyRateRepository implements HourlyRateRepository {
   Stream<HourlyRateEntity?> watchHourlyRate() => Stream.value(rate);
 
   @override
-  Future<HourlyRateEntity?> getHourlyRate() async => rate;
-
-  @override
   Future<void> saveHourlyRate(final HourlyRateEntity hourlyRate) async {}
-
-  @override
-  Future<bool> hasConfiguration() async => rate != null;
 }
 
 class FakeFinancesRepository implements FinancesRepository {

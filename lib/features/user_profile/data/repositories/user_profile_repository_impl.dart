@@ -14,9 +14,6 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   Stream<UserProfileEntity?> watchProfile() => _datasource.watchProfile();
 
   @override
-  Future<UserProfileEntity?> getProfile() => _datasource.getProfile();
-
-  @override
   Future<void> saveProfile(final UserProfileEntity profile) =>
       _datasource.saveProfile(UserProfileModel.fromEntity(profile));
 }

@@ -30,12 +30,6 @@ class UserProfileFirebaseDatasource {
         return UserProfileModel.fromSnapshot(snapshot);
       });
 
-  Future<UserProfileModel?> getProfile() async {
-    final snapshot = await _doc.get();
-    _hasCreatedAt = snapshot.data()?['createdAt'] != null;
-    return UserProfileModel.fromSnapshot(snapshot);
-  }
-
   Future<void> saveProfile(final UserProfileModel profile) => _doc.set(
         {
           ...profile.toFirestore(),

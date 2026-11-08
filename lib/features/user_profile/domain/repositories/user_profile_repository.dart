@@ -5,8 +5,6 @@ abstract class UserProfileRepository {
   /// onboarding. Los errores se propagan por el stream.
   Stream<UserProfileEntity?> watchProfile();
 
-  Future<UserProfileEntity?> getProfile();
-
   /// Crea o actualiza el perfil (merge sobre `users/{uid}`).
   Future<void> saveProfile(UserProfileEntity profile);
 }

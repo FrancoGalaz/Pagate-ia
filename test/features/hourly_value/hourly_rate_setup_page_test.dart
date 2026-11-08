@@ -39,15 +39,9 @@ class FakeHourlyRateRepository implements HourlyRateRepository {
   Stream<HourlyRateEntity?> watchHourlyRate() => controller.stream;
 
   @override
-  Future<HourlyRateEntity?> getHourlyRate() async => guardado;
-
-  @override
   Future<void> saveHourlyRate(final HourlyRateEntity hourlyRate) async {
     guardado = hourlyRate;
   }
-
-  @override
-  Future<bool> hasConfiguration() async => guardado != null;
 
   Future<void> dispose() => controller.close();
 }

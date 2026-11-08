@@ -5,9 +5,5 @@ abstract class HourlyRateRepository {
   /// Valor hora en tiempo real; `null` si aún no se configuró.
   Stream<HourlyRateEntity?> watchHourlyRate();
 
-  Future<HourlyRateEntity?> getHourlyRate();
-
   Future<void> saveHourlyRate(final HourlyRateEntity hourlyRate);
-
-  Future<bool> hasConfiguration();
 }
