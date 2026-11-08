@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/chat_history_service.dart';
 
 /// Quién escribió un mensaje del chat.
 enum ChatRole { user, assistant }
@@ -108,6 +109,7 @@ class AiProvider extends ChangeNotifier {
   static const int maxReportedTextChars = 2000;
 
   final AiService _service;
+  final ChatHistoryService _historyService;
   final String _userId;
   final FirebaseFirestore _firestore;
 
@@ -131,7 +133,9 @@ class AiProvider extends ChangeNotifier {
     required AiService service,
     required String userId,
     FirebaseFirestore? firestore,
+    ChatHistoryService? historyService,
   }) : _service = service,
+       _historyService = historyService ?? ChatHistoryService(),
        _userId = userId,
        _firestore = firestore ?? FirebaseFirestore.instance {
     _loadLatestConversation();
@@ -377,6 +381,19 @@ class AiProvider extends ChangeNotifier {
     if (_error == null) return;
     _error = null;
     _notify();
+  }
+
+  /// Borra todas las conversaciones (callable `deleteChatHistory`) y deja el
+  /// chat en el saludo inicial, sin `conversationId`.
+  ///
+  /// Devuelve `false` sin llamar al backend si hay una respuesta pendiente:
+  /// esa respuesta volvería a crear la conversación recién borrada.
+  /// Lanza [ChatHistoryDeletionException] si el borrado falla.
+  Future<bool> borrarHistorial() async {
+    if (_isSending) return false;
+    await _historyService.deleteChatHistory();
+    newConversation();
+    return true;
   }
 
   /// Empieza una conversación nueva. El backend la crea con el primer mensaje.

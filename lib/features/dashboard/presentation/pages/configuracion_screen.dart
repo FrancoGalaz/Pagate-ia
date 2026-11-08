@@ -15,6 +15,7 @@ import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../widgets/borrar_historial_row.dart';
 import 'editar_perfil_screen.dart';
 import 'eliminar_cuenta_screen.dart';
 
@@ -151,6 +152,10 @@ class ConfiguracionScreen extends StatelessWidget {
                 onTap: () => unawaited(_resetPassword(context)),
               ),
             ),
+
+            // ─── Asistente ──────────────────────────────────────────
+            const PagateSectionHeader(title: 'Asistente'),
+            const PagateSectionCard(child: BorrarHistorialRow()),
 
             // ─── Legal ──────────────────────────────────────────────
             // LOS TEXTOS LEGALES, ALCANZABLES DESDE LA APP.
