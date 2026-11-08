@@ -31,3 +31,16 @@ si se exige antes, toda llamada desde Android falla.
 8. **Último paso: activar la exigencia en los callables.** Cambiar
    `ENFORCE_APP_CHECK=true` en `functions/.env` y volver a desplegar las
    functions. Solo después de los pasos 1 a 6.
+
+## Copias de seguridad (teléfono real)
+
+La app desactiva las copias de seguridad de Android (`allowBackup=false` y
+`res/xml/data_extraction_rules.xml`). Comprobarlo en un teléfono real con la
+app instalada y la sesión iniciada:
+
+```bash
+adb shell bmgr backupnow com.pagate.apppagate
+```
+
+No debe respaldar nada: el paquete no tiene que terminar con una copia
+correcta (`Success`).
