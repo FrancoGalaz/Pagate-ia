@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -29,6 +30,11 @@ class AppShell extends StatelessWidget {
         // declarar un `darkTheme`.
         theme: AppTheme.lightTheme,
         themeMode: ThemeMode.light,
+        // Textos de Material (selector de fecha, "Cancelar", "Pegar"…) en
+        // español de Chile, aunque el teléfono esté en otro idioma.
+        locale: const Locale('es', 'CL'),
+        supportedLocales: const [Locale('es', 'CL')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: home,
       );
 }
