@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { deleteUserData } from '../src/account';
+import { checkDeleteAccountCaller, deleteUserData } from '../src/account';
 import { adminDb, wipeUser } from './helpers/admin';
 
 const UID = 'borrame';
@@ -116,5 +116,21 @@ describe('deleteUserData', () => {
   it('no falla sobre una cuenta que nunca escribió nada', async () => {
     const db = adminDb();
     expect(await deleteUserData(db, 'cuenta-vacia')).toEqual([]);
+  });
+});
+
+describe('checkDeleteAccountCaller (sesión y App Check)', () => {
+  it('con App Check exigido, una llamada sin token se rechaza', () => {
+    expect(() => checkDeleteAccountCaller({ auth: { uid: UID }, app: undefined }, true)).toThrow(
+      expect.objectContaining({ code: 'unauthenticated', message: expect.stringContaining('App Check') }),
+    );
+  });
+
+  it('con App Check exigido, una llamada con token pasa y devuelve el uid', () => {
+    expect(checkDeleteAccountCaller({ auth: { uid: UID }, app: {} }, true)).toBe(UID);
+  });
+
+  it('con App Check apagado (el valor de hoy), una llamada sin token pasa', () => {
+    expect(checkDeleteAccountCaller({ auth: { uid: UID }, app: undefined }, false)).toBe(UID);
   });
 });
