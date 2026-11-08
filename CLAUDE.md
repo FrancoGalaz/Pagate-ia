@@ -71,7 +71,8 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   `flutter analyze` sin problemas; `flutter test` 532 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 316 pasan (12 archivos, con los
   de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
-  `integration_test/cierre_sesion_test.dart` pasó en el emulador.
+  `integration_test/cierre_sesion_test.dart` pasó en el emulador antes de la
+  verificación de correo; no se volvió a correr después.
 
 ## Hallazgos de la auditoría abiertos
 
