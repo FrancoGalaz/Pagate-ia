@@ -48,4 +48,34 @@ void main() {
       contains('RAW_SERVER_TEXT'),
     );
   });
+
+  test('un error que no es de Firebase en release da un mensaje genérico', () {
+    final texto = describeFirebaseError(
+      StateError('RAW_CLIENT_TEXT'),
+      mostrarDetalle: false,
+    );
+
+    expect(texto, 'Ocurrió un error inesperado. Inténtalo de nuevo.');
+    expect(registro.single, contains('RAW_CLIENT_TEXT'));
+  });
+
+  test('un error que no es de Firebase en debug muestra el detalle', () {
+    expect(
+      describeFirebaseError(
+        StateError('RAW_CLIENT_TEXT'),
+        mostrarDetalle: true,
+      ),
+      contains('RAW_CLIENT_TEXT'),
+    );
+  });
+
+  test('las validaciones de la app (ArgumentError) siguen tal cual', () {
+    expect(
+      describeFirebaseError(
+        ArgumentError('El monto debe ser mayor que cero'),
+        mostrarDetalle: false,
+      ),
+      'El monto debe ser mayor que cero',
+    );
+  });
 }

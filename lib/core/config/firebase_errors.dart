@@ -7,7 +7,9 @@ import 'package:flutter/foundation.dart';
 ///
 /// Un código de Firebase que no está en la lista da un mensaje genérico en
 /// español; el texto original de Firebase (en inglés) va al log y solo se
-/// muestra en debug ([mostrarDetalle]).
+/// muestra en debug ([mostrarDetalle]). Lo mismo con cualquier error que no
+/// sea de Firebase ni un [ArgumentError] (las validaciones de la app, que ya
+/// vienen en español).
 String describeFirebaseError(
   final Object error, {
   final bool mostrarDetalle = kDebugMode,
@@ -50,5 +52,7 @@ String describeFirebaseError(
   if (error is ArgumentError) {
     return error.message?.toString() ?? 'Datos inválidos.';
   }
-  return 'Ocurrió un error inesperado: $error';
+  debugPrint('[Error] $error');
+  if (mostrarDetalle) return 'Ocurrió un error inesperado: $error';
+  return 'Ocurrió un error inesperado. Inténtalo de nuevo.';
 }
