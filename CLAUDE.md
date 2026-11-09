@@ -67,12 +67,14 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
 - **Git:** `arquitectura-segura` y `docs/reglas-trabajo` están en GitHub. El PR
   `docs/reglas-trabajo` → `arquitectura-segura` está por abrir (`gh` sin
   sesión). `origin/main` solo recibió este CLAUDE.md (PR #1).
-- **Tests (2026-11-08, rama `docs/reglas-trabajo`, commit `9be9618`):**
-  `flutter analyze` sin problemas; `flutter test` 532 pasan; functions `lint`
+- **Tests (2026-11-08, rama `docs/reglas-trabajo`, commit `e332e07`):**
+  `flutter analyze` sin problemas; `flutter test` 535 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 316 pasan (12 archivos, con los
   de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
-  `integration_test/cierre_sesion_test.dart` pasó en el emulador antes de la
-  verificación de correo; no se volvió a correr después.
+  `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
+  verificación de correo. `scripts/smoke-prod.sh` se probó contra los
+  emuladores y un build local de la landing; contra producción falla porque
+  no hay nada desplegado.
 
 ## Hallazgos de la auditoría abiertos
 
@@ -106,8 +108,7 @@ Después:
   real, sin pre-commit.
 - Higiene: `catch (_)` sin registro en `ai_provider.dart` (líneas 203 y 314),
   cast sin comprobar nulos en `HourlyRateModel.fromJson`, `validHourlyRate`
-  acepta un mapa parcial, `describeFirebaseError` todavía muestra el error
-  crudo cuando no es de Firebase.
+  acepta un mapa parcial.
 - Producto: compra del plan Pro, stock decimal (decisión pendiente en
   `docs/ARQUITECTURA.md`). Web e iOS fuera de alcance.
 
@@ -115,7 +116,8 @@ Cerrados en `docs/reglas-trabajo`: `allowBackup` y reglas de extracción,
 caché de Firestore al cerrar sesión, borrar historial del asistente, aviso de
 privacidad en la lista de espera, Material en es_CL, error crudo en el arranque
 y en `SessionErrorView`, verificación de correo, mensaje genérico en
-`describeFirebaseError` y log único en `AuthGate`.
+`describeFirebaseError` (también para errores que no son de Firebase) y log
+único en `AuthGate`.
 
 ## Tareas de código
 
