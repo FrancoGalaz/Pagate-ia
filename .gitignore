@@ -74,3 +74,6 @@ functions/.secret.local
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Capturas de pantalla generadas por scripts/capturas.sh
+capturas/
