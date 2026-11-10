@@ -74,148 +74,142 @@ class AppColors {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// PALETA DEL SISTEMA VISUAL v2 — "Cartola"
+// PALETA — Variante A «Greda y carbón»
 // ════════════════════════════════════════════════════════════════════════
-// Especificación: docs/DISENO-v2.md, sección "Color". Tema claro único.
+// Especificación: docs/diseno/variantes-cabal.html. Contraste comprobado en
+// docs/diseno/contraste.py. Tema claro único.
 //
-// Vive en una clase aparte de [AppColors] A PROPÓSITO y solo durante la
-// migración. El paso 1 del plan añade los tokens nuevos EN PARALELO a los
-// viejos para que este commit no cambie ni un píxel: cinco nombres chocan
-// con los de [AppColors] con un valor distinto (textPrimary, textSecondary,
-// textDisabled, border y warning), y repintarlos aquí cambiaría la app
-// entera de golpe. El paso 3 reapunta [AppColors] a estos valores, que es el
-// commit cuyo trabajo es justamente ese, y el paso 9 colapsa las dos clases
-// en una.
+// Dos colores con roles fijos:
+//   · ACCIÓN (greda, [brand]): SOLO la acción principal de cada pantalla,
+//     el FAB y los enlaces de «ir a». Nunca directo sobre la cabecera
+//     oscura (2,7:1): ahí va dentro de una tarjeta blanca.
+//   · OSCURO (carbón, [ink] = [textPrimary]): títulos, íconos, pestaña
+//     activa, botones secundarios, progreso y montos de gasto.
+// Dinero: ingreso en verde ([moneyIn]); gasto en el oscuro con «−»
+// ([moneyOut]); el carmesí ([danger]) es SOLO para alertas (sin stock, stock
+// bajo) y acciones destructivas (Borrar).
 //
-// Cada ratio de contraste del comentario está calculado con la fórmula de
-// luminancia relativa de WCAG 2.1 y verificado por par de uso real: los tres
-// números son contra `surface` #FFFFFF, `canvas` #F6F7F8 y `sunken` #F1F3F5.
-// Umbral AA: 4,5:1 texto normal; 3:1 texto grande, objetos gráficos y bordes
-// (1.4.11).
+// Los tres números de cada comentario son el contraste WCAG 2.1 contra
+// `surface` #FFFFFF, `canvas` #FBF6F2 y `sunken` #F4EEE9. Umbral AA: 4,5:1
+// texto normal; 3:1 texto grande, objetos gráficos y bordes (1.4.11).
 // ════════════════════════════════════════════════════════════════════════
 
 class AppPalette {
   AppPalette._();
 
   // ─── Superficies ──────────────────────────────────────
-  /// Fondo del `Scaffold` en todas las pantallas.
-  static const Color canvas = Color(0xFFF6F7F8);
+  /// Fondo del `Scaffold`: greda muy pálida.
+  static const Color canvas = Color(0xFFFBF6F2);
 
-  /// Secciones, filas, campos, barra inferior, hoja modal.
+  /// Tarjetas, listas, campos, barra inferior, hoja modal.
   static const Color surface = Color(0xFFFFFFFF);
 
-  /// Pista de barra de progreso, campo deshabilitado, encabezado agrupador.
-  static const Color sunken = Color(0xFFF1F3F5);
+  /// Pista de progreso y del selector segmentado, campo deshabilitado,
+  /// fondo de los íconos de fila.
+  static const Color sunken = Color(0xFFF4EEE9);
 
   /// Bloques del esqueleto de carga.
-  static const Color skeleton = Color(0xFFEAECF0);
+  static const Color skeleton = Color(0xFFECE4DE);
 
-  /// Velo detrás de hoja modal y diálogo: #101828 al 40%.
-  static const Color scrim = Color(0x66101828);
+  /// Velo detrás de hoja modal y diálogo: el oscuro al 40%.
+  static const Color scrim = Color(0x662E2622);
 
   // ─── Texto ────────────────────────────────────────────
-  /// 17,75 / 16,55 / 15,95 — AAA en las tres superficies.
-  ///
-  /// Tinta, no azul noche: el azul #16213E teñía de marca cada cifra.
-  static const Color textPrimary = Color(0xFF101828);
+  /// 14,83 / 13,81 / 12,89 — AAA. Carbón cálido: el color oscuro del
+  /// sistema.
+  static const Color textPrimary = Color(0xFF2E2622);
 
-  /// 7,69 / 7,17 / 6,91 — AAA. El #6B7280 anterior daba 4,39 sobre el fondo
-  /// de la app y fallaba AA.
-  static const Color textSecondary = Color(0xFF475467);
+  /// Alias de rol: lo oscuro que no es texto (pestaña activa, progreso,
+  /// contorno del secundario, cabecera de Inicio).
+  static const Color ink = textPrimary;
 
-  /// 5,31 / 4,95 / 4,77 — AA en las tres superficies. Metadatos,
-  /// placeholders y etiquetas no seleccionadas de la barra inferior.
-  ///
-  /// Sustituye a `textTertiary` #9CA3AF, que daba 2,54 sobre blanco y 2,31
-  /// sobre el fondo: era un fallo de AA repetido en 17 sitios.
-  static const Color textMuted = Color(0xFF636C7A);
+  /// 6,34 / 5,91 / 5,51 — AA.
+  static const Color textSecondary = Color(0xFF6A5D55);
 
-  /// 2,58 sobre blanco. **Nunca texto informativo**: solo controles
+  /// 5,38 / 5,01 / 4,67 — AA. Metadatos, placeholders y pestañas inactivas.
+  static const Color textMuted = Color(0xFF756860);
+
+  /// 2,62 sobre blanco. **Nunca texto informativo**: solo controles
   /// deshabilitados, que WCAG 1.4.3 exime.
-  static const Color textDisabled = Color(0xFF98A2B3);
+  static const Color textDisabled = Color(0xFFA99E97);
 
-  /// 6,43 sobre [brand].
+  /// 5,45 sobre [brand]; 14,83 sobre [ink].
   static const Color textOnBrand = Color(0xFFFFFFFF);
 
+  /// 11,02 sobre [ink]. Texto secundario dentro de la cabecera oscura.
+  static const Color textOnInkMuted = Color(0xFFE8DCD3);
+
   // ─── Líneas ─────────────────────────────────────────
-  /// Divisor entre filas de una lista, a sangre completa (sin `indent`).
-  /// Decorativo: 1.4.11 no aplica porque la separación también la da el
-  /// espaciado.
-  static const Color hairline = Color(0xFFEDEFF2);
+  /// Divisor entre filas de una lista. Decorativo.
+  static const Color hairline = Color(0xFFF0E9E4);
 
-  /// Contorno de sección, borde superior de la barra inferior, borde de
-  /// botón secundario. Decorativo.
-  static const Color border = Color(0xFFE4E7EC);
+  /// Contorno decorativo (borde superior de la barra inferior).
+  static const Color border = Color(0xFFE8DFD8);
 
-  /// 3,63 / 3,39 / 3,27 — cumple 1.4.11 en las tres superficies.
-  ///
-  /// Contorno de campo, casilla e interruptor: componentes cuyo límite es el
-  /// único indicador, y por eso necesitan 3:1. Es la diferencia que no
-  /// existía: el tema dejaba `border` y `enabledBorder` en `BorderSide.none`
-  /// sobre un relleno que contra el blanco de la tarjeta daba 1,05:1 — un
-  /// campo literalmente invisible.
-  static const Color borderField = Color(0xFF7E8794);
+  /// 3,88 / 3,61 / 3,37 — cumple 1.4.11. Contorno de campo, casilla e
+  /// interruptor.
+  static const Color borderField = Color(0xFF8C7F77);
 
-  /// Borde de foco, 1,5 dp. Mismo valor que [brand].
-  static const Color borderFocus = brand;
+  /// Borde de foco: el oscuro, no la acción.
+  static const Color borderFocus = ink;
 
-  // ─── Marca ────────────────────────────────────────────
-  /// 6,43 / 5,99 / 5,78 — AA como texto, icono y relleno. Acción primaria,
-  /// selección, foco, enlace y relleno de progreso.
-  static const Color brand = Color(0xFF006B5F);
+  // ─── Acción (greda) ───────────────────────────────────
+  /// 5,45 / 5,08 / 4,74 — AA como texto y relleno. Solo la acción principal.
+  static const Color brand = Color(0xFFB04A26);
 
-  /// Blanco encima 8,14. Estado presionado del primario.
-  static const Color brandPressed = Color(0xFF005A50);
+  /// Blanco encima 6,93. Estado presionado del primario.
+  static const Color brandPressed = Color(0xFF963F20);
 
-  /// [brand] encima 5,61; [textPrimary] encima 15,48.
-  static const Color brandSurface = Color(0xFFE6F2F0);
+  /// [brand] encima 4,73; [textPrimary] encima 12,88.
+  static const Color brandSurface = Color(0xFFF7EDE9);
 
   // ─── Dinero ─────────────────────────────────────────
-  // Regla de aplicación, estrecha a propósito: el color del dinero se aplica
-  // SOLO al monto de una fila de movimiento y al balance cuando es negativo.
-  // Nunca a un fondo, nunca a un círculo de icono, nunca a las filas de
-  // Ingresos/Gastos del resumen. Un gasto corriente no es un error.
+  /// 6,48 / 6,04 / 5,63 — AA. Monto de un ingreso. El verde es SOLO para
+  /// ingresos.
+  static const Color moneyIn = Color(0xFF1D6B45);
 
-  /// 6,63 / 6,18 / 5,96 — AA. Monto de un ingreso.
-  ///
-  /// Sustituye a `success` #10B981, que daba 2,54 sobre blanco.
-  static const Color moneyIn = Color(0xFF0B6A47);
+  /// Monto de un gasto: el oscuro, con signo «−». Un gasto corriente no es
+  /// una alerta.
+  static const Color moneyOut = ink;
 
-  /// 7,56 / 7,05 / 6,80; blanco encima 7,56. Monto de salida.
-  ///
-  /// Sustituye a `error` #EF4444 como texto, que daba 3,76 y no cumplía AA.
-  static const Color moneyOut = Color(0xFFA32019);
+  /// [moneyIn] encima 5,59.
+  static const Color moneyInSurface = Color(0xFFE8F0EC);
 
-  /// [moneyIn] encima 5,77; [textPrimary] encima 15,45.
-  static const Color moneyInSurface = Color(0xFFE6F2EC);
+  // ─── Alerta (carmesí) ───────────────────────────────
+  /// 7,38 / 6,87 / 6,41; blanco encima 7,38. Error de formulario, alerta de
+  /// stock y acción destructiva (botón Borrar). Nada más.
+  static const Color danger = Color(0xFFA3213F);
 
-  // ─── Estado ─────────────────────────────────────────
-  /// Error de formulario, acción destructiva, balance negativo.
-  /// Mismo valor que [moneyOut]; token aparte por semántica.
-  static const Color danger = moneyOut;
+  /// [danger] encima 6,25; [textPrimary] encima 12,56.
+  static const Color dangerSurface = Color(0xFFF6E9EC);
 
-  /// [danger] encima 6,49; [textPrimary] encima 15,24. Fondo del
-  /// deslizar-para-eliminar y del bloque de error.
-  static const Color dangerSurface = Color(0xFFFBEAE8);
+  /// Stock bajo: es una alerta, así que usa el carmesí. Un naranja quedaría
+  /// demasiado cerca de la greda de la acción.
+  static const Color warning = danger;
 
-  /// 5,43 / 5,06 / 4,88 — AA. Stock bajo.
-  ///
-  /// Sustituye a `warning` #F59E0B, que daba 2,15 sobre blanco y 1,93 sobre
-  /// su propio fondo claro.
-  static const Color warning = Color(0xFFB54708);
-
-  /// [warning] encima 4,81; [textPrimary] encima 15,72.
-  static const Color warningSurface = Color(0xFFFBF0DC);
+  static const Color warningSurface = dangerSurface;
 
   // ─── Series de datos ──────────────────────────────────
-  /// 3,63 sobre blanco y 3,27 sobre [sunken] — cumple 1.4.11 como objeto
-  /// gráfico. Mismo valor que [borderField].
-  ///
-  /// Es la única serie extra del sistema: las barras de categoría usan
-  /// [brand] sobre pista [sunken] y esta para la fila "Otros". No hay rampa
-  /// de diez colores porque el texto blanco de 11 dp dentro de una porción
-  /// fallaba el contraste en 9 de los 10 colores que había.
+  /// 3,88 sobre blanco — cumple 1.4.11 como objeto gráfico. Mismo valor que
+  /// [borderField]. Fila "Otros" de las barras de categoría.
   static const Color seriesOther = borderField;
+}
+
+/// Sombras del sistema: dos niveles suaves en un negro cálido.
+class AppShadows {
+  AppShadows._();
+
+  /// Tarjetas, listas y segmento activo del selector.
+  static const List<BoxShadow> level1 = [
+    BoxShadow(color: Color(0x0F140E0A), offset: Offset(0, 1), blurRadius: 2),
+    BoxShadow(color: Color(0x0F140E0A), offset: Offset(0, 2), blurRadius: 8),
+  ];
+
+  /// Tarjeta superpuesta de Inicio, FAB y diálogos.
+  static const List<BoxShadow> level2 = [
+    BoxShadow(color: Color(0x14140E0A), offset: Offset(0, 4), blurRadius: 12),
+    BoxShadow(color: Color(0x14140E0A), offset: Offset(0, 12), blurRadius: 32),
+  ];
 }
 
 /// Standardized spacing scale based on a 4-point grid.
@@ -329,6 +323,29 @@ class AppRadius {
   /// 16 — únicamente el borde superior de la hoja modal. Radio máximo del
   /// sistema.
   static const double r16 = 16.0;
+
+  // ─── Variante A (docs/diseno/variantes-cabal.html) ──────────────
+
+  /// 10 — campo de formulario y botón.
+  static const double r10 = 10.0;
+
+  /// 20 — diálogo y borde superior de la hoja modal.
+  static const double r20 = 20.0;
+
+  /// 24 — borde inferior de la cabecera de Inicio.
+  static const double r24 = 24.0;
+
+  /// Píldora: selector segmentado y chips de estado.
+  static const double full = 999.0;
+
+  static final BorderRadius r10Border = BorderRadius.circular(r10);
+  static final BorderRadius r16Border = BorderRadius.circular(r16);
+  static final BorderRadius fullBorder = BorderRadius.circular(full);
+
+  /// Solo el borde superior de la hoja modal.
+  static const BorderRadius r20TopBorder = BorderRadius.vertical(
+    top: Radius.circular(r20),
+  );
 
   static final BorderRadius r4Border = BorderRadius.circular(r4);
   static final BorderRadius r8Border = BorderRadius.circular(r8);

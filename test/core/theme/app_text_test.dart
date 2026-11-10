@@ -23,13 +23,13 @@ void main() {
   group('AppText', () {
     test('cada slot mueve el eje wght y coincide con su fontWeight', () {
       final expected = <TextStyle, int>{
-        AppText.displayLarge: 700,
-        AppText.displayMedium: 700,
-        AppText.displaySmall: 700,
-        AppText.headlineLarge: 700,
-        AppText.headlineMedium: 700,
-        AppText.headlineSmall: 600,
-        AppText.titleLarge: 600,
+        AppText.displayLarge: 800,
+        AppText.displayMedium: 800,
+        AppText.displaySmall: 800,
+        AppText.headlineLarge: 800,
+        AppText.headlineMedium: 800,
+        AppText.headlineSmall: 800,
+        AppText.titleLarge: 800,
         AppText.titleMedium: 600,
         AppText.titleSmall: 600,
         AppText.bodyLarge: 400,
@@ -38,8 +38,8 @@ void main() {
         AppText.labelLarge: 600,
         AppText.labelMedium: 600,
         AppText.labelSmall: 600,
-        AppText.amountRow: 600,
-        AppText.amountSmall: 600,
+        AppText.amountRow: 800,
+        AppText.amountSmall: 700,
         AppText.amountField: 600,
       };
 
@@ -51,14 +51,24 @@ void main() {
       });
     });
 
-    test('ningún slot pasa de w700: el w800 entero sale del sistema', () {
+    test('variante A: títulos y cifras en w800, el cuerpo no pasa de w600', () {
+      // docs/diseno/variantes-cabal.html: la jerarquía la dan los títulos y
+      // las cifras en 800; el texto corriente se queda liviano.
       for (final style in [
         AppText.displayLarge,
-        AppText.displayMedium,
-        AppText.displaySmall,
-        AppText.headlineLarge,
+        AppText.headlineMedium,
+        AppText.titleLarge,
+        AppText.amountRow,
       ]) {
-        expect(wght(style)! <= 700, isTrue);
+        expect(wght(style), 800);
+      }
+      for (final style in [
+        AppText.bodyLarge,
+        AppText.bodyMedium,
+        AppText.titleMedium,
+        AppText.labelLarge,
+      ]) {
+        expect(wght(style)! <= 600, isTrue);
       }
     });
 
@@ -108,7 +118,7 @@ void main() {
       // `titleLarge.copyWith(fontWeight: w800)` seguía dibujándose en 600.
       // Pasaba en 81 sitios de 26 archivos.
       final conCopyWith =
-          AppText.titleLarge.copyWith(fontWeight: FontWeight.w800);
+          AppText.titleMedium.copyWith(fontWeight: FontWeight.w800);
       expect(
         wght(conCopyWith),
         600,
@@ -116,7 +126,7 @@ void main() {
             'AppText.weight',
       );
 
-      final conHelper = AppText.weight(AppText.titleLarge, 800);
+      final conHelper = AppText.weight(AppText.titleMedium, 800);
       expect(wght(conHelper), 800);
       expect(conHelper.fontWeight, FontWeight.w800);
     });
@@ -164,8 +174,8 @@ void main() {
       // propagar `fontVariations`, toda la app volvería a ExtraLight sin que
       // nada más fallara.
       final textTheme = AppTheme.lightTheme.textTheme;
-      expect(wght(textTheme.titleLarge), 600);
-      expect(wght(textTheme.displayLarge), 700);
+      expect(wght(textTheme.titleLarge), 800);
+      expect(wght(textTheme.displayLarge), 800);
       expect(wght(textTheme.bodyMedium), 400);
       expect(textTheme.displayLarge?.leadingDistribution,
           TextLeadingDistribution.even);

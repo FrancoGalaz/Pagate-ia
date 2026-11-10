@@ -112,28 +112,28 @@ class AppText {
   // 551-560, todos con avance 1240/2000 = 0,620 em. La tabla `HVAR`
   // confirma que ese avance NO varía con el peso.
 
-  /// 40/700, tabular. La cifra que ES la pantalla: el balance del mes en
+  /// 40/800, tabular. La cifra que ES la pantalla: el balance del mes en
   /// Inicio. Una por app.
-  static final TextStyle displayLarge = _t(40, 700, 42, -1.0, tab: true);
+  static final TextStyle displayLarge = _t(40, 800, 42, -1.0, tab: true);
 
-  /// 32/700, tabular. Cifra principal de Finanzas, titular de Bienvenida, y
+  /// 32/800, tabular. Cifra principal de Finanzas, titular de Bienvenida, y
   /// la caída de [displayLarge] cuando la cifra no cabe.
-  static final TextStyle displayMedium = _t(32, 700, 35, -0.6, tab: true);
+  static final TextStyle displayMedium = _t(32, 800, 35, -0.6, tab: true);
 
-  /// 24/700, tabular. Total de sección (gastos fijos, valor hora).
-  static final TextStyle displaySmall = _t(24, 700, 28, -0.3, tab: true);
+  /// 24/800, tabular. Total de sección (gastos fijos, valor hora).
+  static final TextStyle displaySmall = _t(24, 800, 28, -0.3, tab: true);
 
-  /// 24/700. Titular de pantalla sin barra (Bienvenida).
-  static final TextStyle headlineLarge = _t(24, 700, 30, -0.3);
+  /// 24/800. Titular de pantalla sin barra (Bienvenida).
+  static final TextStyle headlineLarge = _t(24, 800, 30, -0.3);
 
-  /// 20/700. Título de pantalla en la barra ("Finanzas", "Inventario").
-  static final TextStyle headlineMedium = _t(20, 700, 26, -0.2);
+  /// 20/800. Título de pantalla en la barra ("Finanzas", "Inventario").
+  static final TextStyle headlineMedium = _t(20, 800, 26, -0.2);
 
-  /// 18/600. Título de hoja modal y de diálogo.
-  static final TextStyle headlineSmall = _t(18, 600, 24, 0);
+  /// 18/800. Título de hoja modal y de diálogo.
+  static final TextStyle headlineSmall = _t(18, 800, 24, 0);
 
-  /// 16/600. Encabezado de sección ("Movimientos", "Gastos fijos").
-  static final TextStyle titleLarge = _t(16, 600, 22, 0);
+  /// 16/800. Encabezado de sección ("Movimientos", "Gastos fijos").
+  static final TextStyle titleLarge = _t(16, 800, 22, 0);
 
   /// 15/600. Título de fila de movimiento, nombre de ítem.
   static final TextStyle titleMedium = _t(15, 600, 21, 0);
@@ -178,11 +178,11 @@ class AppText {
   // con `textAlign: TextAlign.right` y el título en `Expanded`: con `tnum`
   // eso basta para que la columna no baile.
 
-  /// 16/600 tabular. Monto de fila de movimiento y de fila de dato.
-  static final TextStyle amountRow = _t(16, 600, 20, 0, tab: true);
+  /// 16/800 tabular. Monto de fila de movimiento y de fila de dato.
+  static final TextStyle amountRow = _t(16, 800, 20, 0, tab: true);
 
-  /// 14/600 tabular. Monto secundario (gasto fijo, stock "2 de 6 un.").
-  static final TextStyle amountSmall = _t(14, 600, 19, 0, tab: true);
+  /// 14/700 tabular. Monto secundario (gasto fijo, stock "2 de 6 un.").
+  static final TextStyle amountSmall = _t(14, 700, 19, 0, tab: true);
 
   /// 20/600 tabular. Valor escrito en un campo de monto.
   static final TextStyle amountField = _t(20, 600, 24, 0, tab: true);

@@ -7,7 +7,8 @@ import 'app_text.dart';
 // ═══════════════════════════════════════════════════════════════════════
 // TEMA — CLARO ÚNICO
 // ═══════════════════════════════════════════════════════════════════════
-// Especificación: docs/DISENO-v2.md, paso 4 del plan de migración.
+// Especificación: docs/DISENO-v2.md, con la paleta y los radios de la
+// variante A (docs/diseno/variantes-cabal.html).
 //
 // Toda la configuración de Material vive aquí y ninguna pantalla sobreescribe
 // estilos del tema en línea: consume tokens de AppPalette, AppSpacing,
@@ -68,7 +69,7 @@ class AppTheme {
     final double width,
   ) =>
       OutlineInputBorder(
-        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.r8)),
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.r10)),
         borderSide: BorderSide(color: color, width: width),
       );
 
@@ -76,8 +77,14 @@ class AppTheme {
     borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
   );
 
-  static const RoundedRectangleBorder _shapeR12 = RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(AppRadius.r12)),
+  /// Botones: radio 10.
+  static const RoundedRectangleBorder _shapeR10 = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(AppRadius.r10)),
+  );
+
+  /// Diálogos: radio 20.
+  static const RoundedRectangleBorder _shapeR20 = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(AppRadius.r20)),
   );
 
   static ThemeData get lightTheme {
@@ -111,13 +118,12 @@ class AppTheme {
         primaryContainer: AppPalette.brandSurface,
         onPrimaryContainer: AppPalette.brand,
 
-        // v2 no tiene color de acento: el coral no cumple AA como texto y no
-        // tiene trabajo semántico en una app de dinero. El secundario es la
-        // propia marca, así que ningún widget de Material se sale de paleta.
-        secondary: AppPalette.brand,
+        // El secundario es el oscuro: títulos, íconos, pestaña activa y
+        // botones secundarios. La greda queda solo para la acción principal.
+        secondary: AppPalette.ink,
         onSecondary: AppPalette.textOnBrand,
-        secondaryContainer: AppPalette.brandSurface,
-        onSecondaryContainer: AppPalette.brand,
+        secondaryContainer: AppPalette.sunken,
+        onSecondaryContainer: AppPalette.ink,
 
         // El verde dinero, disponible sin salirse del esquema.
         tertiary: AppPalette.moneyIn,
@@ -170,13 +176,13 @@ class AppTheme {
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleTextStyle: textTheme.headlineMedium,
         iconTheme: const IconThemeData(
-          color: AppPalette.textSecondary,
+          color: AppPalette.ink,
           size: AppIconSize.md,
         ),
       ),
 
       iconTheme: const IconThemeData(
-        color: AppPalette.textSecondary,
+        color: AppPalette.ink,
         size: AppIconSize.md,
       ),
 
@@ -198,7 +204,7 @@ class AppTheme {
         border: _fieldBorder(AppPalette.borderField, AppSizes.borderField),
         enabledBorder:
             _fieldBorder(AppPalette.borderField, AppSizes.borderField),
-        focusedBorder: _fieldBorder(AppPalette.brand, AppSizes.borderEmphasis),
+        focusedBorder: _fieldBorder(AppPalette.ink, AppSizes.borderEmphasis),
         errorBorder: _fieldBorder(AppPalette.danger, AppSizes.borderField),
         focusedErrorBorder:
             _fieldBorder(AppPalette.danger, AppSizes.borderEmphasis),
@@ -211,7 +217,7 @@ class AppTheme {
           color: AppPalette.textSecondary,
         ),
         floatingLabelStyle: textTheme.titleSmall?.copyWith(
-          color: AppPalette.brand,
+          color: AppPalette.ink,
         ),
         errorStyle: textTheme.bodySmall?.copyWith(
           color: AppPalette.danger,
@@ -228,9 +234,9 @@ class AppTheme {
       ),
 
       textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: AppPalette.brand,
+        cursorColor: AppPalette.ink,
         selectionColor: AppPalette.brandSurface,
-        selectionHandleColor: AppPalette.brand,
+        selectionHandleColor: AppPalette.ink,
       ),
 
       // ─── Botón primario ──────────────────────────────────────────
@@ -261,7 +267,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: AppSpacing.x4),
           ),
-          shape: const WidgetStatePropertyAll(_shapeR12),
+          shape: const WidgetStatePropertyAll(_shapeR10),
           textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
           splashFactory: NoSplash.splashFactory,
         ),
@@ -286,15 +292,11 @@ class AppTheme {
                 width: AppSizes.borderHairline,
               );
             }
-            if (states.contains(WidgetState.focused)) {
-              return const BorderSide(
-                color: AppPalette.brand,
-                width: AppSizes.borderEmphasis,
-              );
-            }
+            // Contorno de 1,5 en el oscuro: el secundario es del oscuro, no
+            // de la greda.
             return const BorderSide(
-              color: AppPalette.border,
-              width: AppSizes.borderHairline,
+              color: AppPalette.ink,
+              width: AppSizes.borderEmphasis,
             );
           }),
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -305,7 +307,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: AppSpacing.x4),
           ),
-          shape: const WidgetStatePropertyAll(_shapeR12),
+          shape: const WidgetStatePropertyAll(_shapeR10),
           textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
           splashFactory: NoSplash.splashFactory,
         ),
@@ -342,7 +344,7 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
           foregroundColor: _byState(
-            normal: AppPalette.textSecondary,
+            normal: AppPalette.ink,
             disabled: AppPalette.textDisabled,
           ),
           backgroundColor: _byState(
@@ -378,7 +380,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         modalElevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.r16TopBorder),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.r20TopBorder),
         clipBehavior: Clip.antiAlias,
         showDragHandle: true,
         dragHandleColor: AppPalette.borderField,
@@ -391,7 +393,7 @@ class AppTheme {
         backgroundColor: AppPalette.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: _shapeR12,
+        shape: _shapeR20,
         barrierColor: AppPalette.scrim,
         titleTextStyle: textTheme.headlineSmall,
         contentTextStyle: textTheme.bodyMedium?.copyWith(
@@ -405,16 +407,16 @@ class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: AppPalette.surface,
         ),
-        actionTextColor: AppPalette.brandSurface,
+        actionTextColor: AppPalette.textOnInkMuted,
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: _shapeR8,
       ),
 
       // ─── Barra de progreso ───────────────────────────────────────
-      // 6 dp de alto, relleno `brand` sobre pista `sunken` (5,78:1).
+      // 6 dp de alto, relleno en el oscuro sobre pista `sunken` (12,89:1).
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppPalette.brand,
+        color: AppPalette.ink,
         linearTrackColor: AppPalette.sunken,
         linearMinHeight: AppSizes.progressBarHeight,
         circularTrackColor: Colors.transparent,
@@ -427,10 +429,10 @@ class AppTheme {
         backgroundColor: AppPalette.surface,
         elevation: 0,
         useIndicator: true,
-        indicatorColor: AppPalette.brandSurface,
+        indicatorColor: AppPalette.sunken,
         indicatorShape: _shapeR8,
         selectedIconTheme: const IconThemeData(
-          color: AppPalette.brand,
+          color: AppPalette.ink,
           size: AppIconSize.md,
         ),
         unselectedIconTheme: const IconThemeData(
@@ -438,7 +440,7 @@ class AppTheme {
           size: AppIconSize.md,
         ),
         selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
-          color: AppPalette.brand,
+          color: AppPalette.ink,
         ),
         unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
           color: AppPalette.textMuted,
@@ -460,14 +462,14 @@ class AppTheme {
           (final states) => IconThemeData(
             size: AppIconSize.md,
             color: states.contains(WidgetState.selected)
-                ? AppPalette.brand
+                ? AppPalette.ink
                 : AppPalette.textMuted,
           ),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (final states) => textTheme.labelSmall?.copyWith(
             color: states.contains(WidgetState.selected)
-                ? AppPalette.brand
+                ? AppPalette.ink
                 : AppPalette.textMuted,
           ),
         ),
@@ -492,8 +494,8 @@ class AppTheme {
       // ─── Fila de lista ───────────────────────────────────────────
       listTileTheme: ListTileThemeData(
         tileColor: AppPalette.surface,
-        selectedTileColor: AppPalette.brandSurface,
-        selectedColor: AppPalette.brand,
+        selectedTileColor: AppPalette.sunken,
+        selectedColor: AppPalette.ink,
         iconColor: AppPalette.textMuted,
         textColor: AppPalette.textPrimary,
         titleTextStyle: textTheme.titleMedium,

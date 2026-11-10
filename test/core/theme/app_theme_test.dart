@@ -76,7 +76,7 @@ void main() {
         input.focusedErrorBorder,
       ]) {
         final shape = border as OutlineInputBorder?;
-        expect((shape?.borderRadius)?.topLeft.x, AppRadius.r8);
+        expect((shape?.borderRadius)?.topLeft.x, AppRadius.r10);
       }
     });
 
@@ -84,7 +84,8 @@ void main() {
       final input = theme.inputDecorationTheme;
       final reposo = input.enabledBorder as OutlineInputBorder?;
       final foco = input.focusedBorder as OutlineInputBorder?;
-      expect(foco?.borderSide.color, AppPalette.brand);
+      // El foco es del oscuro: la greda queda solo para la acción.
+      expect(foco?.borderSide.color, AppPalette.ink);
       expect(foco?.borderSide.width, AppSizes.borderEmphasis);
       expect(reposo?.borderRadius, foco?.borderRadius);
     });
@@ -93,11 +94,11 @@ void main() {
   group('botón primario', () {
     final style = theme.elevatedButtonTheme.style!;
 
-    test('alto 48 y radio 12, no 56 y 100', () {
+    test('alto 48 y radio 10, no 56 y 100', () {
       final size = style.minimumSize?.resolve(const {});
       expect(size?.height, AppSizes.buttonHeight);
       expect(size?.height, 48);
-      expect(radiusOf(style.shape?.resolve(const {})), AppRadius.r12);
+      expect(radiusOf(style.shape?.resolve(const {})), AppRadius.r10);
     });
 
     test('cero elevación y cero sombra', () {
@@ -141,13 +142,13 @@ void main() {
   });
 
   group('botón secundario y de texto', () {
-    test('el secundario lleva borde de 1 dp y fondo blanco', () {
+    test('el secundario lleva contorno oscuro de 1,5 dp y fondo blanco', () {
       final style = theme.outlinedButtonTheme.style!;
       final side = style.side?.resolve(const {});
-      expect(side?.color, AppPalette.border);
-      expect(side?.width, AppSizes.borderHairline);
+      expect(side?.color, AppPalette.ink);
+      expect(side?.width, AppSizes.borderEmphasis);
       expect(resolve(style.backgroundColor, const {}), AppPalette.surface);
-      expect(radiusOf(style.shape?.resolve(const {})), AppRadius.r12);
+      expect(radiusOf(style.shape?.resolve(const {})), AppRadius.r10);
     });
 
     test('el de texto mide 40 pero con caja táctil de 48', () {
@@ -186,14 +187,14 @@ void main() {
       expect(theme.navigationRailTheme.elevation, 0);
     });
 
-    test('la hoja modal es el único radio de 16 del sistema', () {
+    test('la hoja modal lleva radio 20 solo arriba', () {
       final shape = theme.bottomSheetTheme.shape as RoundedRectangleBorder?;
       final radius = shape?.borderRadius as BorderRadius?;
-      expect(radius?.topLeft.x, AppRadius.r16);
+      expect(radius?.topLeft.x, AppRadius.r20);
       expect(radius?.bottomLeft.x, AppRadius.r0);
     });
 
-    test('ningún radio del tema pasa de 16 dp', () {
+    test('ningún radio del tema pasa de 20 dp (el del diálogo)', () {
       final radios = <double>[
         radiusOf(theme.elevatedButtonTheme.style?.shape?.resolve(const {})),
         radiusOf(theme.outlinedButtonTheme.style?.shape?.resolve(const {})),
@@ -204,7 +205,7 @@ void main() {
       ];
       for (final radio in radios) {
         expect(radio, greaterThanOrEqualTo(0));
-        expect(radio, lessThanOrEqualTo(AppRadius.r16));
+        expect(radio, lessThanOrEqualTo(AppRadius.r20));
       }
     });
 
@@ -233,8 +234,9 @@ void main() {
       expect(theme.colorScheme.onError, AppPalette.textOnBrand);
     });
 
-    test('no queda rastro del coral: el secundario es la marca', () {
-      expect(theme.colorScheme.secondary, AppPalette.brand);
+    test('el secundario es el oscuro, no la greda de la acción', () {
+      expect(theme.colorScheme.primary, AppPalette.brand);
+      expect(theme.colorScheme.secondary, AppPalette.ink);
     });
   });
 }
