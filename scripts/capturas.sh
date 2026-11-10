@@ -4,13 +4,14 @@
 #
 #   ./scripts/capturas.sh
 #
-# Deja los PNG en capturas/<fecha>/<escala>/<nn>_<pantalla>.png y una lámina
-# por escala en capturas/<fecha>/lamina_<escala>.png. Si no están corriendo,
+# Deja los PNG en $SALIDA/<escala>/<nn>_<pantalla>.png y una lámina por
+# escala en $SALIDA/lamina_<escala>.png. Si no están corriendo,
 # levanta los emuladores de Firebase (auth, firestore y functions) y el de Android, y los
 # apaga al terminar. Siempre deja font_scale en 1.0.
 #
 # Variables opcionales: FLUTTER (por defecto `flutter`), AVD (por defecto
-# Medium_Phone_API_36.1), ANDROID_SDK.
+# Medium_Phone_API_36.1), ANDROID_SDK y SALIDA (por defecto capturas/<fecha>;
+# sirve para no pisar las capturas de «antes» del mismo día).
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,7 +20,7 @@ FLUTTER=${FLUTTER:-flutter}
 AVD=${AVD:-Medium_Phone_API_36.1}
 ANDROID_SDK=${ANDROID_SDK:-${ANDROID_HOME:-${LOCALAPPDATA:-$HOME}/Android/Sdk}}
 ADB="$ANDROID_SDK/platform-tools/adb"
-FECHA=$(date +%F)
+SALIDA=${SALIDA:-capturas/$(date +%F)}
 pids=()
 
 limpiar() {
@@ -58,12 +59,12 @@ DISPOSITIVO=$("$ADB" devices | grep -o '^emulator-[0-9]*' | head -1)
 for escala in 1.0 1.5 2.0; do
   echo "=== font_scale $escala ==="
   "$ADB" -s "$DISPOSITIVO" shell settings put system font_scale "$escala"
-  rm -rf "capturas/$FECHA/$escala"
-  CAPTURAS_DIR="capturas/$FECHA/$escala" "$FLUTTER" drive \
+  rm -rf "$SALIDA/$escala"
+  CAPTURAS_DIR="$SALIDA/$escala" "$FLUTTER" drive \
     --driver=test_driver/integration_test.dart \
     --target=integration_test/capturas_test.dart \
     -d "$DISPOSITIVO" --dart-define=PAGATE_ENV=dev
-  python scripts/lamina.py "capturas/$FECHA/$escala" "capturas/$FECHA/lamina_$escala.png"
+  python scripts/lamina.py "$SALIDA/$escala" "$SALIDA/lamina_$escala.png"
 done
 
-echo "Listo: capturas/$FECHA"
+echo "Listo: $SALIDA"
