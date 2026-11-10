@@ -1,4 +1,4 @@
-"""Contraste WCAG de las dos variantes de paleta (docs/diseno/variantes-cabal.html).
+"""Contraste WCAG de la paleta elegida, A · Greda y carbón (docs/diseno/variantes-cabal.html).
 
     python docs/diseno/contraste.py
 
@@ -8,8 +8,12 @@ porque el color oscuro carga casi todo el texto de la app. Sale con 1 si
 algún par no llega.
 
 Regla que sale de aquí: el color de acción NUNCA va directo sobre la cabecera
-oscura (da 2,7:1 en A y 2,2:1 en B, bajo el 3:1 de componentes). Los botones
-de Inicio van dentro de la tarjeta blanca superpuesta.
+oscura (da 2,7:1, bajo el 3:1 de componentes). Los botones de Inicio van dentro
+de la tarjeta blanca superpuesta.
+
+Roles de los montos: el ingreso va en verde; el gasto va en el oscuro con
+signo «−» (no lleva color propio); el carmesí es solo para alertas (sin
+stock) y acciones destructivas (Borrar).
 """
 
 import colorsys
@@ -19,12 +23,7 @@ VARIANTES = {
     "A · Greda y carbón": dict(
         accion="B04A26", oscuro="2E2622", tinte="FBF6F2", texto2="6A5D55",
         apagado="756860", borde="8C7F77", sobreOscuro2="E8DCD3",
-        ingreso="1D6B45", gasto="A3213F",
-    ),
-    "B · Arcilla y monte": dict(
-        accion="A8502E", oscuro="1F3B33", tinte="F5F8F5", texto2="56645D",
-        apagado="65726B", borde="7D8A83", sobreOscuro2="D5E3DC",
-        ingreso="17704C", gasto="A3213F",
+        ingreso="1D6B45", alerta="A3213F",
     ),
 }
 BLANCO = "FFFFFF"
@@ -39,6 +38,12 @@ def luminancia(h):
 def contraste(a, b):
     la, lb = sorted((luminancia(a), luminancia(b)), reverse=True)
     return (la + 0.05) / (lb + 0.05)
+
+
+def mezcla(h, fraccion):
+    """El color `h` al `fraccion` sobre blanco, como color-mix() del HTML."""
+    c = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return "".join(f"{round(x * fraccion + 255 * (1 - fraccion)):02X}" for x in c)
 
 
 def tono(h):
@@ -62,8 +67,10 @@ def pares(v):
         ("borde de campo sobre blanco (UI)", v["borde"], BLANCO, 3),
         ("ingreso sobre blanco", v["ingreso"], BLANCO, 4.5),
         ("ingreso sobre tinte", v["ingreso"], v["tinte"], 4.5),
-        ("gasto sobre blanco", v["gasto"], BLANCO, 4.5),
-        ("gasto sobre tinte", v["gasto"], v["tinte"], 4.5),
+        ("alerta sobre blanco (Sin stock, Borrar como texto)", v["alerta"], BLANCO, 4.5),
+        ("alerta sobre tinte", v["alerta"], v["tinte"], 4.5),
+        ("alerta sobre su chip (alerta al 10 %)", v["alerta"], mezcla(v["alerta"], 0.10), 4.5),
+        ("blanco sobre alerta (botón destructivo)", BLANCO, v["alerta"], 4.5),
     ]
 
 
@@ -76,7 +83,7 @@ for nombre, v in VARIANTES.items():
         fallos += not ok
         print(f"  {'OK' if ok else 'NO'}  {r:5.2f}:1  (min {minimo})  {desc}")
     print(
-        f"  tonos: accion {tono(v['accion'])}, gasto {tono(v['gasto'])}, "
+        f"  tonos: accion {tono(v['accion'])}, alerta {tono(v['alerta'])}, "
         f"ingreso {tono(v['ingreso'])}, oscuro {tono(v['oscuro'])} (grados)"
     )
 sys.exit(1 if fallos else 0)
