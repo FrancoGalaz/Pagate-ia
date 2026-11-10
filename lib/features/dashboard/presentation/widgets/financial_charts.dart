@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -67,7 +69,7 @@ class MonthlyBarChart extends StatelessWidget {
       );
     }
 
-    final maxY = _maxY(months);
+    final (maxY, paso) = _escala(months);
 
     return _BloqueGrafico(
       title: 'Ingresos y gastos por mes',
@@ -81,6 +83,9 @@ class MonthlyBarChart extends StatelessWidget {
         child: BarChart(
           BarChartData(
             alignment: BarChartAlignment.spaceAround,
+            // El eje parte en $0 y lo dice: una barra que arranca más
+            // arriba exagera la diferencia entre meses.
+            minY: 0,
             maxY: maxY,
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
@@ -121,18 +126,17 @@ class MonthlyBarChart extends StatelessWidget {
                 sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: _anchoEjeVertical,
-                  interval: maxY / 4,
-                  getTitlesWidget: (final value, final meta) => value == 0
-                      ? const SizedBox.shrink()
-                      // Único sitio del sistema donde se abrevia una cifra:
-                      // en un eje no cabe entera.
-                      : _rotuloVertical(
-                          context,
-                          formatCompactCurrency(
-                            value,
-                            currency: kFallbackCurrency,
-                          ),
+                  interval: paso,
+                  // Único sitio del sistema donde se abrevia una cifra: en
+                  // un eje no cabe entera. El $0 también se rotula.
+                  getTitlesWidget: (final value, final meta) =>
+                      _rotuloVertical(
+                        context,
+                        formatCompactCurrency(
+                          value,
+                          currency: kFallbackCurrency,
                         ),
+                      ),
                 ),
               ),
               topTitles: const AxisTitles(),
@@ -140,7 +144,7 @@ class MonthlyBarChart extends StatelessWidget {
             ),
             gridData: FlGridData(
               drawVerticalLine: false,
-              horizontalInterval: maxY / 4,
+              horizontalInterval: paso,
               getDrawingHorizontalLine: (final value) => const FlLine(
                 color: AppPalette.hairline,
                 strokeWidth: AppSizes.borderHairline,
@@ -177,13 +181,23 @@ class MonthlyBarChart extends StatelessWidget {
     top: Radius.circular(AppRadius.r4),
   );
 
-  double _maxY(final List<FinancesSummaryEntity> months) {
+  /// Tope y paso del eje, en números redondos: $100 mil, $200 mil… y no
+  /// $89,3 mil. Como mucho cuatro tramos sobre el $0.
+  static (double, double) _escala(final List<FinancesSummaryEntity> months) {
     var max = 0.0;
     for (final m in months) {
-      final v = m.totalIncome > m.totalExpenses ? m.totalIncome : m.totalExpenses;
+      final v = math.max(m.totalIncome, m.totalExpenses);
       if (v > max) max = v;
     }
-    return max > 0 ? max * 1.15 : 1000;
+    if (max <= 0) return (1000, 250);
+    final crudo = max / 4;
+    final base = math
+        .pow(10, (math.log(crudo) / math.ln10).floor())
+        .toDouble();
+    final paso = [1, 2, 2.5, 5, 10]
+        .map((final f) => f * base)
+        .firstWhere((final v) => v >= crudo);
+    return ((max / paso).ceil() * paso, paso);
   }
 
   String _describir(final List<FinancesSummaryEntity> months) {
@@ -420,6 +434,23 @@ class _FilaCategoria extends StatelessWidget {
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
     final porcentaje = (fraccion * 100).round();
+    // Con letra de 1,5 o más el nombre va en su línea, entero, y el monto
+    // con el porcentaje debajo: al lado quedaba en «Arriendo …».
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final cifras = <Widget>[
+      Text(
+        formatCurrency(monto, currency: kFallbackCurrency),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: AppPalette.textPrimary,
+        ),
+      ),
+      Text(
+        '$porcentaje %',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: AppPalette.textMuted,
+        ),
+      ),
+    ];
 
     return Semantics(
       label: '$nombre, '
@@ -429,35 +460,43 @@ class _FilaCategoria extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    nombre,
-                    style: theme.textTheme.bodyMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.x2),
-                Flexible(
-                  child: Text(
-                    formatCurrency(monto, currency: kFallbackCurrency),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.textPrimary,
+            if (apilado) ...[
+              Text(nombre, style: theme.textTheme.bodyMedium),
+              Wrap(
+                spacing: AppSpacing.x3,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: cifras,
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      nombre,
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.right,
                   ),
-                ),
-                const SizedBox(width: AppSpacing.x3),
-                Text(
-                  '$porcentaje %',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted,
+                  const SizedBox(width: AppSpacing.x2),
+                  Flexible(
+                    child: Text(
+                      formatCurrency(monto, currency: kFallbackCurrency),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppPalette.textPrimary,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Text(
+                    '$porcentaje %',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: AppSpacing.x1),
             ClipRRect(
               borderRadius: AppRadius.r4Border,
@@ -499,19 +538,35 @@ class _BloqueGrafico extends StatelessWidget {
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
 
+    // Con letra de 1,5 o más la leyenda baja bajo el título: a su lado lo
+    // estrujaba hasta partir «Ingresos» en «Ingres / os».
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final titulo = Text(title, style: theme.textTheme.titleLarge);
+
     final contenido = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-            if (leyenda != null)
-              for (final item in leyenda!) ...[
-                const SizedBox(width: AppSpacing.x3),
-                item,
-              ],
+        if (apilado) ...[
+          titulo,
+          if (leyenda != null) ...[
+            const SizedBox(height: AppSpacing.x2),
+            Wrap(
+              spacing: AppSpacing.x3,
+              runSpacing: AppSpacing.x1,
+              children: leyenda!,
+            ),
           ],
-        ),
+        ] else
+          Row(
+            children: [
+              Expanded(child: titulo),
+              if (leyenda != null)
+                for (final item in leyenda!) ...[
+                  const SizedBox(width: AppSpacing.x3),
+                  item,
+                ],
+            ],
+          ),
         const SizedBox(height: AppSpacing.x4),
 
         // El dibujo es mudo para un lector de pantalla; lo que se anuncia

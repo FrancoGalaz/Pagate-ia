@@ -147,6 +147,14 @@ void main() {
         await c.esperar(find.textContaining('esmalte'));
       }
       await c.capturar(nombre);
+      if (nombre == 'finanzas') {
+        // El mismo selector, con «Año»: la suma del año y un mes por fila.
+        await c.tocar(find.text('Año'));
+        await c.asentar();
+        await c.capturar('finanzas_anio');
+        await c.tocar(find.text('Este mes'));
+        await c.asentar();
+      }
     }
 
     // ─── Lector de boletas, fase de revisión ───────────────────────────

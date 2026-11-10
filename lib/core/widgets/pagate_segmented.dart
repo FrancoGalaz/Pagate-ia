@@ -93,14 +93,20 @@ class _Opcion extends StatelessWidget {
           borderRadius: AppRadius.fullBorder,
           boxShadow: activa ? AppShadows.level1 : null,
         ),
-        child: Text(
-          etiqueta,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: AppText.weight(
-            estilo ?? AppText.labelMedium,
-            activa ? 800 : 600,
-          ).copyWith(color: activa ? AppPalette.ink : AppPalette.textMuted),
+        child: LayoutBuilder(
+          builder: (final context, final limites) {
+            final style = AppText.weight(
+              estilo ?? AppText.labelMedium,
+              activa ? 800 : 600,
+            ).copyWith(color: activa ? AppPalette.ink : AppPalette.textMuted);
+            return Text(
+              etiqueta,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: style,
+              textScaler: _escalaQueCabe(context, style, limites.maxWidth),
+            );
+          },
         ),
       ),
     ),
@@ -108,4 +114,30 @@ class _Opcion extends StatelessWidget {
 
   /// 40 dentro de la píldora + 4 + 4 de relleno = 48 de objetivo táctil.
   static const double _altoMinimo = 40;
+
+  /// La etiqueta parte en dos líneas por las palabras; si aun así la
+  /// palabra más larga no cabe («pasado» en un cuarto de pantalla con letra
+  /// 2,0), la letra se achica lo justo en vez de cortarla.
+  TextScaler _escalaQueCabe(
+    final BuildContext context,
+    final TextStyle style,
+    final double ancho,
+  ) {
+    final escala = MediaQuery.textScalerOf(context);
+    final pintor = TextPainter(
+      text: TextSpan(text: etiqueta, style: style),
+      textScaler: escala,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    // El ancho mínimo de un párrafo es el de su palabra más larga.
+    final palabra = pintor.minIntrinsicWidth;
+    pintor.dispose();
+    if (!ancho.isFinite || palabra <= ancho) return escala;
+    final tamano = style.fontSize ?? 14;
+    // Un 5 % de holgura: con la medida justa, el redondeo del motor volvía
+    // a partir la palabra («pasad / o»).
+    return TextScaler.linear(
+      escala.scale(tamano) / tamano * ancho / palabra * 0.95,
+    );
+  }
 }
