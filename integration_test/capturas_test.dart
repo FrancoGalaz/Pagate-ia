@@ -121,6 +121,14 @@ void main() {
     // ─── Las cinco pestañas ────────────────────────────────────────────
     await c.esperar(find.text('Inicio'));
     await c.capturar('inicio');
+
+    // ─── Registrar movimiento (la hoja que abre «+ Ingreso») ──────────
+    await c.tocar(find.text('+ Ingreso'));
+    await c.esperar(find.text('Título'));
+    await c.capturar('registrar_movimiento');
+    Navigator.of(tester.element(find.text('Título'))).pop();
+    await c.asentar();
+
     for (final (pestana, nombre) in [
       ('Finanzas', 'finanzas'),
       ('Inventario', 'inventario'),
