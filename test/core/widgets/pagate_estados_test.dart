@@ -10,7 +10,7 @@ import 'harness.dart';
 
 void main() {
   group('PagateEmptyState', () {
-    testWidgets('alineado a la izquierda y sin ilustración', (
+    testWidgets('centrado, con la vasija y sin iconos', (
       final tester,
     ) async {
       await pumpComponent(
@@ -23,18 +23,12 @@ void main() {
         ),
       );
 
-      expect(
-        tester.getTopLeft(find.text('Sin movimientos en octubre')).dx,
-        AppSpacing.x4,
-      );
-      expect(
-        find.byType(Icon),
-        findsNothing,
-        reason: 'un icono de 48 dp ocupa tres líneas de texto y no dice nada',
-      );
+      // Variante A: la ilustración de greda arriba y el texto centrado.
+      expect(find.byType(PagateVasija), findsOneWidget);
+      expect(find.byType(Icon), findsNothing);
       expect(
         tester.widget<Text>(find.text('Sin movimientos en octubre')).textAlign,
-        isNot(TextAlign.center),
+        TextAlign.center,
       );
     });
 

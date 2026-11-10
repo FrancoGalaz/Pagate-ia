@@ -32,7 +32,7 @@ void main() {
         reason: 'el fondo lo pone el tema, no la pantalla');
     expect(
       Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
-      const Color(0xFFF6F7F8),
+      const Color(0xFFFBF6F2),
     );
   });
 }

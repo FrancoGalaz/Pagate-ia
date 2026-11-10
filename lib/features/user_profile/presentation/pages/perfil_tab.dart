@@ -3,13 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../dashboard/presentation/pages/ayuda_screen.dart';
 import '../../../dashboard/presentation/pages/configuracion_screen.dart';
 import '../../domain/entities/user_profile_entity.dart';
 import '../providers/user_profile_provider.dart';
+import '../../../auth/presentation/widgets/cerrar_sesion.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // PESTAÑA DE PERFIL
@@ -170,7 +170,7 @@ class PerfilTab extends StatelessWidget {
           child: PagatePrimaryButton.secondary(
             label: 'Cerrar sesión',
             leadingIcon: Icons.logout_rounded,
-            onPressed: () => context.read<FirebaseAuthService>().signOut(),
+            onPressed: () => cerrarSesionConAviso(context),
           ),
         ),
 
@@ -196,22 +196,22 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => ExcludeSemantics(
-        child: Container(
-          width: AppSizes.avatarLarge,
-          height: AppSizes.avatarLarge,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppPalette.brand,
-            borderRadius: AppRadius.r12Border,
-          ),
-          child: Text(
-            iniciales,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: AppPalette.textOnBrand,
-                ),
-          ),
-        ),
-      );
+    child: Container(
+      width: AppSizes.avatarLarge,
+      height: AppSizes.avatarLarge,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppPalette.brand,
+        borderRadius: AppRadius.r12Border,
+      ),
+      child: Text(
+        iniciales,
+        style: Theme.of(
+          context,
+        ).textTheme.headlineLarge?.copyWith(color: AppPalette.textOnBrand),
+      ),
+    ),
+  );
 }
 
 /// Insignia del plan. Radio 4, superficie de marca, sin degradado.
@@ -220,25 +220,25 @@ class _InsigniaPro extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x2,
-          vertical: AppSpacing.x1,
-        ),
-        decoration: BoxDecoration(
-          color: AppPalette.brandSurface,
-          borderRadius: AppRadius.r4Border,
-          border: Border.all(
-            color: AppPalette.brand,
-            width: AppSizes.borderHairline,
-          ),
-        ),
-        child: Text(
-          'Plan Pro',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppPalette.brand,
-              ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.x2,
+      vertical: AppSpacing.x1,
+    ),
+    decoration: BoxDecoration(
+      color: AppPalette.brandSurface,
+      borderRadius: AppRadius.r4Border,
+      border: Border.all(
+        color: AppPalette.brand,
+        width: AppSizes.borderHairline,
+      ),
+    ),
+    child: Text(
+      'Plan Pro',
+      style: Theme.of(
+        context,
+      ).textTheme.labelSmall?.copyWith(color: AppPalette.brand),
+    ),
+  );
 }
 
 /// Fila de navegación del menú. El píxel lo define `listTileTheme`.
@@ -255,12 +255,9 @@ class _FilaDeMenu extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => ListTile(
-        leading: Icon(icon, size: AppIconSize.sm),
-        title: Text(label),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          size: AppIconSize.sm,
-        ),
-        onTap: onTap,
-      );
+    leading: Icon(icon, size: AppIconSize.sm),
+    title: Text(label),
+    trailing: const Icon(Icons.chevron_right_rounded, size: AppIconSize.sm),
+    onTap: onTap,
+  );
 }

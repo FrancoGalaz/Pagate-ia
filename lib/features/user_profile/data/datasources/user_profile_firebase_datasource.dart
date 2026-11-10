@@ -17,8 +17,8 @@ class UserProfileFirebaseDatasource {
   UserProfileFirebaseDatasource({
     required final FirebaseFirestore firestore,
     required final String userId,
-  })  : _firestore = firestore,
-        _userId = userId;
+  }) : _firestore = firestore,
+       _userId = userId;
 
   DocumentReference<Map<String, dynamic>> get _doc =>
       _firestore.collection('users').doc(_userId);
@@ -26,22 +26,13 @@ class UserProfileFirebaseDatasource {
   /// Emite `null` mientras no exista perfil. Los errores (permisos, red) se
   /// propagan por el stream; nunca se convierten en `null`.
   Stream<UserProfileModel?> watchProfile() => _doc.snapshots().map((snapshot) {
-        _hasCreatedAt = snapshot.data()?['createdAt'] != null;
-        return UserProfileModel.fromSnapshot(snapshot);
-      });
-
-  Future<UserProfileModel?> getProfile() async {
-    final snapshot = await _doc.get();
     _hasCreatedAt = snapshot.data()?['createdAt'] != null;
     return UserProfileModel.fromSnapshot(snapshot);
-  }
+  });
 
-  Future<void> saveProfile(final UserProfileModel profile) => _doc.set(
-        {
-          ...profile.toFirestore(),
-          if (!_hasCreatedAt) 'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+  Future<void> saveProfile(final UserProfileModel profile) => _doc.set({
+    ...profile.toFirestore(),
+    if (!_hasCreatedAt) 'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
 }

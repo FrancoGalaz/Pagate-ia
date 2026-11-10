@@ -89,6 +89,19 @@ class PagatePrimaryButton extends StatelessWidget {
         isDestructive = false;
 
   /// Acción alternativa: fondo `surface`, contorno `border`, texto tinta.
+  /// Acción principal que destruye algo (Borrar, Eliminar mi cuenta).
+  /// Relleno carmesí: nunca la greda de la acción corriente.
+  const PagatePrimaryButton.destructive({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.trailingIcon,
+    this.leadingIcon,
+    this.isLoading = false,
+    this.fullWidth = true,
+  })  : variant = PagateButtonVariant.primary,
+        isDestructive = true;
+
   const PagatePrimaryButton.secondary({
     super.key,
     required this.label,
@@ -125,7 +138,9 @@ class PagatePrimaryButton extends StatelessWidget {
     final button = switch (variant) {
       PagateButtonVariant.primary => ElevatedButton(
           onPressed: isEnabled ? onPressed : null,
-          style: fullWidth ? null : _shrinkToContent,
+          style: isDestructive
+              ? _destructiveFilled.merge(fullWidth ? null : _shrinkToContent)
+              : (fullWidth ? null : _shrinkToContent),
           child: child,
         ),
       PagateButtonVariant.secondary => OutlinedButton(
@@ -215,6 +230,18 @@ class PagatePrimaryButton extends StatelessWidget {
 
   /// Variante destructiva del botón de texto: `danger` sobre
   /// `dangerSurface` al pulsar, los dos verificados a 6,49:1.
+  /// Relleno carmesí (blanco encima 7,38:1); deshabilitado igual que el
+  /// primario del tema.
+  static final ButtonStyle _destructiveFilled = ButtonStyle(
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (final states) => states.contains(WidgetState.disabled)
+          ? AppPalette.sunken
+          : states.contains(WidgetState.pressed)
+              ? AppPalette.textPrimary
+              : AppPalette.danger,
+    ),
+  );
+
   static final ButtonStyle _destructiveText = ButtonStyle(
     foregroundColor: WidgetStateProperty.resolveWith(
       (final states) => states.contains(WidgetState.disabled)

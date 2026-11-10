@@ -1,6 +1,6 @@
 # Págate-IA
 
-[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/) · [App web](https://pagate-17211.web.app) · [Privacidad](https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/) · [Términos](https://francogalaz.github.io/Pagate-ia/landing-page/terminos/) · [Eliminar cuenta](https://francogalaz.github.io/Pagate-ia/landing-page/eliminar-cuenta/)
+[Landing page](https://francogalaz.github.io/Pagate-ia/landing-page/) · [Privacidad](https://francogalaz.github.io/Pagate-ia/landing-page/privacidad/) · [Términos](https://francogalaz.github.io/Pagate-ia/landing-page/terminos/) · [Eliminar cuenta](https://francogalaz.github.io/Pagate-ia/landing-page/eliminar-cuenta/)
 
 Asistente financiero con IA para artesanos y creadores independientes. App Flutter + Firebase.
 
@@ -16,7 +16,7 @@ Págate-IA ayuda a quien vive de lo que hace con sus manos (cerámica, textil, j
 
 Auditoría técnica y plan de trabajo por fases: [`docs/AUDITORIA-2026-09.md`](docs/AUDITORIA-2026-09.md) y [`docs/PLAN.md`](docs/PLAN.md).
 
-MVP funcional. Flujo completo: registro → configuración del valor hora → dashboard con finanzas, inventario y chat con IA. Todavía no es un producto terminado.
+MVP funcional. Flujo completo: registro → configuración del taller → dashboard con finanzas, inventario y chat con IA. El valor hora es opcional y se configura desde Inicio. Todavía no es un producto terminado.
 
 ### Arquitectura
 
@@ -25,7 +25,7 @@ El contrato completo (modelo de datos, API del backend, convenciones del cliente
 - **Cliente:** Flutter (Dart, canal beta), estado con `provider`, estructura `features/<feature>/{data,domain,presentation}`. Lee Firestore con streams (`snapshots()`); los providers exponen `error` y `retry()`.
 - **Datos:** todo cuelga de `users/{uid}` (perfil, `inventory`, `transactions`, `fixedExpenses`, `months`, `conversations/{id}/messages`, `meta/usage`). Una sola regla de propiedad cubre el árbol. `months/*`, `conversations/*` y `meta/usage` los escribe **solo el backend**. `waitlist/*` no es accesible desde el cliente.
 - **Backend:** Cloud Functions 2ª gen (TypeScript, Node 22, región `southamerica-west1`):
-  - `chat` (callable): valida auth y cuota diaria (`free` 30 / `pro` 300), arma el prompt en el servidor con el contexto del usuario, llama a OpenRouter con el secreto `OPENROUTER_API_KEY` y persiste la conversación.
+  - `chat` (callable): valida auth y cuota (`free` 25 mensajes de por vida / `pro` 300 al día), arma el prompt en el servidor con el contexto del usuario, llama a OpenRouter con el secreto `OPENROUTER_API_KEY` y persiste la conversación.
   - `onTransactionWritten` (trigger Firestore): recalcula `users/{uid}/months/{yyyy-MM}` con consultas agregadas. Idempotente.
   - `waitlist` (HTTP): recibe `{name, email, source}` desde la landing y escribe en `waitlist/{id}`. CORS limitado a los dominios de la landing y límite por IP.
 - **Seguridad:** ningún secreto viaja en el cliente. App Check (Play Integrity en Android, reCAPTCHA v3 en web) se activa con `--dart-define=APP_CHECK_SITE_KEY=...` y se exige en el backend con el parámetro `ENFORCE_APP_CHECK=true`.
@@ -48,7 +48,15 @@ flutter run --dart-define=PAGATE_ENV=dev
 
 Sin `PAGATE_ENV=dev` la app usa el proyecto real (`prod`). En el emulador de Android los emuladores se resuelven en `10.0.2.2`.
 
+El asistente y la lectura ordenada de boletas exigen correo verificado. En local, el emulador de Auth no envía correos: el enlace de verificación aparece en la terminal de los emuladores (y en la UI, `http://localhost:4000/auth`). Ábrelo y toca «Ya lo verifiqué» en Inicio.
+
 Para el chat en local hay que definir el secreto también en el emulador: crea `functions/.secret.local` con `OPENROUTER_API_KEY=sk-or-...` (está ignorado por git).
+
+Copia también `functions/.env.local.example` a `functions/.env.local` (ignorado por git). El emulador carga ese archivo por encima de `functions/.env` y deja `ENFORCE_APP_CHECK=false`, así que en local los callables siguen funcionando cuando producción exija App Check:
+
+```bash
+cp functions/.env.local.example functions/.env.local
+```
 
 ### Verificar
 
@@ -60,6 +68,23 @@ npm --prefix landing run lint && npm --prefix landing test && npm --prefix landi
 ```
 
 CI (`.github/workflows/ci.yml`) ejecuta exactamente esos tres bloques en paralelo en cada push y pull request.
+
+### Test de integración (cierre de sesión)
+
+`integration_test/cierre_sesion_test.dart` comprueba, contra los emuladores de
+Firebase, que al cerrar sesión la caché offline del usuario A se borra y que B,
+en el mismo teléfono, sigue teniendo persistencia. No corre con `flutter test`
+ni en CI: necesita un emulador de Android encendido.
+
+```bash
+npm --prefix functions exec -- firebase emulators:start --only auth,firestore
+```
+
+```bash
+flutter test integration_test/cierre_sesion_test.dart -d emulator-5554 --dart-define=PAGATE_ENV=dev
+```
+
+`flutter devices` muestra el id del emulador si no es `emulator-5554`.
 
 ### Desplegar
 
@@ -157,7 +182,7 @@ Págate-IA helps people who make a living with their hands (ceramics, textiles, 
 
 ### Current status
 
-Working MVP. Full flow: sign up → hourly-rate setup → dashboard with finances, inventory and AI chat. Not a finished product yet.
+Working MVP. Full flow: sign up → workshop setup → dashboard with finances, inventory and AI chat. The hourly rate is optional and is set up from Home. Not a finished product yet.
 
 ### Architecture
 

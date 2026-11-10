@@ -926,6 +926,9 @@ describe('colecciones solo backend', () => {
         ...stamps(),
       }),
     );
+    // Borrar el historial solo se puede con el callable `deleteChatHistory`.
+    await assertFails(deleteDoc(doc(aliceDb(), 'users', ALICE, 'conversations', 'c1')));
+    await assertFails(deleteDoc(doc(aliceDb(), 'users', ALICE, 'conversations', 'c1', 'messages', 'm1')));
   });
 
   it('el dueño lee meta/usage pero no la modifica', async () => {

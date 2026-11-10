@@ -132,16 +132,17 @@ class PagateChip extends StatelessWidget {
     if (isPeriod) {
       foreground =
           isSelected ? AppPalette.textOnBrand : AppPalette.textSecondary;
-      background = isSelected ? AppPalette.brand : Colors.transparent;
+      background = isSelected ? AppPalette.ink : Colors.transparent;
       borderColor = Colors.transparent;
     } else if (!isEnabled) {
       foreground = AppPalette.textDisabled;
       background = AppPalette.sunken;
       borderColor = AppPalette.border;
     } else if (isSelected) {
-      foreground = AppPalette.brand;
-      background = AppPalette.brandSurface;
-      borderColor = AppPalette.brand;
+      // Seleccionado en el oscuro: la greda queda para la acción principal.
+      foreground = AppPalette.ink;
+      background = AppPalette.sunken;
+      borderColor = AppPalette.ink;
     } else {
       foreground = AppPalette.textSecondary;
       background = AppPalette.surface;

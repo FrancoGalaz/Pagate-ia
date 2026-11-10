@@ -82,6 +82,14 @@ class PagateMovementRow extends StatelessWidget {
   @override
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
+    // Con letra de 1,5 o más el monto baja bajo el título, como en
+    // [PagateDataRow]: lado a lado no caben en la tarjeta sin desbordar.
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final monto = Text(
+      amount,
+      textAlign: apilado ? TextAlign.left : TextAlign.right,
+      style: AppText.amountRow.copyWith(color: amountColor),
+    );
 
     final contenido = Padding(
       padding: const EdgeInsets.symmetric(
@@ -94,16 +102,10 @@ class PagateMovementRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // `Expanded` en los DOS, y con factores: 3 para el título y 2
-            // para el valor. Con `Flexible` el valor se quedaba del tamaño de
-            // su texto dentro de una caja de la mitad de la fila, así que la
-            // columna de montos aparecía a media pantalla en vez de pegada al
-            // margen derecho. Con `Expanded` la caja llega hasta el final de
-            // la fila y `textAlign: right` deja la cifra donde tiene que
-            // estar; y como las dos son tight, la fila no puede desbordar por
-            // mucho que crezca la fuente del sistema.
+            // El título se queda con lo que sobra y el monto con el ancho
+            // de su texto: en `Expanded(flex: 2)` el monto se partía en dos
+            // líneas con letra 2,0.
             Expanded(
-              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -124,18 +126,14 @@ class PagateMovementRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (apilado) ...[
+                    const SizedBox(height: AppSpacing.x1),
+                    monto,
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              flex: 2,
-              child: Text(
-                amount,
-                textAlign: TextAlign.right,
-                style: AppText.amountRow.copyWith(color: amountColor),
-              ),
-            ),
+            if (!apilado) ...[const SizedBox(width: AppSpacing.x3), monto],
           ],
         ),
       ),

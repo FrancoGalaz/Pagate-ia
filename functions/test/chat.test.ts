@@ -45,6 +45,7 @@ import {
 import { addDoc, collection as clientCollection, serverTimestamp } from 'firebase/firestore';
 import { FieldValue, Timestamp, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import {
+  CORREO_SIN_VERIFICAR,
   MAX_MESSAGE_CHARS,
   currentMonthKey,
   handleChat,
@@ -124,7 +125,7 @@ function deps(modelo: Modelo, extra: Partial<ChatDeps> = {}): ChatDeps {
  * el test de App Check daba por bueno un rechazo que nunca llegó a pedirse).
  */
 function llamada(data: unknown, uid: string | null = UID, app: unknown = {}): ChatCall {
-  return { auth: uid === null ? null : { uid }, app, data };
+  return { auth: uid === null ? null : { uid, token: { email_verified: true } }, app, data };
 }
 
 /** Comprueba que la promesa falla con un `HttpsError` del código indicado. */
@@ -439,6 +440,23 @@ describe('handleChat (callable chat)', () => {
       // Con token sí pasa: el interruptor no bloquea a la app de verdad.
       await handleChat(llamada({ message: 'Hola' }, UID, {}), deps(modelo, { enforceAppCheck: true }));
       expect(modelo.llamadas).toHaveLength(1);
+    });
+
+    it('con el correo sin verificar se rechaza ANTES de la cuota: no gasta mensajes', async () => {
+      await seedPerfil();
+      const modelo = modeloQueResponde();
+      for (const token of [{ email_verified: false }, {}, undefined]) {
+        const err = await falla(
+          'failed-precondition',
+          handleChat({ auth: { uid: UID, token }, app: {}, data: { message: 'Hola' } }, deps(modelo)),
+        );
+        expect(err.message).toBe(CORREO_SIN_VERIFICAR);
+      }
+
+      expect(modelo.llamadas).toHaveLength(0);
+      expect(await usage()).toBeUndefined();
+      expect(await conversaciones()).toBe(0);
+      expect(await callesGlobales()).toBe(0);
     });
 
     it('con App Check apagado (el valor de hoy), una llamada sin token pasa', async () => {

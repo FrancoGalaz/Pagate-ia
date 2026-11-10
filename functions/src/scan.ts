@@ -139,7 +139,7 @@ export interface ScanReceiptResponse {
  * conversiones y un test puede construir una llamada con un objeto plano.
  */
 export interface ScanCall {
-  auth?: { uid: string } | null;
+  auth?: { uid: string; token?: { email_verified?: boolean } } | null;
   app?: unknown;
   data: unknown;
 }
@@ -421,6 +421,11 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
   }
   if (deps.enforceAppCheck && !request.app) {
     throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+  }
+  // Correo verificado, antes de la cuota. El cliente trata el rechazo como
+  // cualquier fallo: se queda con la lista local.
+  if (request.auth.token?.email_verified !== true) {
+    throw new HttpsError('failed-precondition', 'Verifica tu correo para leer boletas con el asistente.');
   }
   const uid = request.auth.uid;
 

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/chat_history_service.dart';
 
 /// Quién escribió un mensaje del chat.
 enum ChatRole { user, assistant }
@@ -76,7 +77,8 @@ enum AiReportReason {
 class AiProvider extends ChangeNotifier {
   static const String _welcomeText =
       'Hola, soy tu asistente financiero de $kAppName.\n\n'
-      'Conozco tus finanzas, tu inventario y tu valor hora. '
+      'Veo tu valor hora, el resumen de tu último mes, tus movimientos '
+      'más recientes y cuántos productos y materiales tienes. '
       'Pregúntame sobre precios, gastos, metas o pide un consejo '
       'para hacer crecer tu negocio.';
 
@@ -107,6 +109,7 @@ class AiProvider extends ChangeNotifier {
   static const int maxReportedTextChars = 2000;
 
   final AiService _service;
+  final ChatHistoryService _historyService;
   final String _userId;
   final FirebaseFirestore _firestore;
 
@@ -117,6 +120,7 @@ class AiProvider extends ChangeNotifier {
   String? _error;
   String? _lastFailedText;
   bool _historyFailed = false;
+  bool _faltaVerificarCorreo = false;
 
   /// Ids de mensajes ya reportados en esta sesión. Solo sirve para que el
   /// botón no invite a reportar dos veces lo mismo; no se persiste.
@@ -130,7 +134,9 @@ class AiProvider extends ChangeNotifier {
     required AiService service,
     required String userId,
     FirebaseFirestore? firestore,
+    ChatHistoryService? historyService,
   }) : _service = service,
+       _historyService = historyService ?? ChatHistoryService(),
        _userId = userId,
        _firestore = firestore ?? FirebaseFirestore.instance {
     _loadLatestConversation();
@@ -147,6 +153,10 @@ class AiProvider extends ChangeNotifier {
   bool get isSending => _isSending;
   bool get isLoadingHistory => _isLoadingHistory;
   String? get error => _error;
+
+  /// `true` si el último envío lo rechazó `chat` por correo sin verificar
+  /// (`failed-precondition`): el chat ofrece "Reenviar correo".
+  bool get faltaVerificarCorreo => _faltaVerificarCorreo;
 
   /// `true` cuando hay algo que reintentar con [retry].
   bool get canRetry => _lastFailedText != null || _historyFailed;
@@ -251,6 +261,7 @@ class AiProvider extends ChangeNotifier {
 
     _error = null;
     _lastFailedText = null;
+    _faltaVerificarCorreo = false;
 
     final optimistic = ChatMessage(
       id: 'local-${DateTime.now().microsecondsSinceEpoch}',
@@ -299,6 +310,7 @@ class AiProvider extends ChangeNotifier {
       _messages = _messages.where((m) => m.id != optimistic.id).toList();
       _error = e.message;
       _lastFailedText = trimmed;
+      _faltaVerificarCorreo = e.code == 'failed-precondition';
     } catch (_) {
       if (_disposed || generation != _generation) return;
       _messages = _messages.where((m) => m.id != optimistic.id).toList();
@@ -375,7 +387,21 @@ class AiProvider extends ChangeNotifier {
   void clearError() {
     if (_error == null) return;
     _error = null;
+    _faltaVerificarCorreo = false;
     _notify();
+  }
+
+  /// Borra todas las conversaciones (callable `deleteChatHistory`) y deja el
+  /// chat en el saludo inicial, sin `conversationId`.
+  ///
+  /// Devuelve `false` sin llamar al backend si hay una respuesta pendiente:
+  /// esa respuesta volvería a crear la conversación recién borrada.
+  /// Lanza [ChatHistoryDeletionException] si el borrado falla.
+  Future<bool> borrarHistorial() async {
+    if (_isSending) return false;
+    await _historyService.deleteChatHistory();
+    newConversation();
+    return true;
   }
 
   /// Empieza una conversación nueva. El backend la crea con el primer mensaje.
@@ -390,6 +416,7 @@ class AiProvider extends ChangeNotifier {
     _historyFailed = false;
     _error = null;
     _lastFailedText = null;
+    _faltaVerificarCorreo = false;
     _notify();
   }
 

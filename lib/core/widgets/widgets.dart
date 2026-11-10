@@ -36,6 +36,11 @@ export 'pagate_action_bar.dart';
 export 'pagate_bottom_nav.dart';
 export 'pagate_month_selector.dart';
 export 'pagate_sheet.dart';
+export 'pagate_segmented.dart';
+export 'pagate_metric_card.dart';
+export 'pagate_confirm_dialog.dart';
+export 'pagate_vasija.dart';
+export 'pagate_icon_square.dart';
 
 // ─── BAJAS DEL PASO R-5 ──────────────────────────────────────────
 // Tres archivos borrados, con su motivo:

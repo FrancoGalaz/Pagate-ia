@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Págate-IA · Variante A ajustada (sistema tomado de Cabal)</title>
+<style>
+/* Manrope es la fuente que ya trae la app (pubspec.yaml). */
+@font-face {
+  font-family: Manrope;
+  src: url("../../assets/fonts/Manrope%5Bwght%5D.ttf") format("truetype");
+  font-weight: 200 800;
+}
+
+/* ─── Variante A · Greda y carbón (la elegida) ───────────────────────── */
+.var-a {
+  --accion: #B04A26;  /* greda / terracota: SOLO la acción principal */
+  --oscuro: #2E2622;  /* carbón cálido: títulos, íconos, pestaña activa, secundarios y gastos */
+  --tinte: #FBF6F2;   /* fondo: greda muy pálida */
+  --texto2: #6A5D55;
+  --apagado: #756860;
+  --borde: #8C7F77;
+  --sobreOscuro2: #E8DCD3;
+  --ingreso: #1D6B45; /* verde: solo ingresos */
+  --alerta: #A3213F;  /* carmesí: solo alertas (Sin stock) y acciones destructivas */
+  --fondo: #FFFFFF;
+  --linea: color-mix(in srgb, var(--oscuro) 10%, white);
+  --suave: color-mix(in srgb, var(--oscuro) 6%, white);
+  --accionSuave: color-mix(in srgb, var(--accion) 10%, white);
+
+  /* Tokens comunes */
+  --r-campo: 10px; --r-tarjeta: 16px; --r-dialogo: 20px; --r-cabecera: 24px; --r-pildora: 999px;
+  --sombra-1: 0 1px 2px rgba(20, 14, 10, .06), 0 2px 8px rgba(20, 14, 10, .06);
+  --sombra-2: 0 4px 12px rgba(20, 14, 10, .08), 0 12px 32px rgba(20, 14, 10, .08);
+}
+
+/* ─── Página ─────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: Manrope, system-ui, sans-serif; color: #1d1d1f;
+  background: #ECEAE7; font-size: 15px; line-height: 1.45;
+}
+.pagina { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.4px; }
+h2 { font-size: 22px; margin: 48px 0 6px; letter-spacing: -.2px; }
+h3 { font-size: 16px; margin: 20px 0 8px; }
+.nota { color: #57534e; max-width: 820px; }
+.nota code, td code { background: #fff; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.cambios { background: #fff; border-radius: 16px; padding: 14px 20px 14px 36px; max-width: 820px; color: #44403c; }
+.cambios li { margin: 3px 0; }
+.fila { display: grid; grid-template-columns: repeat(var(--n, 2), 360px); gap: 28px; justify-content: center; margin-top: 16px; }
+.col h4 { margin: 0 0 8px; font-size: 14px; text-align: center; color: #44403c; }
+.marco { width: 360px; height: 800px; border-radius: 28px; overflow: hidden; background: #fff;
+  box-shadow: 0 0 0 8px #1c1917, 0 18px 40px rgba(0,0,0,.25); position: relative; }
+.marco img { width: 360px; display: block; }
+.marco .scroll { position: absolute; inset: 0; overflow-y: auto; }
+.sin-captura { display: grid; place-items: center; height: 100%; color: #78716c; padding: 32px; text-align: center; background: #f5f5f4; }
+
+/* Paleta y tablas */
+.paleta { background: #fff; border-radius: 16px; padding: 20px; margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.muestras { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+.muestra { width: 92px; font-size: 11px; color: #44403c; }
+.muestra i { display: block; height: 52px; border-radius: 10px; margin-bottom: 4px; border: 1px solid rgba(0,0,0,.08); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+td, th { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ok { color: #166534; font-weight: 700; } .no { color: #b91c1c; font-weight: 700; }
+.tokens { background: #fff; border-radius: 16px; padding: 20px; margin-top: 16px; }
+.tokens table td:first-child { width: 190px; color: #57534e; }
+
+/* ─── Componentes de la app ──────────────────────────────────────────── */
+.app { font-family: Manrope, system-ui, sans-serif; color: var(--oscuro); background: var(--fondo);
+  min-height: 100%; display: flex; flex-direction: column; font-size: 14px; }
+.app.tintado { background: var(--tinte); }
+.barra { display: flex; align-items: center; gap: 10px; padding: 18px 16px 10px; }
+.barra h1 { font-size: 20px; margin: 0; flex: 1; font-weight: 800; letter-spacing: -.2px; color: var(--oscuro); }
+.barra .sub { font-size: 12px; color: var(--texto2); font-weight: 500; }
+.ico { width: 22px; height: 22px; stroke: var(--oscuro); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ico.peq { width: 18px; height: 18px; }
+.cuerpo { flex: 1; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Selector segmentado */
+.segmentado { display: flex; background: var(--suave); border-radius: var(--r-pildora); padding: 4px; gap: 4px; }
+.segmentado span { flex: 1; text-align: center; padding: 8px 4px; border-radius: var(--r-pildora);
+  font-size: 13px; font-weight: 600; color: var(--apagado); white-space: nowrap; }
+.segmentado span.on { background: var(--fondo); color: var(--oscuro); font-weight: 800; box-shadow: var(--sombra-1); }
+
+/* Tarjeta de métrica: ingreso verde; gasto en el oscuro con «−» */
+.metricas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metrica { background: var(--fondo); border-radius: var(--r-tarjeta); box-shadow: var(--sombra-1); padding: 14px; }
+.metrica b { display: block; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+.metrica small { display: flex; align-items: center; gap: 6px; color: var(--texto2); font-size: 12px; font-weight: 600; margin-top: 2px; }
+.metrica.in b { color: var(--ingreso); }
+.flecha { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--suave); }
+.metrica.in .flecha { background: color-mix(in srgb, var(--ingreso) 14%, white); }
+.metrica.in .flecha .ico { stroke: var(--ingreso); }
+
+/* Fila de formulario */
+.lista { background: var(--fondo); border-radius: var(--r-tarjeta); box-shadow: var(--sombra-1); overflow: hidden; }
+.fform { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-top: 1px solid var(--linea); min-height: 52px; }
+.fform:first-child { border-top: 0; }
+.fform .et { flex: 1; font-weight: 600; min-width: 0; }
+.fform .et small { display: block; color: var(--texto2); font-weight: 500; font-size: 12px; }
+.fform .val { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fform .val.apagado { color: var(--apagado); font-weight: 600; }
+.fform .ico.cheb { width: 16px; height: 16px; stroke: var(--apagado); }
+.icono-fondo { width: 34px; height: 34px; border-radius: 10px; background: var(--suave); display: grid; place-items: center; flex: none; }
+
+/* Botones */
+.btn { border: 0; border-radius: var(--r-campo); padding: 13px 16px; font: inherit; font-weight: 700;
+  font-size: 15px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.accion { background: var(--accion); color: #fff; }
+.btn.destructivo { background: var(--alerta); color: #fff; }
+.btn.secundario { background: var(--fondo); color: var(--oscuro); box-shadow: inset 0 0 0 1.5px var(--oscuro); }
+.btn.ancho { width: 100%; }
+.par { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.pie { padding: 12px 16px 16px; background: var(--fondo); border-top: 1px solid var(--linea); }
+
+/* Movimientos: ingreso verde con «+»; gasto oscuro con «−» */
+.mov { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--linea); }
+.mov:first-child { border-top: 0; }
+.mov .et { flex: 1; min-width: 0; font-weight: 600; }
+.mov .et small { display: block; color: var(--texto2); font-weight: 500; font-size: 12px; }
+.mov .m { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--oscuro); }
+.mov .m.in { color: var(--ingreso); }
+
+/* Barra de navegación */
+.nav { display: flex; border-top: 1px solid var(--linea); background: var(--fondo); padding: 8px 4px 12px; }
+.nav span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--apagado); }
+.nav span .ico { stroke: var(--apagado); }
+.nav span.on { color: var(--oscuro); font-weight: 800; }
+.nav span.on .ico { stroke: var(--oscuro); stroke-width: 2.2; }
+.nav span.on i { display: block; width: 18px; height: 3px; border-radius: 3px; background: var(--oscuro); margin-top: 1px; }
+
+/* Inicio: cabecera de color y tarjeta superpuesta */
+.cabecera { background: var(--oscuro); color: #fff; padding: 22px 16px 64px; border-radius: 0 0 var(--r-cabecera) var(--r-cabecera); }
+.cabecera .saludo { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--sobreOscuro2); color: var(--oscuro);
+  display: grid; place-items: center; font-weight: 800; font-size: 15px; flex: none; }
+.cabecera small { color: var(--sobreOscuro2); font-size: 13px; font-weight: 500; display: block; }
+.cabecera b { font-size: 19px; font-weight: 800; letter-spacing: -.2px; }
+.cabecera .ico { stroke: #fff; margin-left: auto; }
+.superpuesta { margin: -48px 16px 0; background: var(--fondo); border-radius: var(--r-tarjeta); box-shadow: var(--sombra-2); padding: 16px; position: relative; overflow: hidden; }
+.rotulo { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--texto2); }
+.grande { font-size: 34px; font-weight: 800; letter-spacing: -.8px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.progreso { height: 8px; border-radius: 8px; background: var(--suave); overflow: hidden; margin: 6px 0 4px; }
+.progreso i { display: block; height: 100%; background: var(--oscuro); border-radius: 8px; }
+.meta { margin-top: 12px; }
+.meta .que { font-size: 13px; font-weight: 700; }
+.meta .cuanto { font-size: 12px; color: var(--texto2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.duo .btn { padding: 11px; font-size: 14px; }
+.mini { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--linea); }
+.mini div small { display: block; font-size: 12px; color: var(--texto2); font-weight: 600; }
+.mini div b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mini .in b { color: var(--ingreso); }
+.encabezado { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 4px -4px; }
+.encabezado h3 { margin: 0; font-size: 16px; font-weight: 800; color: var(--oscuro); }
+.encabezado a { color: var(--accion); font-weight: 700; font-size: 13px; text-decoration: none; }
+
+/* Valor hora · opción 1: franja al pie de la tarjeta */
+.franja { margin: 14px -16px -16px; padding: 12px 16px; background: var(--tinte); border-top: 1px solid var(--linea);
+  display: flex; align-items: center; gap: 10px; }
+.franja .et { flex: 1; font-weight: 600; font-size: 13px; }
+.franja .et small { display: block; color: var(--texto2); font-weight: 500; font-size: 12px; }
+.franja b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.franja .ico.cheb { width: 16px; height: 16px; stroke: var(--apagado); }
+
+/* Valor hora · opción 2: dos cifras arriba, lado a lado */
+.dos-cifras { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+.dos-cifras .hora { text-align: right; padding-left: 12px; border-left: 1px solid var(--linea); }
+.dos-cifras .hora b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.4px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.dos-cifras .hora small { font-size: 12px; color: var(--texto2); font-weight: 600; }
+
+/* Primeros pasos */
+.pasos { background: var(--fondo); border-radius: var(--r-tarjeta); box-shadow: var(--sombra-1); padding: 14px; }
+.pasos .cuenta { font-size: 12px; color: var(--texto2); font-weight: 600; }
+.paso { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--linea); font-weight: 600; }
+.paso:first-of-type { border-top: 0; }
+.paso .marca { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--borde); flex: none; display: grid; place-items: center; }
+.paso.hecho { color: var(--texto2); text-decoration: line-through; }
+.paso.hecho .marca { background: var(--oscuro); box-shadow: none; }
+.paso.hecho .marca .ico { stroke: #fff; width: 14px; height: 14px; }
+.paso .ir { margin-left: auto; color: var(--accion); font-size: 13px; font-weight: 700; text-decoration: none; }
+
+/* Pantalla vacía */
+.vacia { text-align: center; padding: 18px 12px; }
+.vacia svg { width: 120px; height: 104px; }
+.vacia b { display: block; font-size: 16px; font-weight: 800; margin-top: 6px; }
+.vacia small { display: block; color: var(--texto2); font-size: 13px; margin-top: 2px; }
+
+/* Registrar movimiento: el total ES el campo del monto */
+.total { border-radius: var(--r-tarjeta); padding: 12px 16px 14px; background: var(--fondo);
+  box-shadow: inset 0 0 0 2px var(--oscuro); }
+.total small { display: block; font-size: 12px; font-weight: 700; letter-spacing: .5px; color: var(--texto2); }
+.total .entrada { display: flex; align-items: baseline; gap: 2px; font-size: 38px; font-weight: 800; letter-spacing: -.8px;
+  font-variant-numeric: tabular-nums; color: var(--ingreso); line-height: 1.15; }
+.total .entrada i { display: inline-block; width: 2px; height: 34px; background: var(--oscuro); margin-left: 2px; align-self: center; animation: parpadeo 1s steps(1) infinite; }
+@keyframes parpadeo { 50% { opacity: 0; } }
+.total .ayuda { font-size: 12px; color: var(--texto2); font-weight: 500; }
+.campo { border-radius: var(--r-campo); box-shadow: inset 0 0 0 1px var(--borde); padding: 8px 12px; background: var(--fondo); }
+.campo small { display: block; font-size: 12px; color: var(--texto2); font-weight: 600; }
+.campo span { font-weight: 700; font-size: 15px; }
+.contador { text-align: right; font-size: 11px; color: var(--apagado); margin-top: -8px; }
+
+/* Finanzas */
+.grafico { background: var(--fondo); border-radius: var(--r-tarjeta); box-shadow: var(--sombra-1); padding: 14px; }
+.grafico h3 { margin: 0 0 2px; font-size: 15px; font-weight: 800; }
+.grafico .leyenda { display: flex; gap: 12px; font-size: 12px; color: var(--texto2); font-weight: 600; margin-bottom: 8px; }
+.grafico .leyenda i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.cat { margin-top: 10px; }
+.cat div { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.cat div span:last-child { font-variant-numeric: tabular-nums; }
+.cat em { font-style: normal; color: var(--texto2); font-weight: 500; margin-left: 6px; }
+.cat .progreso { height: 6px; margin: 5px 0 0; }
+
+/* Inventario */
+.buscador { display: flex; gap: 8px; }
+.buscador .campo { flex: 1; display: flex; align-items: center; gap: 8px; padding: 11px 12px; }
+.buscador .campo span { color: var(--apagado); font-weight: 500; font-size: 14px; }
+.buscador .campo .ico { stroke: var(--apagado); }
+.filtro { width: 46px; border-radius: var(--r-campo); background: var(--oscuro); display: grid; place-items: center; }
+.filtro .ico { stroke: #fff; }
+.item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--linea); }
+.item:first-child { border-top: 0; }
+.item .et { flex: 1; min-width: 0; font-weight: 700; }
+.item .et small { display: block; color: var(--texto2); font-weight: 500; font-size: 12px; }
+.chip { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: var(--r-pildora); background: var(--suave); color: var(--oscuro); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chip.bajo { background: color-mix(in srgb, var(--alerta) 10%, white); color: var(--alerta); }
+.hueco-fab { height: 88px; flex: none; } /* 56 del FAB + 16 de margen + 16 de aire */
+.fab { position: sticky; bottom: 84px; margin: -72px 16px 16px auto; width: 56px; height: 56px; border-radius: 18px; background: var(--accion);
+  display: grid; place-items: center; box-shadow: var(--sombra-2); flex: none; }
+.fab .ico { stroke: #fff; width: 26px; height: 26px; stroke-width: 2.2; }
+.nav.fija { position: sticky; bottom: 0; }
+
+/* Diálogo */
+.velo { background: rgba(20, 14, 10, .45); padding: 40px 24px; border-radius: 16px; }
+.dialogo { background: var(--fondo); border-radius: var(--r-dialogo); padding: 22px 20px 18px; text-align: center; box-shadow: var(--sombra-2); }
+.dialogo b { font-size: 18px; font-weight: 800; display: block; }
+.dialogo p { color: var(--texto2); margin: 8px 0 18px; }
+.dialogo .par { grid-template-columns: 1fr 1fr; }
+.componentes { background: #fff; border-radius: 16px; padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; margin-top: 16px; }
+.comp > small { display: block; font-size: 12px; font-weight: 700; color: #57534e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div class="pagina var-a">
+
+<h1>Págate-IA · Variante A ajustada</h1>
+<p class="nota">
+  Variante elegida: <b>A · Greda y carbón</b>. Cada pantalla se compara con la versión actual
+  (<code>capturas/2026-11-10/1.0/</code>, letra 1.0). Las cifras son las que siembra
+  <code>integration_test/capturas_test.dart</code>.
+</p>
+<ul class="cambios">
+  <li>Los gastos van en el color oscuro con «−». El verde es solo para ingresos. El carmesí es solo para alertas (Sin stock) y acciones destructivas (Borrar).</li>
+  <li>Inicio: la barra de meta dice qué mide («Ingresos: 43 % de tu meta»).</li>
+  <li>Inicio: el valor hora pasa a la tarjeta principal. Hay dos propuestas, una al lado de la otra.</li>
+  <li>Registrar movimiento: el total grande es el campo editable y ya no hay un campo Monto aparte.</li>
+  <li>Inventario: hay un hueco al final de la lista para que el botón + no tape la última fila.</li>
+  <li>Finanzas: un solo selector de período (Este mes / Mes pasado / Año / Otro mes).</li>
+  <li>Diálogo de borrar: el botón destructivo va en carmesí.</li>
+</ul>
+
+<h2>1. Paleta</h2>
+<div class="paleta"><div class="muestras"></div><table class="contraste"></table></div>
+<p class="nota">El contraste se calcula aquí mismo con la fórmula de WCAG 2.x. El mismo cálculo está en
+  <code>docs/diseno/contraste.py</code>, que sale con error si algún par no llega.</p>
+
+<h2>2. Tokens</h2>
+<div class="tokens">
+<table>
+  <tr><td>Tipografía</td><td>Manrope. Títulos de pantalla 20/800. Cifra dominante 34/800 con cifras tabulares.
+    Montos de fila 14–16/800. Cuerpo 14/600 y secundario 12–13/500. Rótulos en mayúsculas 12/700.</td></tr>
+  <tr><td>Radios</td><td><code>10</code> campos y botones · <code>16</code> tarjetas y listas · <code>18</code> FAB ·
+    <code>20</code> diálogos y hojas · <code>24</code> cabecera · <code>999</code> selector segmentado y chips.</td></tr>
+  <tr><td>Sombras</td><td><code>sombra-1</code> para tarjetas, listas y el segmento activo.
+    <code>sombra-2</code> para la tarjeta superpuesta, el FAB y los diálogos.</td></tr>
+  <tr><td>Espaciado</td><td>La escala de 4 de <code>AppSpacing</code>. Margen de pantalla 16 y 14 entre bloques.
+    Las listas que tienen FAB dejan un hueco de 88 al final.</td></tr>
+</table>
+</div>
+
+<h2>3. Inicio · dónde va el valor hora</h2>
+<p class="nota"><b>Opción 1, franja al pie:</b> el valor hora cierra la tarjeta, en una franja tintada que se toca para
+  recalcular. El balance sigue siendo la única cifra grande.<br>
+  <b>Opción 2, dos cifras arriba:</b> el balance y el valor hora van lado a lado, con la misma jerarquía. El valor
+  hora se ve antes, pero las dos cifras compiten. Con letra 2.0 se apilan.</p>
+<div class="fila" style="--n:3" data-pantallas="inicio1,inicio2" data-titulos="Opción 1 · franja al pie,Opción 2 · dos cifras arriba" data-actual="07_inicio.png"></div>
+
+<h3>Inicio · usuario nuevo («primeros pasos»), con la opción 1</h3>
+<div class="fila" data-pantallas="inicioNuevo" data-actual=""></div>
+
+<h2>4. Registrar movimiento</h2>
+<div class="fila" data-pantallas="registrar" data-actual="08_registrar_movimiento.png"></div>
+
+<h2>5. Finanzas</h2>
+<div class="fila" data-pantallas="finanzas" data-actual="09_finanzas.png"></div>
+
+<h2>6. Inventario</h2>
+<p class="nota">La maqueta está desplazada hasta el final, para que se vea el hueco bajo la última fila.</p>
+<div class="fila" data-pantallas="inventario" data-actual="10_inventario.png"></div>
+
+<h2>7. Componentes</h2>
+<div class="componentes"></div>
+
+</div>
+
+<!-- ─── Íconos ─────────────────────────────────────────────────────────── -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-inicio" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-finanzas" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-inventario" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></symbol>
+  <symbol id="i-ia" viewBox="0 0 24 24"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></symbol>
+  <symbol id="i-perfil" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
+  <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-recibo" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3"/></symbol>
+  <symbol id="i-caja" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM2 4h20v4H2zM10 12h4"/></symbol>
+  <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-cheb" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-atras" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sube" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-baja" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-etiqueta" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-fecha" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pct" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></symbol>
+  <symbol id="i-compartir" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v7h14v-7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+  <symbol id="i-tienda" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM9 20v-6h6v6"/></symbol>
+</svg>
+
+<script>
+const ico = (id, clase = '') => `<svg class="ico ${clase}"><use href="#i-${id}"/></svg>`;
+const cheb = ico('cheb', 'cheb');
+const nav = (activa, clase = '') => `<div class="nav ${clase}">${[
+  ['inicio', 'Inicio'], ['finanzas', 'Finanzas'], ['inventario', 'Inventario'], ['ia', 'IA'], ['perfil', 'Perfil'],
+].map(([id, t]) => `<span class="${id === activa ? 'on' : ''}">${ico(id)}${t}${id === activa ? '<i></i>' : ''}</span>`).join('')}</div>`;
+
+// Ilustración de pantalla vacía: una vasija de greda, en los dos colores del sistema.
+const vasija = `<svg viewBox="0 0 120 104" aria-hidden="true">
+  <ellipse cx="60" cy="96" rx="40" ry="5" fill="var(--suave)"/>
+  <path d="M42 22h36l-4 10c14 6 22 18 22 32 0 18-16 30-36 30S24 82 24 64c0-14 8-26 22-32z" fill="var(--accionSuave)" stroke="var(--oscuro)" stroke-width="2"/>
+  <path d="M40 16h40v6H40z" fill="var(--fondo)" stroke="var(--oscuro)" stroke-width="2"/>
+  <path d="M30 60c10 6 50 6 60 0M33 72c9 5 45 5 54 0" stroke="var(--accion)" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>`;
+
+const movs = `
+  <div class="mov"><div class="icono-fondo">${ico('recibo', 'peq')}</div><div class="et">Electricidad del taller<small>8 nov · Gas y electricidad</small></div><span class="m">−$27.900</span></div>
+  <div class="mov"><div class="icono-fondo">${ico('recibo', 'peq')}</div><div class="et">Publicidad en Instagram<small>8 nov · Difusión</small></div><span class="m">−$20.000</span></div>
+  <div class="mov"><div class="icono-fondo">${ico('tienda', 'peq')}</div><div class="et">Maceteros por Instagram<small>7 nov · Venta por Instagram</small></div><span class="m in">+$48.000</span></div>
+  <div class="mov"><div class="icono-fondo">${ico('recibo', 'peq')}</div><div class="et">Pinceles y lija<small>7 nov · Herramientas</small></div><span class="m">−$15.800</span></div>`;
+
+const cabecera = `<div class="cabecera"><div class="saludo">
+  <div class="avatar">CR</div><div><small>Hola, Camila</small><b>Greda Austral</b></div>${ico('campana')}</div></div>`;
+
+const meta = (pct, ingresos) => `<div class="meta">
+  <div class="que">Ingresos: ${pct} % de tu meta</div>
+  <div class="progreso"><i style="width:${pct}%"></i></div>
+  <div class="cuanto">${ingresos} de $900.000</div></div>`;
+const mini = `<div class="mini"><div class="in"><small>Ingresos</small><b>+$390.500</b></div><div style="text-align:right"><small>Gastos</small><b>−$330.000</b></div></div>`;
+const duo = `<div class="duo"><span class="btn accion">+ Ingreso</span><span class="btn secundario">− Gasto</span></div>`;
+const franja = `<div class="franja"><div class="icono-fondo" style="background:var(--fondo)">${ico('reloj', 'peq')}</div>
+  <div class="et">Tu hora vale<small>Con 120 horas al mes</small></div><b>$7.083</b>${cheb}</div>`;
+
+const restoInicio = `<div class="cuerpo" style="padding-top:14px">
+      <div class="lista">
+        <div class="fform"><div class="icono-fondo">${ico('fecha', 'peq')}</div><div class="et">Gastos fijos<small>Arriendo e internet</small></div><span class="val">$244.990</span>${cheb}</div>
+        <div class="fform"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Stock bajo<small>1 producto y 3 materiales</small></div><span class="chip bajo">4</span>${cheb}</div>
+      </div>
+      <div class="encabezado"><h3>Movimientos recientes</h3><a>Ver todos</a></div>
+      <div class="lista">${movs}</div>
+    </div>
+    ${nav('inicio')}`;
+
+const PANTALLAS = {
+  inicio1: () => `<div class="app tintado">${cabecera}
+    <div class="superpuesta">
+      <div class="rotulo">Balance de noviembre</div>
+      <div class="grande">$60.500</div>
+      ${meta(43, '$390.500')}
+      ${mini}${duo}${franja}
+    </div>${restoInicio}</div>`,
+
+  inicio2: () => `<div class="app tintado">${cabecera}
+    <div class="superpuesta">
+      <div class="dos-cifras">
+        <div><div class="rotulo">Balance de noviembre</div><div class="grande">$60.500</div></div>
+        <div class="hora"><small>Tu hora vale</small><b>$7.083</b></div>
+      </div>
+      ${meta(43, '$390.500')}
+      ${mini}${duo}
+    </div>${restoInicio}</div>`,
+
+  inicioNuevo: () => `<div class="app tintado">${cabecera}
+    <div class="superpuesta">
+      <div class="rotulo">Balance de noviembre</div>
+      <div class="grande">$0</div>
+      ${meta(0, '$0')}
+      ${duo}
+      <div class="franja"><div class="icono-fondo" style="background:var(--fondo)">${ico('reloj', 'peq')}</div>
+        <div class="et">¿Cuánto vale tu hora?<small>Calcúlalo en un minuto</small></div><span class="encabezado" style="margin:0"><a>Calcular</a></span></div>
+    </div>
+    <div class="cuerpo" style="padding-top:14px">
+      <div class="pasos">
+        <div class="encabezado" style="margin:0 0 6px"><h3>Primeros pasos</h3><span class="cuenta">1 de 4</span></div>
+        <div class="progreso" style="margin-top:0"><i style="width:25%"></i></div>
+        <div class="paso hecho"><span class="marca">${ico('check')}</span>Configura tu taller</div>
+        <div class="paso"><span class="marca"></span>Calcula el valor de tu hora<a class="ir">Calcular</a></div>
+        <div class="paso"><span class="marca"></span>Registra tu primer movimiento<a class="ir">Registrar</a></div>
+        <div class="paso"><span class="marca"></span>Agrega un producto o material<a class="ir">Agregar</a></div>
+      </div>
+      <div class="lista vacia">${vasija}<b>Aún no tienes movimientos</b><small>Cuando registres una venta o un gasto, aparece aquí.</small></div>
+    </div>
+    ${nav('inicio')}
+  </div>`,
+
+  registrar: () => `<div class="app">
+    <div class="barra">${ico('atras')}<h1>Nuevo movimiento</h1></div>
+    <div class="cuerpo">
+      <div class="segmentado"><span class="on">Ingreso</span><span>Gasto</span></div>
+      <div class="total"><small>MONTO</small><div class="entrada">+$48.000<i></i></div>
+        <div class="ayuda">Escribe el total. El teclado es numérico.</div></div>
+      <div class="campo"><small>Título</small><span>Maceteros por Instagram</span></div>
+      <div class="contador">23/60</div>
+      <div class="lista">
+        <div class="fform"><div class="icono-fondo">${ico('etiqueta', 'peq')}</div><div class="et">Categoría</div><span class="val">Venta por Instagram</span>${cheb}</div>
+        <div class="fform"><div class="icono-fondo">${ico('doc', 'peq')}</div><div class="et">Documento</div><span class="val">Sin documento</span>${cheb}</div>
+        <div class="fform"><div class="icono-fondo">${ico('fecha', 'peq')}</div><div class="et">Fecha</div><span class="val">Hoy, 7 nov</span>${cheb}</div>
+        <div class="fform"><div class="icono-fondo">${ico('pct', 'peq')}</div><div class="et">Comisión<small>Opcional</small></div><span class="val">$1.680</span>${cheb}</div>
+      </div>
+    </div>
+    <div class="pie"><div class="par"><span class="btn secundario">Limpiar</span><span class="btn accion">Crear ingreso</span></div></div>
+  </div>`,
+
+  finanzas: () => `<div class="app tintado">
+    <div class="barra"><div style="flex:1"><h1>Finanzas</h1><div class="sub">Greda Austral · noviembre 2026</div></div>${ico('compartir')}</div>
+    <div class="cuerpo">
+      <div class="segmentado"><span class="on">Este mes</span><span>Mes pasado</span><span>Año</span><span>Otro mes</span></div>
+      <div class="metricas">
+        <div class="metrica in"><b>+$390.500</b><small><span class="flecha">${ico('sube', 'peq')}</span>Ingresos</small></div>
+        <div class="metrica"><b>−$330.000</b><small><span class="flecha">${ico('baja', 'peq')}</span>Gastos</small></div>
+        <div class="metrica"><b>$60.500</b><small>Balance</small></div>
+        <div class="metrica"><b>43 %</b><small>Ingresos sobre la meta de $900.000</small></div>
+      </div>
+      <div class="grafico">
+        <h3>Ingresos y gastos por mes</h3>
+        <div class="leyenda"><span><i style="background:var(--ingreso)"></i>Ingresos</span><span><i style="background:var(--oscuro)"></i>Gastos</span></div>
+        <svg viewBox="0 0 300 130" width="100%" style="display:block">
+          <g font-family="Manrope" font-size="10" fill="var(--texto2)">
+            <text x="0" y="14">$400 mil</text><text x="0" y="62">$200 mil</text><text x="0" y="112">$0</text>
+          </g>
+          <g stroke="var(--linea)"><line x1="52" x2="300" y1="10" y2="10"/><line x1="52" x2="300" y1="59" y2="59"/><line x1="52" x2="300" y1="108" y2="108"/></g>
+          <rect x="95" y="11.2" width="22" height="96.8" rx="3" fill="var(--ingreso)"/>
+          <rect x="121" y="23" width="22" height="85" rx="3" fill="var(--oscuro)"/>
+          <rect x="205" y="12.3" width="22" height="95.7" rx="3" fill="var(--ingreso)"/>
+          <rect x="231" y="27.1" width="22" height="80.9" rx="3" fill="var(--oscuro)"/>
+          <g font-family="Manrope" font-size="11" font-weight="700" fill="var(--oscuro)" text-anchor="middle"><text x="119" y="125">oct</text><text x="229" y="125">nov</text></g>
+        </svg>
+      </div>
+      <div class="grafico">
+        <h3>En qué se te va el mes</h3>
+        <div class="cat"><div><span>Arriendo del taller</span><span>$220.000<em>67 %</em></span></div><div class="progreso"><i style="width:67%"></i></div></div>
+        <div class="cat"><div><span>Insumos y materiales</span><span>$46.300<em>14 %</em></span></div><div class="progreso"><i style="width:14%"></i></div></div>
+        <div class="cat"><div><span>Gas y electricidad</span><span>$27.900<em>8 %</em></span></div><div class="progreso"><i style="width:8%"></i></div></div>
+      </div>
+      <div class="encabezado"><h3>Movimientos del mes</h3><a>Ver todos</a></div>
+      <div class="lista">${movs}</div>
+    </div>
+    ${nav('finanzas')}
+  </div>`,
+
+  inventario: () => `<div class="app tintado">
+    <div class="barra"><div style="flex:1"><h1>Inventario</h1><div class="sub">5 productos · 5 materiales</div></div></div>
+    <div class="cuerpo" style="flex:none">
+      <div class="segmentado"><span class="on">Productos</span><span>Materiales</span></div>
+      <div class="buscador"><div class="campo">${ico('buscar', 'peq')}<span>Buscar por nombre o código</span></div><div class="filtro">${ico('filtro', 'peq')}</div></div>
+      <div class="lista">
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Bowl de ramen<small>$19.500 · mínimo 3</small></div><span class="chip bajo">Sin stock</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Macetero mediano<small>$24.000 · mínimo 4</small></div><span class="chip">5 un</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Plato de postre<small>$12.000 · mínimo 8</small></div><span class="chip">22 un</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Set de 4 vasos<small>$38.000 · mínimo 2</small></div><span class="chip">3 set</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Taza esmaltada azul<small>$16.000 · mínimo 6</small></div><span class="chip">14 un</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Fuente para horno<small>$29.000 · mínimo 2</small></div><span class="chip">4 un</span></div>
+        <div class="item"><div class="icono-fondo">${ico('caja', 'peq')}</div><div class="et">Jarro de greda<small>$14.500 · mínimo 4</small></div><span class="chip">9 un</span></div>
+      </div>
+      <div class="hueco-fab"></div>
+    </div>
+    <div class="fab">${ico('mas')}</div>
+    ${nav('inventario', 'fija')}
+  </div>`,
+};
+
+const COMPONENTES = `
+  <div class="comp"><small>Selector segmentado</small><div class="segmentado"><span class="on">Este mes</span><span>Mes pasado</span><span>Año</span><span>Otro mes</span></div></div>
+  <div class="comp"><small>Tarjeta de métrica</small><div class="metricas">
+    <div class="metrica in"><b>+$390.500</b><small><span class="flecha">${ico('sube', 'peq')}</span>Ingresos</small></div>
+    <div class="metrica"><b>−$330.000</b><small><span class="flecha">${ico('baja', 'peq')}</span>Gastos</small></div></div></div>
+  <div class="comp"><small>Fila de formulario</small><div class="lista">
+    <div class="fform"><div class="icono-fondo">${ico('etiqueta', 'peq')}</div><div class="et">Categoría</div><span class="val">Venta en feria</span>${cheb}</div>
+    <div class="fform"><div class="icono-fondo">${ico('fecha', 'peq')}</div><div class="et">Fecha</div><span class="val apagado">Seleccionar</span>${cheb}</div></div></div>
+  <div class="comp"><small>Par Limpiar / Crear</small><div class="par"><span class="btn secundario">Limpiar</span><span class="btn accion">Crear gasto</span></div></div>
+  <div class="comp"><small>Pantalla vacía</small><div class="lista vacia">${vasija}<b>Aún no tienes materiales</b><small>Agrégalos a mano o desde una boleta.</small></div></div>
+  <div class="comp"><small>Diálogo de confirmación destructivo</small><div class="velo"><div class="dialogo"><b>¿Borrar el historial?</b>
+    <p>Se borran todas tus conversaciones con el asistente. No se puede deshacer.</p>
+    <div class="par"><span class="btn secundario">Cancelar</span><span class="btn destructivo">Borrar</span></div></div></div></div>`;
+
+for (const fila of document.querySelectorAll('.fila')) {
+  const ids = fila.dataset.pantallas.split(',');
+  const titulos = (fila.dataset.titulos || 'Variante A ajustada').split(',');
+  const actual = fila.dataset.actual
+    ? `<div class="marco"><div class="scroll"><img src="../../capturas/2026-11-10/1.0/${fila.dataset.actual}" alt="Versión actual"></div></div>`
+    : `<div class="marco"><div class="sin-captura">Hoy no existe: un usuario nuevo ve el mismo Inicio, con montos en $0 y sin guía.</div></div>`;
+  fila.innerHTML = `<div class="col"><h4>Actual</h4>${actual}</div>` + ids.map((id, i) =>
+    `<div class="col"><h4>${titulos[i]}</h4><div class="marco"><div class="scroll" data-id="${id}">${PANTALLAS[id]()}</div></div></div>`).join('');
+}
+document.querySelector('.componentes').innerHTML = COMPONENTES;
+// Inventario se muestra desplazado al final: se ve el hueco bajo la última fila.
+const finInventario = () => { const s = document.querySelector('[data-id=inventario]'); s.scrollTop = s.scrollHeight; };
+finInventario(); addEventListener('load', finInventario);
+
+// Paleta: muestras y contraste calculado en la página.
+const ROLES = [['accion', 'Acción'], ['oscuro', 'Oscuro · gastos'], ['tinte', 'Fondo tinte'], ['texto2', 'Texto 2'],
+  ['apagado', 'Apagado'], ['borde', 'Borde campo'], ['ingreso', 'Ingreso'], ['alerta', 'Alerta · borrar']];
+const lum = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+const mezcla = (hex, f) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * f + 255 * (1 - f))
+  .toString(16).padStart(2, '0')).join('').toUpperCase();
+{
+  const p = document.querySelector('.var-a');
+  const v = (n) => getComputedStyle(p).getPropertyValue(`--${n}`).trim().toUpperCase();
+  document.querySelector('.muestras').innerHTML = ROLES.map(([n, t]) =>
+    `<div class="muestra"><i style="background:${v(n)}"></i><b>${t}</b><br>${v(n)}</div>`).join('');
+  const B = '#FFFFFF';
+  const pares = [
+    ['Blanco sobre acción (botón)', B, v('accion'), 4.5], ['Acción como texto sobre blanco', v('accion'), B, 4.5],
+    ['Acción sobre tinte', v('accion'), v('tinte'), 4.5], ['Oscuro sobre blanco (títulos, gastos)', v('oscuro'), B, 7],
+    ['Oscuro sobre tinte', v('oscuro'), v('tinte'), 7], ['Blanco sobre oscuro (cabecera)', B, v('oscuro'), 7],
+    ['Texto 2 de cabecera sobre oscuro', v('sobreOscuro2'), v('oscuro'), 4.5],
+    ['Texto 2 sobre blanco', v('texto2'), B, 4.5], ['Texto 2 sobre tinte', v('texto2'), v('tinte'), 4.5],
+    ['Apagado sobre blanco', v('apagado'), B, 4.5], ['Apagado sobre tinte', v('apagado'), v('tinte'), 4.5],
+    ['Borde de campo sobre blanco (UI)', v('borde'), B, 3],
+    ['Ingreso sobre blanco', v('ingreso'), B, 4.5], ['Ingreso sobre tinte', v('ingreso'), v('tinte'), 4.5],
+    ['Alerta sobre blanco', v('alerta'), B, 4.5], ['Alerta sobre tinte', v('alerta'), v('tinte'), 4.5],
+    ['Alerta sobre su chip (10 %)', v('alerta'), mezcla(v('alerta'), 0.1), 4.5],
+    ['Blanco sobre alerta (botón Borrar)', B, v('alerta'), 4.5],
+  ];
+  document.querySelector('.contraste').innerHTML = '<tr><th>Par</th><th>Contraste</th><th>Mín.</th><th></th></tr>' +
+    pares.map(([t, a, b, m]) => { const r = ratio(a, b); return `<tr><td>${t}</td><td class="n">${r.toFixed(2)}:1</td><td class="n">${m}</td><td class="${r >= m ? 'ok' : 'no'}">${r >= m ? 'AA' : 'NO'}</td></tr>`; }).join('');
+}
+</script>
+</body>
+</html>

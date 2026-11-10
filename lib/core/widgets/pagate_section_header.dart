@@ -98,11 +98,12 @@ class PagateSectionHeader extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(width: AppSpacing.x2),
-              Flexible(
-                child: PagatePrimaryButton.text(
-                  label: actionLabel!,
-                  onPressed: onAction,
-                ),
+              // Ancho de su texto, no medio ancho: con `Flexible` el título
+              // y la acción se repartían la fila y «Ver todos» quedaba a
+              // media pantalla, partiendo el título («Movimiento/s»).
+              PagatePrimaryButton.text(
+                label: actionLabel!,
+                onPressed: onAction,
               ),
             ],
           ],

@@ -75,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           initialType: TransactionType.expense,
         ),
         onVerFinanzas: () => _setPage(1),
+        onVerInventario: () => _setPage(2),
         onVerValorHora: _abrirValorHora,
         onAyuda: _abrirAyuda,
       ),
@@ -179,6 +180,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ─── Layout móvil ──────────────────────────────────────────────────
 
   Widget _buildMobileLayout() => Scaffold(
+        // Inicio empieza con una cabecera oscura: el fondo bajo la barra de
+        // estado sigue ese color. Las demás pestañas, el lienzo del tema.
+        backgroundColor: _currentIndex == 0 ? AppPalette.ink : null,
         // `SafeArea(bottom: false)`: hasta ahora las cinco pestañas empezaban
         // a 24 dp del borde FÍSICO, así que en cualquier móvil con muesca el
         // avatar y el título quedaban bajo la barra de estado. Abajo no,

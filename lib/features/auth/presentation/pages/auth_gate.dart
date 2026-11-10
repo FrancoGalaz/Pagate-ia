@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +16,8 @@ import 'welcome_screen.dart';
 ///
 /// - Esperando el primer evento → splash.
 /// - Sin usuario → [WelcomeScreen] (de ahí se llega a login / registro).
+/// - Cerrando sesión ([FirebaseAuthService.cerrandoSesion]) → splash, sin
+///   [UserScope]: así sus providers sueltan Firestore antes de borrar la caché.
 /// - Con usuario → [UserScope] con `key: ValueKey(uid)`, que crea los
 ///   providers del usuario y decide entre onboarding y dashboard.
 ///
@@ -33,39 +37,54 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    _authState = context.read<FirebaseAuthService>().authStateChanges;
+    _authState = _escuchar();
   }
 
   void _retry() {
     setState(() {
-      _authState = context.read<FirebaseAuthService>().authStateChanges;
+      _authState = _escuchar();
     });
   }
 
+  /// El stream de sesión, registrando cada error una sola vez cuando llega
+  /// (no en cada `build`).
+  Stream<User?> _escuchar() =>
+      context.read<FirebaseAuthService>().authStateChanges.transform(
+        StreamTransformer.fromHandlers(
+          handleError: (final error, final stack, final sink) {
+            debugPrint('[AuthGate] Error de sesión: $error');
+            sink.addError(error, stack);
+          },
+        ),
+      );
+
   @override
   Widget build(final BuildContext context) => StreamBuilder<User?>(
-        stream: _authState,
-        builder: (final context, final snapshot) {
-          if (snapshot.hasError) {
-            return AppShell(
-              sessionKey: 'auth-error',
-              home: SessionErrorView(
-                message: 'No pudimos comprobar tu sesión: ${snapshot.error}',
-                onRetry: _retry,
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppShell(sessionKey: 'boot', home: SplashScreen());
-          }
-          final user = snapshot.data;
-          if (user == null) {
-            return const AppShell(
-              sessionKey: 'signed-out',
-              home: WelcomeScreen(),
-            );
-          }
-          return UserScope(key: ValueKey(user.uid), uid: user.uid);
-        },
-      );
+    stream: _authState,
+    builder: (final context, final snapshot) {
+      if (snapshot.hasError) {
+        return AppShell(
+          sessionKey: 'auth-error',
+          home: SessionErrorView(
+            message:
+                'No pudimos comprobar tu sesión. Revisa tu conexión '
+                'e inténtalo de nuevo.',
+            detail: snapshot.error,
+            onRetry: _retry,
+          ),
+        );
+      }
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const AppShell(sessionKey: 'boot', home: SplashScreen());
+      }
+      final user = snapshot.data;
+      if (user == null) {
+        return const AppShell(sessionKey: 'signed-out', home: WelcomeScreen());
+      }
+      if (context.watch<FirebaseAuthService>().cerrandoSesion) {
+        return const AppShell(sessionKey: 'signing-out', home: SplashScreen());
+      }
+      return UserScope(key: ValueKey(user.uid), uid: user.uid);
+    },
+  );
 }

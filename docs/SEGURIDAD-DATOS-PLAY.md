@@ -137,6 +137,12 @@ elemento del tipo sea obligatorio.*
 
 *Opcional: la app funciona completa sin tocar el asistente.*
 
+*Borrado:* el usuario puede borrar su historial del asistente cuando quiera
+(Configuración → Asistente, callable `deleteChatHistory` en
+`functions/src/chatHistory.ts`). Los reportes de respuestas (`aiReports`) se
+conservan para mejorar la calidad hasta que se elimina la cuenta, y el contador
+de cuota (`meta/usage`) no se reinicia; los dos los borra `deleteAccount`.
+
 ### 1.4 Actividad en la aplicación
 
 | Tipo de dato | Rec. | Comp. | Oblig. | Finalidad | Trán. | Borr. | Fuente en el código |
@@ -493,6 +499,16 @@ web, que no es el binario de la ficha.
 | ¿La app se sometió a una revisión de seguridad independiente? | **No** | No se ha hecho ninguna. No marcar la casilla sin un informe que respalde. |
 | ¿Compromiso con la Política de Familias? | **No aplica** | La app no se dirige a menores y así lo dicen los términos. |
 | ¿Hay recopilación efímera que no se declara? | Sí, una | La IP de la landing (§2.2), que además no es de la app. **La imagen de una boleta no es este caso**: no sale del dispositivo, así que le aplica la exención de procesamiento local del §1.7, no la de procesamiento efímero. Declararla aquí sería afirmar que viaja. |
+
+Copias de seguridad de Android desactivadas (`allowBackup=false` y
+`dataExtractionRules` excluyendo nube y transferencia entre dispositivos), en
+`android/app/src/main/AndroidManifest.xml` y
+`android/app/src/main/res/xml/data_extraction_rules.xml`.
+
+Los datos locales (la caché offline de Firestore) se descartan al cerrar sesión
+o borrar la cuenta: `FirebaseAuthService.cerrarSesion()` hace `terminate` →
+`clearPersistence` → `signOut`. Lo comprueba
+`integration_test/cierre_sesion_test.dart`.
 
 ### URLs que hay que pegar en Play Console
 

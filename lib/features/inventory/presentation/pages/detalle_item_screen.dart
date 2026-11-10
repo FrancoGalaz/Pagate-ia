@@ -416,32 +416,17 @@ Future<void> _confirmarBorrado(
 ) async {
   final provider = context.read<InventoryProvider>();
 
-  final borrar = await showDialog<bool>(
-    context: context,
-    builder: (final dialogo) => AlertDialog(
-      title: const Text('¿Eliminar la ficha?'),
-      content: Text(
-        '${item.name} deja de aparecer en tu inventario. Los movimientos '
+  final borrar = await confirmar(
+    context,
+    title: '¿Eliminar la ficha?',
+    message: '${item.name} deja de aparecer en tu inventario. Los movimientos '
         'que ya registraste no cambian.',
-      ),
-      actions: [
-        // Botones de texto, no elevados: el tema impone ancho completo al
-        // elevado y dentro de un diálogo eso los apila y descoloca la
-        // jerarquía Cancelar / Eliminar.
-        PagatePrimaryButton.text(
-          label: 'Cancelar',
-          onPressed: () => Navigator.pop(dialogo, false),
-        ),
-        PagatePrimaryButton.text(
-          label: 'Eliminar',
-          isDestructive: true,
-          onPressed: () => Navigator.pop(dialogo, true),
-        ),
-      ],
-    ),
+    cancelLabel: 'Cancelar',
+    confirmLabel: 'Eliminar',
+    destructive: true,
   );
 
-  if (borrar != true || !context.mounted) return;
+  if (!borrar || !context.mounted) return;
 
   try {
     await provider.deleteItem(item.id);

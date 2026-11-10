@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/services/ai_service.dart';
-import '../../../../core/services/firebase_auth_service.dart';
 import '../../../dashboard/presentation/pages/dashboard_screen.dart';
 import '../../../dashboard/presentation/providers/ai_provider.dart';
 import '../../../finances/data/datasources/finances_firebase_datasource.dart';
@@ -24,6 +23,7 @@ import '../../../user_profile/presentation/providers/user_profile_provider.dart'
 import '../pages/splash_screen.dart';
 import 'app_shell.dart';
 import 'session_error_view.dart';
+import 'cerrar_sesion.dart';
 
 /// Alcance de un usuario autenticado.
 ///
@@ -93,7 +93,7 @@ class ProfileGate extends StatelessWidget {
       return SessionErrorView(
         message: error,
         onRetry: profileProvider.retry,
-        onSignOut: () => context.read<FirebaseAuthService>().signOut(),
+        onSignOut: () => cerrarSesionConAviso(context),
       );
     }
 
@@ -108,62 +108,53 @@ class ProfileGate extends StatelessWidget {
 HourlyRateProvider createHourlyRateProvider({
   required final FirebaseFirestore firestore,
   required final String userId,
-}) =>
-    HourlyRateProvider(
-      calculateUseCase: CalculateHourlyRate(),
-      repository: HourlyRateRepositoryImpl(
-        localDataSource: HourlyRateLocalDataSource(
-          firestore: firestore,
-          userId: userId,
-        ),
-      ),
-    );
+}) => HourlyRateProvider(
+  calculateUseCase: CalculateHourlyRate(),
+  repository: HourlyRateRepositoryImpl(
+    localDataSource: HourlyRateLocalDataSource(
+      firestore: firestore,
+      userId: userId,
+    ),
+  ),
+);
 
 InventoryProvider createInventoryProvider({
   required final FirebaseFirestore firestore,
   required final String userId,
-}) =>
-    InventoryProvider(
-      repository: InventoryRepositoryImpl(
-        dataSource: InventoryFirebaseDataSource(
-          firestore: firestore,
-          userId: userId,
-        ),
-      ),
-    );
+}) => InventoryProvider(
+  repository: InventoryRepositoryImpl(
+    dataSource: InventoryFirebaseDataSource(
+      firestore: firestore,
+      userId: userId,
+    ),
+  ),
+);
 
 FinancesProvider createFinancesProvider({
   required final FirebaseFirestore firestore,
   required final String userId,
-}) =>
-    FinancesProvider(
-      repository: FinancesRepositoryImpl(
-        dataSource: FinancesFirebaseDataSource(
-          firestore: firestore,
-          userId: userId,
-        ),
-      ),
-    );
+}) => FinancesProvider(
+  repository: FinancesRepositoryImpl(
+    dataSource: FinancesFirebaseDataSource(
+      firestore: firestore,
+      userId: userId,
+    ),
+  ),
+);
 
 UserProfileProvider createUserProfileProvider({
   required final FirebaseFirestore firestore,
   required final String userId,
-}) =>
-    UserProfileProvider(
-      repository: UserProfileRepositoryImpl(
-        datasource: UserProfileFirebaseDatasource(
-          firestore: firestore,
-          userId: userId,
-        ),
-      ),
-    );
+}) => UserProfileProvider(
+  repository: UserProfileRepositoryImpl(
+    datasource: UserProfileFirebaseDatasource(
+      firestore: firestore,
+      userId: userId,
+    ),
+  ),
+);
 
 AiProvider createAiProvider({
   required final FirebaseFirestore firestore,
   required final String userId,
-}) =>
-    AiProvider(
-      service: AiService(),
-      userId: userId,
-      firestore: firestore,
-    );
+}) => AiProvider(service: AiService(), userId: userId, firestore: firestore);

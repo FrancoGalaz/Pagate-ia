@@ -65,6 +65,36 @@ export async function deleteUserData(db: Firestore, uid: string): Promise<string
   return leftovers;
 }
 
+/** Lo que `checkDeleteAccountCaller` necesita de la llamada. */
+export interface DeleteAccountCaller {
+  auth?: { uid: string } | null;
+  app?: unknown;
+}
+
+/**
+ * Comprueba sesión y App Check antes de borrar nada, y devuelve el `uid`.
+ *
+ * Recibe el interruptor como parámetro (y no lee `ENFORCE_APP_CHECK`) para que
+ * los tests puedan probar los dos valores sin desplegar, igual que `chat` y
+ * `scanReceipt`.
+ */
+export function checkDeleteAccountCaller(request: DeleteAccountCaller, enforceAppCheck: boolean): string {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes iniciar sesión para eliminar tu cuenta.');
+  }
+  // App Check, igual que en `chat`. No es simetría decorativa: este callable es
+  // DESTRUCTIVO e irreversible, así que es el que más interesa que solo se
+  // pueda invocar desde la app de verdad. Sin esta comprobación, `chat` (que
+  // solo gasta cuota) estaba mejor protegido que el borrado de la cuenta.
+  // Se comprueba a mano, no con la opción `enforceAppCheck` del callable,
+  // porque el parámetro `ENFORCE_APP_CHECK` se resuelve en despliegue y así
+  // los callables comparten exactamente el mismo interruptor.
+  if (enforceAppCheck && !request.app) {
+    throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+  }
+  return request.auth.uid;
+}
+
 export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
   {
     region: REGION,
@@ -77,22 +107,9 @@ export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
     cors: callableCors(),
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Debes iniciar sesión para eliminar tu cuenta.');
-    }
-    // App Check, igual que en `chat`. No es simetría decorativa: este callable es
-    // DESTRUCTIVO e irreversible, así que es el que más interesa que solo se
-    // pueda invocar desde la app de verdad. Sin esta comprobación, `chat` (que
-    // solo gasta cuota) estaba mejor protegido que el borrado de la cuenta.
-    // Se comprueba a mano, no con la opción `enforceAppCheck` del callable,
-    // porque el parámetro `ENFORCE_APP_CHECK` se resuelve en despliegue y así
-    // los dos callables comparten exactamente el mismo interruptor.
-    if (ENFORCE_APP_CHECK.value() && !request.app) {
-      throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
-    }
-    const uid = request.auth.uid;
+    const uid = checkDeleteAccountCaller(request, ENFORCE_APP_CHECK.value());
 
-    const authTime = request.auth.token?.auth_time;
+    const authTime = request.auth?.token?.auth_time;
     const sessionAgeSeconds =
       typeof authTime === 'number' ? Math.max(0, Math.floor(Date.now() / 1000 - authTime)) : null;
 

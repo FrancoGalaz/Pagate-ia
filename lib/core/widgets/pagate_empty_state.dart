@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import 'pagate_primary_button.dart';
+import 'pagate_vasija.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // ESTADO VACÍO
@@ -51,19 +52,24 @@ class PagateEmptyState extends StatelessWidget {
         horizontal: AppSpacing.x4,
         vertical: AppSpacing.x6,
       ),
+      // Variante A: ilustración y frase, centradas (Cabal #43, #58).
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: theme.textTheme.titleLarge),
+          const PagateVasija(),
+          const SizedBox(height: AppSpacing.x3),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: AppSpacing.x2),
           Text(
             description,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppPalette.textSecondary,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: AppSpacing.x4),
@@ -72,7 +78,6 @@ class PagateEmptyState extends StatelessWidget {
             // si ocupara la línea entera sería el elemento dominante de una
             // pantalla que justamente no tiene nada que mostrar.
             Align(
-              alignment: Alignment.centerLeft,
               child: PagatePrimaryButton.secondary(
                 label: actionLabel!,
                 onPressed: onAction,

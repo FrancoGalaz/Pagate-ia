@@ -13,13 +13,6 @@ class HourlyRateRepositoryImpl implements HourlyRateRepository {
       localDataSource.watchHourlyRate().map((model) => model?.toEntity());
 
   @override
-  Future<HourlyRateEntity?> getHourlyRate() async =>
-      (await localDataSource.getHourlyRate())?.toEntity();
-
-  @override
   Future<void> saveHourlyRate(final HourlyRateEntity hourlyRate) =>
       localDataSource.saveHourlyRate(HourlyRateModel.fromEntity(hourlyRate));
-
-  @override
-  Future<bool> hasConfiguration() => localDataSource.hasConfiguration();
 }

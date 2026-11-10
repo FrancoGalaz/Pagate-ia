@@ -175,7 +175,7 @@ export default function PrivacidadPage() {
           ]}
         />
 
-        <h3 className="font-semibold text-text-primary pt-2">
+        <h3 id="lista-de-espera" className="font-semibold text-text-primary pt-2">
           2.5 Lista de espera de este sitio web
         </h3>
         <LegalList
@@ -490,10 +490,12 @@ export default function PrivacidadPage() {
         <LegalList
           items={[
             'Los datos de tu cuenta, tu perfil, tus transacciones, tu inventario y tus conversaciones se conservan mientras tu cuenta exista.',
+            'Puedes borrar tu historial del asistente cuando quieras, desde Perfil → Configuración → Asistente. Los reportes de respuestas que hayas enviado se conservan para mejorar la calidad del asistente hasta que eliminas tu cuenta, y el contador de mensajes no se reinicia.',
             <>
               Cuando pides la eliminación de tu cuenta, los borramos en un plazo máximo
               de {DELETION_SLA_DAYS} días.
             </>,
+            'La copia local que la app guarda en tu teléfono para funcionar sin conexión se descarta al cerrar sesión o al eliminar tu cuenta. La app tampoco permite que Android la incluya en copias de seguridad ni la traspase a otro teléfono.',
             <>
               Las copias de respaldo técnicas de la base de datos pueden tardar hasta{' '}
               {BACKUP_RETENTION_DAYS} días más en expirar. Durante ese tiempo los datos

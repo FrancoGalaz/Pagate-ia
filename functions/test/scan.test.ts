@@ -141,7 +141,7 @@ function deps(modelo: Modelo, extra: Partial<ScanDeps> = {}): ScanDeps {
  * del parámetro y el test pasaría creyendo haber probado lo contrario.
  */
 function llamada(data: unknown, uid: string | null = UID, app: unknown = {}): ScanCall {
-  return { auth: uid === null ? null : { uid }, app, data };
+  return { auth: uid === null ? null : { uid, token: { email_verified: true } }, app, data };
 }
 
 async function falla(code: string, promesa: Promise<unknown>): Promise<HttpsError> {
@@ -448,6 +448,23 @@ describe('handleScanReceipt (callable scanReceipt)', () => {
 
       expect(modelo.llamadas).toHaveLength(0);
       expect(await usage()).toBeUndefined();
+    });
+
+    it('con el correo sin verificar se rechaza sin gastar cuota', async () => {
+      await seedPerfil();
+      const modelo = modeloQueResponde();
+
+      await falla(
+        'failed-precondition',
+        handleScanReceipt(
+          { auth: { uid: UID, token: { email_verified: false } }, app: {}, data: { text: BOLETA } },
+          deps(modelo),
+        ),
+      );
+
+      expect(modelo.llamadas).toHaveLength(0);
+      expect(await usage()).toBeUndefined();
+      expect(await contadorGlobal('scanCalls')).toBe(0);
     });
 
     it('con App Check apagado (el valor de hoy), una llamada sin token pasa', async () => {

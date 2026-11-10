@@ -53,7 +53,7 @@ void main() {
     expect(borde.borderSide.width, AppSizes.borderField);
   });
 
-  testWidgets('al enfocarse el borde pasa a marca de 1,5 dp', (
+  testWidgets('al enfocarse el borde pasa al oscuro de 1,5 dp', (
     final tester,
   ) async {
     await pumpComponent(tester, const PagateTextField(labelText: 'Correo'));
@@ -62,7 +62,7 @@ void main() {
     await tester.pump();
 
     final borde = _bordeActual(tester);
-    expect(borde.borderSide.color, AppPalette.brand);
+    expect(borde.borderSide.color, AppPalette.ink);
     expect(borde.borderSide.width, AppSizes.borderEmphasis);
   });
 

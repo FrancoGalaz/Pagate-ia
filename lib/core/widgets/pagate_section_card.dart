@@ -37,10 +37,15 @@ class PagateSectionCard extends StatelessWidget {
   /// escritorio 4 verticales también, con el margen lateral fuera.
   final EdgeInsetsGeometry? padding;
 
+  /// Margen exterior; por defecto 16 dp a cada lado. `EdgeInsets.zero`
+  /// cuando el padre ya trae ese margen (la lista de un formulario).
+  final EdgeInsetsGeometry margin;
+
   const PagateSectionCard({
     super.key,
     required this.child,
     this.padding,
+    this.margin = const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
   });
 
   /// Breakpoint único de la app, el mismo que decide rail contra barra
@@ -61,28 +66,24 @@ class PagateSectionCard extends StatelessWidget {
               width: AppSizes.borderHairline,
             ),
           )
-        : const BoxDecoration(
+        // Variante A: en móvil la sección es una tarjeta blanca de radio
+        // 16 con sombra suave, separada 16 dp de los bordes de la pantalla.
+        : BoxDecoration(
             color: AppPalette.surface,
-            border: Border.symmetric(
-              horizontal: BorderSide(
-                color: AppPalette.border,
-                width: AppSizes.borderHairline,
-              ),
-            ),
+            borderRadius: AppRadius.r16Border,
+            boxShadow: AppShadows.level1,
           );
 
     return Container(
       width: double.infinity,
-      margin: esEscritorio
-          ? const EdgeInsets.symmetric(horizontal: AppSpacing.x4)
-          : EdgeInsets.zero,
+      margin: margin,
       padding: padding ??
           const EdgeInsets.symmetric(vertical: AppSpacing.x1),
       decoration: decoracion,
 
       // `antiAlias` para que una fila con fondo presionado no se salga del
       // radio en escritorio.
-      clipBehavior: esEscritorio ? Clip.antiAlias : Clip.none,
+      clipBehavior: Clip.antiAlias,
       child: child,
     );
   }

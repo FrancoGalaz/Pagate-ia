@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/constants/app_constants.dart';
+import '../../../../../core/services/firebase_auth_service.dart';
 import '../../../../../core/utils/app_feedback.dart';
 import '../../../../../core/widgets/widgets.dart';
+import '../../../../auth/presentation/widgets/verificar_correo_banner.dart';
 import '../../providers/ai_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -84,6 +88,19 @@ class _IaTabState extends State<IaTab> {
     _controller.clear();
   }
 
+  /// Si `chat` rechazó por correo sin verificar, primero se pide un token
+  /// nuevo: el viejo seguiría diciendo `email_verified: false`.
+  Future<void> _reintentar(final AiProvider ai) async {
+    if (ai.faltaVerificarCorreo) {
+      try {
+        await context.read<FirebaseAuthService>().comprobarVerificacion();
+      } catch (_) {
+        // Sin conexión: el reintento fallará y lo dirá.
+      }
+    }
+    await ai.retry();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((final _) {
       if (!_scrollController.hasClients) return;
@@ -119,36 +136,40 @@ class _IaTabState extends State<IaTab> {
           child: ai.isLoadingHistory
               ? ListView(children: [PagateSkeleton.rows(3)])
               : messages.isEmpty
-                  ? ListView(
-                      children: const [
-                        PagateEmptyState(
-                          title: 'Pregúntale lo que quieras',
-                          description:
-                              'Escribe abajo y el asistente responde con lo '
-                              'que registraste este mes.',
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.x4,
-                        AppSpacing.x4,
-                        AppSpacing.x4,
-                        AppSpacing.x0,
-                      ),
-                      itemCount: messages.length + (isSending ? 1 : 0),
-                      itemBuilder: (final context, final i) =>
-                          i == messages.length
-                              ? const _TypingIndicator()
-                              : _MessageBubble(message: messages[i]),
+              ? ListView(
+                  children: const [
+                    PagateEmptyState(
+                      title: 'Pregúntale lo que quieras',
+                      description:
+                          'Escribe abajo y el asistente responde con lo '
+                          'que registraste este mes.',
                     ),
+                  ],
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.x4,
+                    AppSpacing.x4,
+                    AppSpacing.x4,
+                    AppSpacing.x0,
+                  ),
+                  itemCount: messages.length + (isSending ? 1 : 0),
+                  itemBuilder: (final context, final i) => i == messages.length
+                      ? const _TypingIndicator()
+                      : _MessageBubble(message: messages[i]),
+                ),
         ),
         if (ai.error != null)
           _ErrorBanner(
             message: ai.error!,
-            onRetry: ai.canRetry && !isSending ? ai.retry : null,
+            onRetry: ai.canRetry && !isSending
+                ? () => unawaited(_reintentar(ai))
+                : null,
             onDismiss: ai.clearError,
+            onReenviarCorreo: ai.faltaVerificarCorreo
+                ? () => unawaited(reenviarCorreo(context))
+                : null,
           ),
         _Composer(
           controller: _controller,
@@ -229,20 +250,20 @@ class _IconoDeMarca extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => ExcludeSemantics(
-        child: Container(
-          width: lado,
-          height: lado,
-          decoration: const BoxDecoration(
-            color: AppPalette.brand,
-            borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
-          ),
-          child: const Icon(
-            Icons.smart_toy_outlined,
-            color: AppPalette.textOnBrand,
-            size: AppIconSize.xs,
-          ),
-        ),
-      );
+    child: Container(
+      width: lado,
+      height: lado,
+      decoration: const BoxDecoration(
+        color: AppPalette.brand,
+        borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
+      ),
+      child: const Icon(
+        Icons.smart_toy_outlined,
+        color: AppPalette.textOnBrand,
+        size: AppIconSize.xs,
+      ),
+    ),
+  );
 }
 
 // ─── Mensajes ──────────────────────────────────────────────────────────
@@ -252,26 +273,26 @@ class _TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.x3),
-        child: Row(
-          children: [
-            const _IconoDeMarca(lado: _ladoAvatar),
-            const SizedBox(width: AppSpacing.x2),
-            const SizedBox(
-              width: AppIconSize.xs,
-              height: AppIconSize.xs,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            Text(
-              'Escribiendo…',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted,
-                  ),
-            ),
-          ],
+    padding: const EdgeInsets.only(bottom: AppSpacing.x3),
+    child: Row(
+      children: [
+        const _IconoDeMarca(lado: _ladoAvatar),
+        const SizedBox(width: AppSpacing.x2),
+        const SizedBox(
+          width: AppIconSize.xs,
+          height: AppIconSize.xs,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
-      );
+        const SizedBox(width: AppSpacing.x2),
+        Text(
+          'Escribiendo…',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppPalette.textMuted),
+        ),
+      ],
+    ),
+  );
 }
 
 const double _ladoAvatar = 28;
@@ -293,8 +314,9 @@ class _MessageBubble extends StatelessWidget {
         opacity: message.pending ? 0.6 : 1,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment:
-              isAssistant ? MainAxisAlignment.start : MainAxisAlignment.end,
+          mainAxisAlignment: isAssistant
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.end,
           children: [
             if (isAssistant) ...[
               const _IconoDeMarca(lado: _ladoAvatar),
@@ -319,8 +341,9 @@ class _MessageBubble extends StatelessWidget {
                           : AppPalette.brandSurface,
                       borderRadius: AppRadius.r12Border,
                       border: Border.all(
-                        color:
-                            isAssistant ? AppPalette.border : AppPalette.brand,
+                        color: isAssistant
+                            ? AppPalette.border
+                            : AppPalette.brand,
                         width: AppSizes.borderHairline,
                       ),
                     ),
@@ -356,64 +379,74 @@ class _ErrorBanner extends StatelessWidget {
     required this.message,
     required this.onRetry,
     required this.onDismiss,
+    this.onReenviarCorreo,
   });
 
   final String message;
   final VoidCallback? onRetry;
   final VoidCallback onDismiss;
 
+  /// Solo cuando `chat` rechazó por correo sin verificar.
+  final VoidCallback? onReenviarCorreo;
+
   @override
   Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.x4,
-          AppSpacing.x2,
-          AppSpacing.x4,
-          AppSpacing.x0,
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.x4,
+      AppSpacing.x2,
+      AppSpacing.x4,
+      AppSpacing.x0,
+    ),
+    child: Container(
+      padding: const EdgeInsets.only(left: AppSpacing.x3),
+      decoration: BoxDecoration(
+        color: AppPalette.dangerSurface,
+        borderRadius: AppRadius.r12Border,
+        border: Border.all(
+          color: AppPalette.danger,
+          width: AppSizes.borderHairline,
         ),
-        child: Container(
-          padding: const EdgeInsets.only(left: AppSpacing.x3),
-          decoration: BoxDecoration(
-            color: AppPalette.dangerSurface,
-            borderRadius: AppRadius.r12Border,
-            border: Border.all(
+      ),
+      child: Row(
+        children: [
+          const ExcludeSemantics(
+            child: Icon(
+              Icons.error_outline_rounded,
               color: AppPalette.danger,
-              width: AppSizes.borderHairline,
+              size: AppIconSize.sm,
             ),
           ),
-          child: Row(
-            children: [
-              const ExcludeSemantics(
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  color: AppPalette.danger,
-                  size: AppIconSize.sm,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.x2),
-              Expanded(
-                child: Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.danger,
-                      ),
-                ),
-              ),
-              if (onRetry != null)
-                PagatePrimaryButton.text(
-                  label: 'Reintentar',
-                  isDestructive: true,
-                  onPressed: onRetry,
-                ),
-              IconButton(
-                onPressed: onDismiss,
-                tooltip: 'Cerrar el aviso',
-                color: AppPalette.danger,
-                icon: const Icon(Icons.close_rounded, size: AppIconSize.sm),
-              ),
-            ],
+          const SizedBox(width: AppSpacing.x2),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppPalette.danger),
+            ),
           ),
-        ),
-      );
+          if (onReenviarCorreo != null)
+            PagatePrimaryButton.text(
+              label: 'Reenviar correo',
+              isDestructive: true,
+              onPressed: onReenviarCorreo,
+            ),
+          if (onRetry != null)
+            PagatePrimaryButton.text(
+              label: 'Reintentar',
+              isDestructive: true,
+              onPressed: onRetry,
+            ),
+          IconButton(
+            onPressed: onDismiss,
+            tooltip: 'Cerrar el aviso',
+            color: AppPalette.danger,
+            icon: const Icon(Icons.close_rounded, size: AppIconSize.sm),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 // ─── Compositor ────────────────────────────────────────────────────────
@@ -431,55 +464,52 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.x4,
-          AppSpacing.x3,
-          AppSpacing.x4,
-          AppSpacing.x4,
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.x4,
+      AppSpacing.x3,
+      AppSpacing.x4,
+      AppSpacing.x4,
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            textInputAction: TextInputAction.send,
+            textCapitalization: TextCapitalization.sentences,
+            onSubmitted: (final _) => onSend(),
+            // Toda la decoración sale del tema.
+            decoration: const InputDecoration(hintText: 'Escribe una pregunta'),
+          ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: enabled,
-                textInputAction: TextInputAction.send,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (final _) => onSend(),
-                // Toda la decoración sale del tema.
-                decoration: const InputDecoration(
-                  hintText: 'Escribe una pregunta',
-                ),
+        const SizedBox(width: AppSpacing.x2),
+        SizedBox(
+          width: AppSizes.minTouchTarget,
+          height: AppSizes.minTouchTarget,
+          child: IconButton(
+            tooltip: 'Enviar',
+            onPressed: enabled ? onSend : null,
+            style: IconButton.styleFrom(
+              // El estado apagado se dice con color, no con opacidad:
+              // `sunken` con icono `textMuted` da 4,77:1.
+              backgroundColor: enabled ? AppPalette.brand : AppPalette.sunken,
+              foregroundColor: enabled
+                  ? AppPalette.textOnBrand
+                  : AppPalette.textMuted,
+              disabledBackgroundColor: AppPalette.sunken,
+              disabledForegroundColor: AppPalette.textMuted,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(AppRadius.r12)),
               ),
             ),
-            const SizedBox(width: AppSpacing.x2),
-            SizedBox(
-              width: AppSizes.minTouchTarget,
-              height: AppSizes.minTouchTarget,
-              child: IconButton(
-                tooltip: 'Enviar',
-                onPressed: enabled ? onSend : null,
-                style: IconButton.styleFrom(
-                  // El estado apagado se dice con color, no con opacidad:
-                  // `sunken` con icono `textMuted` da 4,77:1.
-                  backgroundColor:
-                      enabled ? AppPalette.brand : AppPalette.sunken,
-                  foregroundColor:
-                      enabled ? AppPalette.textOnBrand : AppPalette.textMuted,
-                  disabledBackgroundColor: AppPalette.sunken,
-                  disabledForegroundColor: AppPalette.textMuted,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.all(Radius.circular(AppRadius.r12)),
-                  ),
-                ),
-                icon: const Icon(Icons.send_rounded, size: AppIconSize.sm),
-              ),
-            ),
-          ],
+            icon: const Icon(Icons.send_rounded, size: AppIconSize.sm),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 // ─── Política de Play: aviso y reporte ─────────────────────────────────
@@ -500,42 +530,42 @@ class _AiDisclosure extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: AppPalette.sunken,
-          border: Border(
-            bottom: BorderSide(
-              color: AppPalette.border,
-              width: AppSizes.borderHairline,
-            ),
+    width: double.infinity,
+    decoration: const BoxDecoration(
+      color: AppPalette.sunken,
+      border: Border(
+        bottom: BorderSide(
+          color: AppPalette.border,
+          width: AppSizes.borderHairline,
+        ),
+      ),
+    ),
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.x4,
+      vertical: AppSpacing.x2,
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ExcludeSemantics(
+          child: Icon(
+            Icons.info_outline_rounded,
+            size: AppIconSize.xs,
+            color: AppPalette.textSecondary,
           ),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.x4,
-          vertical: AppSpacing.x2,
+        const SizedBox(width: AppSpacing.x2),
+        Expanded(
+          child: Text(
+            kAiDisclosureText,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppPalette.textSecondary),
+          ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ExcludeSemantics(
-              child: Icon(
-                Icons.info_outline_rounded,
-                size: AppIconSize.xs,
-                color: AppPalette.textSecondary,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.x2),
-            Expanded(
-              child: Text(
-                kAiDisclosureText,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.textSecondary,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 }
 
 /// Botón de reportar bajo una respuesta del asistente.
@@ -553,9 +583,9 @@ class _ReportAction extends StatelessWidget {
     final provider = context.read<AiProvider>();
     final eleccion =
         await showPagateSheet<({AiReportReason reason, String comment})>(
-      context: context,
-      builder: (final _) => const _ReportSheet(),
-    );
+          context: context,
+          builder: (final _) => const _ReportSheet(),
+        );
     if (eleccion == null) return;
 
     final guardado = await provider.reportMessage(
@@ -626,10 +656,9 @@ class _ReportSheetState extends State<_ReportSheet> {
         label: 'Enviar reporte',
         onPressed: _reason == null
             ? null
-            : () => Navigator.of(context).pop((
-                  reason: _reason!,
-                  comment: _comment.text,
-                )),
+            : () => Navigator.of(
+                context,
+              ).pop((reason: _reason!, comment: _comment.text)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -81,8 +81,12 @@ export { dayKeyOf };
  * aquí sin conversiones, y un test puede construir una llamada con un objeto
  * plano, sin montar un token de Authentication ni uno de App Check.
  */
+/** Mensaje y código que el cliente reconoce para ofrecer "Reenviar correo". */
+export const CORREO_SIN_VERIFICAR =
+  'Verifica tu correo para usar el asistente. Te enviamos un enlace al registrarte.';
+
 export interface ChatCall {
-  auth?: { uid: string } | null;
+  auth?: { uid: string; token?: { email_verified?: boolean } } | null;
   app?: unknown;
   data: unknown;
 }
@@ -325,6 +329,11 @@ export async function handleChat(request: ChatCall, deps: ChatDeps): Promise<Cha
   }
   if (deps.enforceAppCheck && !request.app) {
     throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+  }
+  // Correo verificado, ANTES de la cuota: una cuenta sin verificar no gasta
+  // mensajes. Sin esto, cada cuenta falsa traería 25 mensajes gratis.
+  if (request.auth.token?.email_verified !== true) {
+    throw new HttpsError('failed-precondition', CORREO_SIN_VERIFICAR);
   }
   const uid = request.auth.uid;
   const { message, conversationId } = parseInput(request.data);

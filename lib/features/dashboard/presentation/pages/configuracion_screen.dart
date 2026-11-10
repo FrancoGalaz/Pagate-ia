@@ -15,6 +15,7 @@ import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../widgets/borrar_historial_row.dart';
 import 'editar_perfil_screen.dart';
 import 'eliminar_cuenta_screen.dart';
 
@@ -152,6 +153,10 @@ class ConfiguracionScreen extends StatelessWidget {
               ),
             ),
 
+            // ─── Asistente ──────────────────────────────────────────
+            const PagateSectionHeader(title: 'Asistente'),
+            const PagateSectionCard(child: BorrarHistorialRow()),
+
             // ─── Legal ──────────────────────────────────────────────
             // LOS TEXTOS LEGALES, ALCANZABLES DESDE LA APP.
             //
@@ -233,7 +238,7 @@ class ConfiguracionScreen extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (final _) => EliminarCuentaScreen(
                         email: auth.email,
-                        onDeleted: auth.signOut,
+                        onDeleted: auth.cerrarSesion,
                       ),
                     ),
                   );
@@ -248,11 +253,9 @@ class ConfiguracionScreen extends StatelessWidget {
 
   /// Las tres filas de "Negocio" y la meta llevan al mismo formulario.
   void _abrirEdicion(final BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (final _) => const EditarPerfilScreen(),
-        ),
-      );
+    context,
+    MaterialPageRoute<void>(builder: (final _) => const EditarPerfilScreen()),
+  );
 
   Future<void> _resetPassword(final BuildContext context) async {
     final auth = context.read<FirebaseAuthService>();

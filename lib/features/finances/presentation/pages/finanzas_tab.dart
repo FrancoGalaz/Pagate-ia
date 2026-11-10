@@ -11,6 +11,7 @@ import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/month_labels.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../dashboard/presentation/widgets/financial_charts.dart';
+import '../../domain/entities/finances_summary_entity.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../../domain/entities/fixed_expense_entity.dart';
 import '../providers/finances_provider.dart';
@@ -50,10 +51,10 @@ import '../widgets/transaction_form_sheet.dart';
 //   el signo ya dice.
 //
 // · EL BORDE EN CADA CHIP NO SELECCIONADO del selector de mes, que
-//   convertía la fila en una reja. Ahora es `PagateMonthSelector`, que
-//   además garantiza un chip del mes en curso: con datos hasta agosto y el
-//   mes actual sin movimientos, la pantalla abría en agosto sin forma de
-//   volver.
+//   convertía la fila en una reja. Ahora es un solo `PagateSegmented`
+//   (Este mes / Mes pasado / Año / Otro mes) que siempre deja volver al
+//   mes en curso: con datos hasta agosto y el mes actual sin movimientos,
+//   la pantalla abría en agosto sin forma de volver.
 //
 // · "Meta Mensual" y "Gastos Fijos" en Title Case inglés.
 //
@@ -62,20 +63,106 @@ import '../widgets/transaction_form_sheet.dart';
 // la acción semántica de borrado los trae ya `PagateMovementRow`.
 // ═══════════════════════════════════════════════════════════════════════
 
-class FinanzasTab extends StatelessWidget {
+class FinanzasTab extends StatefulWidget {
   const FinanzasTab({super.key});
+
+  @override
+  State<FinanzasTab> createState() => _FinanzasTabState();
+}
+
+/// Los cuatro períodos del selector único.
+enum _Periodo { esteMes, mesPasado, anio, otroMes }
+
+class _FinanzasTabState extends State<FinanzasTab> {
+  /// «Año» no es un mes, así que no vive en el provider: el mes elegido se
+  /// conserva debajo y define de qué año se habla.
+  bool _anual = false;
+
+  static String get _mesPasado {
+    final hoy = DateTime.now();
+    return monthKeyFromDate(DateTime(hoy.year, hoy.month - 1));
+  }
+
+  _Periodo _periodo(final String mes) {
+    if (_anual) return _Periodo.anio;
+    if (mes == FinancesProvider.currentMonthKey) return _Periodo.esteMes;
+    if (mes == _mesPasado) return _Periodo.mesPasado;
+    return _Periodo.otroMes;
+  }
+
+  Future<void> _elegir(final _Periodo periodo) async {
+    final provider = context.read<FinancesProvider>();
+    switch (periodo) {
+      case _Periodo.esteMes:
+        provider.selectMonthKey(FinancesProvider.currentMonthKey);
+      case _Periodo.mesPasado:
+        provider.selectMonthKey(_mesPasado);
+      case _Periodo.anio:
+        setState(() => _anual = true);
+        return;
+      case _Periodo.otroMes:
+        final mes = await _elegirMes(context, provider);
+        if (mes == null || !mounted) return;
+        provider.selectMonthKey(mes);
+    }
+    setState(() => _anual = false);
+  }
+
+  /// Desde la lista de meses del Año: abre ese mes.
+  void _abrirMes(final String mes) {
+    context.read<FinancesProvider>().selectMonthKey(mes);
+    setState(() => _anual = false);
+  }
 
   @override
   Widget build(final BuildContext context) {
     final provider = context.watch<FinancesProvider>();
+    final mes = provider.selectedMonthKey;
+    final anio = mes.split('-').first;
+
+    final selector = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        0,
+        AppSpacing.x4,
+        AppSpacing.x2,
+      ),
+      child: PagateSegmented<_Periodo>(
+        options: const [
+          (_Periodo.esteMes, 'Este mes'),
+          (_Periodo.mesPasado, 'Mes pasado'),
+          (_Periodo.anio, 'Año'),
+          (_Periodo.otroMes, 'Otro mes'),
+        ],
+        selected: _periodo(mes),
+        onChanged: (final p) => unawaited(_elegir(p)),
+        // «Otro mes» ya elegido vuelve a abrir la lista.
+        onReselected: (final p) {
+          if (p == _Periodo.otroMes) unawaited(_elegir(p));
+        },
+      ),
+    );
+    // Con letra de 1,5 o más el selector ocupa dos líneas: fijo, robaba ese
+    // alto a cada tramo de la lista. Ahí se desplaza con el contenido.
+    final desplazable = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final arriba = desplazable ? selector : null;
 
     return Column(
       children: [
-        const _Cabecera(),
+        _Cabecera(
+          periodo: _anual
+              ? 'Año $anio'
+              : monthLabelFromMonthKey(mes).toLowerCase(),
+        ),
+        if (!desplazable) selector,
         Expanded(
           child: provider.error != null
-              ? _CuerpoConError(provider: provider)
-              : const _Cuerpo(),
+              ? _CuerpoConError(provider: provider, encabezado: arriba)
+              : _Cuerpo(
+                  anio: _anual ? anio : null,
+                  onAbrirMes: _abrirMes,
+                  encabezado: arriba,
+                ),
         ),
 
         // Barra fija, no FAB: no tapa la última fila y se apaga de verdad
@@ -93,10 +180,50 @@ class FinanzasTab extends StatelessWidget {
   }
 }
 
-// ─── Cabecera: título, exportar y selector de mes ──────────────────────
+/// Hoja con los meses que tienen datos; devuelve el elegido o `null`.
+Future<String?> _elegirMes(
+  final BuildContext context,
+  final FinancesProvider provider,
+) {
+  final meses = {
+    for (final m in provider.months) m.monthKey,
+    FinancesProvider.currentMonthKey,
+  }.toList()..sort((final a, final b) => b.compareTo(a));
+
+  return showPagateSheet<String>(
+    context: context,
+    builder: (final hoja) => PagateSheet(
+      title: 'Elegir mes',
+      bodyPadding: EdgeInsets.zero,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final mes in meses)
+            Semantics(
+              selected: mes == provider.selectedMonthKey,
+              child: PagateDataRow(
+                label: monthLabelFromMonthKey(mes),
+                value: '',
+                trailing: mes == provider.selectedMonthKey
+                    ? const Icon(Icons.check_rounded, color: AppPalette.brand)
+                    : null,
+                onTap: () => Navigator.of(hoja).pop(mes),
+                showDivider: mes != meses.last,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ─── Cabecera: título, período y exportar ──────────────────────────────
 
 class _Cabecera extends StatefulWidget {
-  const _Cabecera();
+  const _Cabecera({required this.periodo});
+
+  /// «noviembre 2026» o «Año 2026»: qué está mirando, dicho con palabras.
+  final String periodo;
 
   @override
   State<_Cabecera> createState() => _CabeceraState();
@@ -131,49 +258,51 @@ class _CabeceraState extends State<_Cabecera> {
     final theme = Theme.of(context);
     final provider = context.watch<FinancesProvider>();
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.x4,
-            AppSpacing.x2,
-            AppSpacing.x1,
-            AppSpacing.x2,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Finanzas', style: theme.textTheme.headlineMedium),
-                ),
-                if (_exportando)
-                  const Padding(
-                    padding: EdgeInsets.all(AppSpacing.x3),
-                    child: SizedBox(
-                      width: AppIconSize.sm,
-                      height: AppIconSize.sm,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x1,
+        AppSpacing.x2,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Finanzas', style: theme.textTheme.headlineMedium),
+                  Text(
+                    widget.periodo,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textSecondary,
                     ),
-                  )
-                else
-                  IconButton(
-                    tooltip: 'Exportar informe en PDF',
-                    icon: const Icon(Icons.ios_share_rounded),
-                    onPressed:
-                        provider.error == null ? () => unawaited(_exportar()) : null,
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
+            if (_exportando)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.x3),
+                child: SizedBox(
+                  width: AppIconSize.sm,
+                  height: AppIconSize.sm,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              IconButton(
+                tooltip: 'Exportar informe en PDF',
+                icon: const Icon(Icons.ios_share_rounded),
+                onPressed:
+                    provider.error == null ? () => unawaited(_exportar()) : null,
+              ),
+          ],
         ),
-        PagateMonthSelector(
-          monthKeys: [for (final m in provider.months) m.monthKey],
-          selectedMonthKey: provider.selectedMonthKey,
-          currentMonthKey: FinancesProvider.currentMonthKey,
-          onSelected: provider.selectMonthKey,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -181,14 +310,18 @@ class _CabeceraState extends State<_Cabecera> {
 // ─── Cuerpo ────────────────────────────────────────────────────────────
 
 class _CuerpoConError extends StatelessWidget {
-  const _CuerpoConError({required this.provider});
+  const _CuerpoConError({required this.provider, this.encabezado});
 
   final FinancesProvider provider;
 
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
+
   @override
   Widget build(final BuildContext context) => ListView(
-        padding: const EdgeInsets.only(top: AppSpacing.x6),
         children: [
+          ?encabezado,
+          const SizedBox(height: AppSpacing.x6),
           PagateErrorState(
             message: provider.error!,
             onRetry: provider.retry,
@@ -198,7 +331,18 @@ class _CuerpoConError extends StatelessWidget {
 }
 
 class _Cuerpo extends StatelessWidget {
-  const _Cuerpo();
+  const _Cuerpo({
+    required this.anio,
+    required this.onAbrirMes,
+    this.encabezado,
+  });
+
+  /// `'2026'` con «Año» elegido; `null` con un mes.
+  final String? anio;
+  final ValueChanged<String> onAbrirMes;
+
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
 
   @override
   Widget build(final BuildContext context) {
@@ -207,138 +351,181 @@ class _Cuerpo extends StatelessWidget {
     if (provider.isLoading) {
       return ListView(
         children: [
+          ?encabezado,
           PagateSkeleton.balance(),
           PagateSkeleton.rows(4),
         ],
       );
     }
 
-    final summary = provider.summary;
+    // Del año: la suma de sus meses, del más reciente al más antiguo.
+    final mesesDelAnio = anio == null
+        ? const <FinancesSummaryEntity>[]
+        : [
+            for (final m in provider.months)
+              if (m.monthKey.startsWith('$anio-')) m,
+          ];
+    final ingresos = anio == null
+        ? provider.summary.totalIncome
+        : mesesDelAnio.fold<double>(0, (final a, final m) => a + m.totalIncome);
+    final gastos = anio == null
+        ? provider.summary.totalExpenses
+        : mesesDelAnio.fold<double>(
+            0,
+            (final a, final m) => a + m.totalExpenses,
+          );
 
     return ListView(
       padding: const EdgeInsets.only(bottom: AppSpacing.x8),
       children: [
-        // La cifra dominante de esta pantalla: el balance del mes.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.x4,
-            AppSpacing.x6,
-            AppSpacing.x4,
-            AppSpacing.x6,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Balance de ${monthLabelFromMonthKey(summary.monthKey)}'
-                    .toUpperCase(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textSecondary,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.x2),
-              Text(
-                formatCurrency(summary.balance, currency: kFallbackCurrency),
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: summary.balance < 0
-                          ? AppPalette.moneyOut
-                          : AppPalette.textPrimary,
-                    ),
-              ),
-            ],
-          ),
+        ?encabezado,
+        _Metricas(
+          ingresos: ingresos,
+          gastos: gastos,
+          // La meta es mensual: en el año no tiene contra qué compararse.
+          meta: anio == null ? provider.monthlyGoal : 0,
         ),
-
-        PagateSectionCard(
-          child: Column(
-            children: [
-              PagateDataRow(
-                label: 'Ingresos',
-                value: formatCurrency(
-                  summary.totalIncome,
-                  currency: kFallbackCurrency,
-                ),
-              ),
-              PagateDataRow(
-                label: 'Gastos',
-                value: formatSigned(
-                  -summary.totalExpenses,
-                  currency: kFallbackCurrency,
-                ),
-                showDivider: false,
-              ),
-            ],
+        const SizedBox(height: AppSpacing.x4),
+        PagateSectionCard(child: MonthlyBarChart(anio: anio)),
+        if (anio == null) ...[
+          const SizedBox(height: AppSpacing.x4),
+          const PagateSectionCard(child: CategoryBars()),
+          const _Movimientos(),
+        ] else
+          _MesesDelAnio(
+            anio: anio!,
+            meses: mesesDelAnio,
+            onAbrirMes: onAbrirMes,
           ),
-        ),
-
-        if (provider.monthlyGoal > 0) const _Meta(),
-
         const _GastosFijos(),
-        const _Movimientos(),
-
-        const SizedBox(height: AppSpacing.x6),
-        const PagateSectionCard(child: MonthlyBarChart()),
-        const SizedBox(height: AppSpacing.x6),
-        const PagateSectionCard(child: NetBalanceLineChart()),
-        const SizedBox(height: AppSpacing.x6),
-        const PagateSectionCard(child: CategoryBars()),
       ],
     );
   }
 }
 
-// ─── Meta del mes ──────────────────────────────────────────────────────
+// ─── Métricas del período ──────────────────────────────────────────────
 
-class _Meta extends StatelessWidget {
-  const _Meta();
+/// Ingresos, gastos, balance y meta, de a dos. Con letra de 1,5 o más, de a
+/// una: una cifra partida a media columna no se lee.
+class _Metricas extends StatelessWidget {
+  const _Metricas({
+    required this.ingresos,
+    required this.gastos,
+    required this.meta,
+  });
+
+  final double ingresos;
+  final double gastos;
+  final double meta;
 
   @override
   Widget build(final BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = context.watch<FinancesProvider>();
-    final progreso = provider.goalProgress;
+    final tarjetas = <Widget>[
+      PagateMetricCard(
+        value: formatSigned(ingresos, currency: kFallbackCurrency),
+        label: 'Ingresos',
+        tone: PagateMetricTone.income,
+      ),
+      PagateMetricCard(
+        value: formatSigned(-gastos, currency: kFallbackCurrency),
+        label: 'Gastos',
+        tone: PagateMetricTone.expense,
+      ),
+      PagateMetricCard(
+        value: formatCurrency(ingresos - gastos, currency: kFallbackCurrency),
+        label: 'Balance',
+      ),
+      if (meta > 0)
+        PagateMetricCard(
+          // Sin tope: pasar la meta también se dice.
+          value: '${(ingresos / meta * 100).round()} %',
+          label: 'Ingresos sobre la meta de '
+              '${formatCurrency(meta, currency: kFallbackCurrency)}',
+        ),
+    ];
+
+    final unaColumna = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    const hueco = AppSpacing.x3;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.x4,
-        AppSpacing.x6,
+        AppSpacing.x2,
         AppSpacing.x4,
         0,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Meta del mes '
-                  '${formatCurrency(
-                    provider.monthlyGoal,
-                    currency: kFallbackCurrency,
-                  )}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textSecondary,
-                  ),
+          for (var i = 0; i < tarjetas.length; i += unaColumna ? 1 : 2) ...[
+            if (i > 0) const SizedBox(height: hueco),
+            // La que queda sola (el balance, sin meta) va a todo el ancho,
+            // sin un hueco al lado.
+            if (unaColumna || i + 1 == tarjetas.length)
+              tarjetas[i]
+            else
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: tarjetas[i]),
+                    const SizedBox(width: hueco),
+                    Expanded(child: tarjetas[i + 1]),
+                  ],
                 ),
               ),
-              Text(
-                '${(progreso * 100).round()} %',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppPalette.brand,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.x2),
-          ClipRRect(
-            borderRadius: AppRadius.r4Border,
-            child: LinearProgressIndicator(value: progreso),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+// ─── Meses del año ─────────────────────────────────────────────────────
+
+/// Con «Año», en lugar de los movimientos: un mes por fila, y al tocarlo se
+/// abre ese mes.
+class _MesesDelAnio extends StatelessWidget {
+  const _MesesDelAnio({
+    required this.anio,
+    required this.meses,
+    required this.onAbrirMes,
+  });
+
+  final String anio;
+  final List<FinancesSummaryEntity> meses;
+  final ValueChanged<String> onAbrirMes;
+
+  @override
+  Widget build(final BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PagateSectionHeader(title: 'Meses de $anio'),
+          PagateSectionCard(
+            child: meses.isEmpty
+                ? const PagateEmptyState(
+                    title: 'Sin movimientos este año',
+                    description: 'Cuando registres una venta o un gasto, '
+                        'aparece aquí.',
+                  )
+                : Column(
+                    children: [
+                      for (final m in meses)
+                        PagateDataRow(
+                          label: monthLabelFromMonthKey(m.monthKey),
+                          subtitle: '${m.transactionCount} '
+                              '${m.transactionCount == 1 ? 'movimiento' : 'movimientos'}',
+                          value: formatCurrency(
+                            m.balance,
+                            currency: kFallbackCurrency,
+                          ),
+                          onTap: () => onAbrirMes(m.monthKey),
+                          showDivider: m != meses.last,
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      );
 }
 
 // ─── Gastos fijos ──────────────────────────────────────────────────────
@@ -444,10 +631,12 @@ class _GastosFijos extends StatelessWidget {
     final FixedExpenseEntity gasto,
   ) async {
     final provider = context.read<FinancesProvider>();
-    final confirmado = await _confirmar(
+    final confirmado = await confirmar(
       context,
       title: 'Eliminar gasto fijo',
       message: '¿Eliminar "${gasto.name}"? Dejará de descontarse cada mes.',
+      confirmLabel: 'Eliminar',
+      destructive: true,
     );
     if (!confirmado || !context.mounted) return;
 
@@ -627,10 +816,12 @@ class _Movimientos extends StatelessWidget {
     final FinancesProvider provider,
     final FinancesTransactionEntity tx,
   ) async {
-    final confirmado = await _confirmar(
+    final confirmado = await confirmar(
       context,
       title: 'Eliminar movimiento',
       message: '¿Eliminar "${tx.title}"?',
+      confirmLabel: 'Eliminar',
+      destructive: true,
     );
     if (!confirmado) return false;
 
@@ -647,40 +838,4 @@ class _Movimientos extends StatelessWidget {
       return false;
     }
   }
-}
-
-// ─── Confirmación destructiva ──────────────────────────────────────────
-
-/// Hoja de confirmación.
-///
-/// Sustituye a los `AlertDialog`: el `elevatedButtonTheme` impone
-/// `minimumSize: Size(infinity, 48)`, y dentro del `OverflowBar` de un
-/// diálogo eso apila los botones a ancho completo y descoloca la jerarquía
-/// Cancelar / Eliminar. En la hoja el orden es explícito.
-Future<bool> _confirmar(
-  final BuildContext context, {
-  required final String title,
-  required final String message,
-}) async {
-  final resultado = await showPagateSheet<bool>(
-    context: context,
-    builder: (final sheetContext) => PagateSheet(
-      title: title,
-      primaryAction: PagatePrimaryButton.secondary(
-        label: 'Cancelar',
-        onPressed: () => Navigator.of(sheetContext).pop(false),
-      ),
-      secondaryAction: PagatePrimaryButton(
-        label: 'Eliminar',
-        onPressed: () => Navigator.of(sheetContext).pop(true),
-      ),
-      child: Text(
-        message,
-        style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-              color: AppPalette.textSecondary,
-            ),
-      ),
-    ),
-  );
-  return resultado ?? false;
 }

@@ -160,7 +160,7 @@ void main() {
       expect(find.text('oct 26'), findsNothing);
     });
 
-    testWidgets('el seleccionado va en relleno de marca y el resto sin borde', (
+    testWidgets('el seleccionado va en relleno oscuro y el resto sin borde', (
       final tester,
     ) async {
       await pumpComponent(
@@ -180,7 +180,7 @@ void main() {
             ),
           );
 
-      expect(chipDe('Este mes').selectedColor, AppPalette.brand);
+      expect(chipDe('Este mes').selectedColor, AppPalette.ink);
       // Sin borde en los no seleccionados: con uno en cada chip la fila se
       // convertía en una reja donde el activo no destacaba.
       expect(chipDe('sep 26').side?.color, Colors.transparent);

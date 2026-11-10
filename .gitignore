@@ -46,6 +46,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Secretos y configuración local
 .mcp.json
@@ -66,9 +67,17 @@ functions/node_modules/
 functions/lib/
 functions/.secret.local
 !functions/.env
+!functions/.env.local.example
 
 # Firebase CLI / emuladores
 .firebase/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Capturas de pantalla generadas por scripts/capturas.sh
+capturas/
+
+# Capturas de una app ajena (Cabal), solo como referencia local: muestran
+# el correo y el teléfono del dueño.
+docs/referencias/cabal/

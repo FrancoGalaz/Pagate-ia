@@ -13,7 +13,7 @@ import 'package:pagate_ia/features/onboarding/presentation/pages/setup_inicial_s
 import 'package:pagate_ia/features/user_profile/presentation/providers/user_profile_provider.dart';
 
 /// Doble del servicio de Auth. [displayName] es lo único que la pantalla le
-/// pide, y `signOut` lo que ofrece el botón del pie.
+/// pide, y `cerrarSesion` lo que ofrece el botón del pie.
 class _AuthFalso extends ChangeNotifier implements FirebaseAuthService {
   _AuthFalso({this.displayName});
 
@@ -23,7 +23,12 @@ class _AuthFalso extends ChangeNotifier implements FirebaseAuthService {
   int cierresDeSesion = 0;
 
   @override
-  Future<void> signOut() async => cierresDeSesion++;
+  Future<bool> cerrarSesion({
+    final Future<bool> Function()? confirmarPerdidaDeCambios,
+  }) async {
+    cierresDeSesion++;
+    return true;
+  }
 
   @override
   dynamic noSuchMethod(final Invocation invocation) =>

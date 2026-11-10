@@ -167,7 +167,8 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 - `lib/core/constants/app_constants.dart` es la fuente de tokens (colores,
   spacing, radios, tamaños, duraciones). No hardcodear estilos.
 - `lib/core/theme/app_theme.dart` centraliza el tema Material. **Tema claro
-  único**: solo existe `lightTheme`, no hay `darkTheme` ni `themeMode`, y ningún
+  único**: solo existe `lightTheme` y no hay `darkTheme`; `app_shell.dart` fija
+  `themeMode: ThemeMode.light` para que la app no siga al sistema, y ningún
   widget decide colores según `brightness`.
 - Widgets compartidos en `lib/core/widgets/` (export en `widgets.dart`).
 - Breakpoint web/mobile 720 px: NavigationRail en escritorio,
@@ -181,6 +182,10 @@ pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 - `.mcp.json` está ignorado por git (contiene tokens locales). No versionarlo.
 - Secretos y entornos locales ignorados: `*.env`, `.env.*`, `landing/.env*`,
   `functions/.npmrc`, `landing/.npmrc`, `.firebase/`, logs de emuladores.
+- Excepción intencional: `functions/.env` (parámetros no secretos de Functions)
+  y `landing/.env.production` (URL pública de `waitlist`) **sí se versionan**,
+  con su `!` en `.gitignore`. No contienen secretos y no deben contenerlos: los
+  secretos van a Secret Manager.
 
 ## Despliegue
 - Local: `APP_CHECK_SITE_KEY=... ./scripts/deploy-web.sh` (hosting +
