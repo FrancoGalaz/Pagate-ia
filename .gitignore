@@ -77,3 +77,7 @@ ui-debug.log
 
 # Capturas de pantalla generadas por scripts/capturas.sh
 capturas/
+
+# Capturas de una app ajena (Cabal), solo como referencia local: muestran
+# el correo y el teléfono del dueño.
+docs/referencias/cabal/
