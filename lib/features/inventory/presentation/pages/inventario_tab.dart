@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_text.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../receipt_scan/presentation/widgets/hoja_origen_de_ficha.dart';
@@ -29,8 +30,9 @@ import 'detalle_item_screen.dart';
 //
 // · `_TypeTab`, el cuarto patrón de selección de la app: un
 //   `GestureDetector` sobre un `AnimatedContainer` de radio 100 y ~33 dp de
-//   caja táctil, que no anunciaba ningún rol al lector de pantalla. Pasa a
-//   [PagateChip], que es un `ChoiceChip` de Material con caja de 48.
+//   caja táctil, que no anunciaba ningún rol al lector de pantalla. Pasó a
+//   [PagateChip] y, con la variante A, a [PagateSegmented]: dos opciones
+//   excluyentes, como Ingreso/Gasto.
 //
 // · EL VACÍO CENTRADO con un icono de 48 dp pasa a [PagateEmptyState]:
 //   alineado a la izquierda, sin icono, y con la acción que corresponde.
@@ -49,9 +51,9 @@ import 'detalle_item_screen.dart';
 //   aquí: pasó a `../widgets/item_form_sheet.dart` porque la comparten la
 //   lista (alta) y la ficha (edición), que están en archivos distintos.
 //
-// · EL FAB conserva su sitio (el paso 7 no toca el layout) pero pierde la
-//   elevación: el sistema no lleva sombra en ningún control. Gana el
-//   `tooltip` que le faltaba.
+// · EL FAB conserva su sitio y gana el `tooltip` que le faltaba. Con la
+//   variante A lleva radio 18 y `sombra-2`, y la lista deja al final el
+//   hueco de 88 dp para que no tape la última fila.
 //
 // QUÉ CAMBIÓ CON EL LECTOR DE BOLETAS. El FAB y la acción del estado vacío
 // ya no abren el formulario manual: abren [abrirAgregarAlInventario], que
@@ -98,36 +100,44 @@ class InventarioTab extends StatelessWidget {
         Positioned(
           right: AppSpacing.x4,
           bottom: AppSpacing.x4,
-          child: FloatingActionButton(
-            heroTag: 'inventario_agregar',
-            tooltip: provider.activeTab == InventoryItemType.product
-                ? 'Agregar producto'
-                : 'Agregar material',
-
-            // Cero sombra, como todo control del sistema: el FAB se separa
-            // del lienzo por su relleno de marca, que da 6,43 contra blanco.
-            elevation: 0,
-            focusElevation: 0,
-            hoverElevation: 0,
-            highlightElevation: 0,
-            disabledElevation: 0,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(AppRadius.r12)),
+          // Variante A: radio 18 y `sombra-2`, la de lo que flota sobre la
+          // lista. La sombra va en una caja propia porque la del FAB es la
+          // de Material, más dura.
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(_radioFab)),
+              boxShadow: AppShadows.level2,
             ),
-            backgroundColor: AppPalette.brand,
-            foregroundColor: AppPalette.textOnBrand,
-            onPressed: provider.error != null
-                ? null
-                : () => abrirAgregarAlInventario(context, provider.activeTab),
-            child: const Icon(Icons.add_rounded),
+            child: FloatingActionButton(
+              heroTag: 'inventario_agregar',
+              tooltip: provider.activeTab == InventoryItemType.product
+                  ? 'Agregar producto'
+                  : 'Agregar material',
+              elevation: 0,
+              focusElevation: 0,
+              hoverElevation: 0,
+              highlightElevation: 0,
+              disabledElevation: 0,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(_radioFab)),
+              ),
+              backgroundColor: AppPalette.brand,
+              foregroundColor: AppPalette.textOnBrand,
+              onPressed: provider.error != null
+                  ? null
+                  : () => abrirAgregarAlInventario(context, provider.activeTab),
+              child: const Icon(Icons.add_rounded),
+            ),
           ),
         ),
       ],
     );
   }
+
+  static const double _radioFab = 18;
 }
 
-// ─── Cabecera: título, búsqueda y tipo ─────────────────────────────────
+// ─── Cabecera: título, tipo y búsqueda ─────────────────────────────────
 
 class _InventarioHeader extends StatelessWidget {
   const _InventarioHeader({required this.activeTab});
@@ -135,66 +145,77 @@ class _InventarioHeader extends StatelessWidget {
   final InventoryItemType activeTab;
 
   @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.x4,
-          AppSpacing.x2,
-          AppSpacing.x4,
-          AppSpacing.x3,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ConstrainedBox(
-              // Mismo alto de cabecera que Finanzas, para que el título no
-              // salte al cambiar de pestaña.
-              constraints: const BoxConstraints(minHeight: _altoTitulo),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Inventario',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.x2),
-            TextField(
-              onChanged: (final q) =>
-                  context.read<InventoryProvider>().search(q),
-              textInputAction: TextInputAction.search,
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = context.watch<InventoryProvider>();
+    final todo = provider.inventarioCompleto;
+    final productos = todo
+        .where((final i) => i.type == InventoryItemType.product)
+        .length;
+    final materiales = todo.length - productos;
 
-              // Toda la decoración sale de `inputDecorationTheme`: borde de
-              // 1 dp `borderField` (3,63:1), relleno blanco y radio 12. Lo
-              // único propio es el icono de lupa, que aquí SÍ informa (dice
-              // que el campo busca, no que escribe).
-              decoration: const InputDecoration(
-                hintText: 'Buscar producto o material',
-                prefixIcon: Icon(Icons.search_rounded, size: AppIconSize.sm),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.x3),
-            Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x4,
+        AppSpacing.x3,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ConstrainedBox(
+            // Mismo alto de cabecera que Finanzas, para que el título no
+            // salte al cambiar de pestaña.
+            constraints: const BoxConstraints(minHeight: _altoTitulo),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                PagateChip(
-                  label: 'Productos',
-                  isSelected: activeTab == InventoryItemType.product,
-                  onSelected: () => context
-                      .read<InventoryProvider>()
-                      .setActiveTab(InventoryItemType.product),
-                ),
-                const SizedBox(width: AppSpacing.x2),
-                PagateChip(
-                  label: 'Materiales',
-                  isSelected: activeTab == InventoryItemType.material,
-                  onSelected: () => context
-                      .read<InventoryProvider>()
-                      .setActiveTab(InventoryItemType.material),
-                ),
+                Text('Inventario', style: theme.textTheme.headlineMedium),
+                // Cuánto hay de cada tipo, de un vistazo y sin cambiar de
+                // pestaña. Mientras carga, nada: un «0 productos» mentiría.
+                if (!provider.isLoading && provider.error == null)
+                  Text(
+                    '${_cuantos(productos, 'producto', 'productos')} · '
+                    '${_cuantos(materiales, 'material', 'materiales')}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textSecondary,
+                    ),
+                  ),
               ],
             ),
-          ],
-        ),
-      );
+          ),
+          const SizedBox(height: AppSpacing.x2),
+          // Dos opciones excluyentes: segmentado, como Ingreso/Gasto.
+          PagateSegmented<InventoryItemType>(
+            options: const [
+              (InventoryItemType.product, 'Productos'),
+              (InventoryItemType.material, 'Materiales'),
+            ],
+            selected: activeTab,
+            onChanged: context.read<InventoryProvider>().setActiveTab,
+          ),
+          const SizedBox(height: AppSpacing.x3),
+          TextField(
+            onChanged: (final q) => context.read<InventoryProvider>().search(q),
+            textInputAction: TextInputAction.search,
+
+            // Toda la decoración sale de `inputDecorationTheme`. Lo único
+            // propio es la lupa, que aquí SÍ informa: dice que el campo
+            // busca. Y busca también por código: el provider lo compara.
+            decoration: const InputDecoration(
+              hintText: 'Buscar por nombre o código',
+              prefixIcon: Icon(Icons.search_rounded, size: AppIconSize.sm),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _cuantos(final int n, final String uno, final String varios) =>
+      '$n ${n == 1 ? uno : varios}';
 
   static const double _altoTitulo = 40;
 }
@@ -247,8 +268,8 @@ class _ItemList extends StatelessWidget {
     }
 
     return ListView(
-      // El hueco del FAB: 56 de botón + 16 de margen + 16 de aire.
-      padding: const EdgeInsets.only(bottom: _huecoDelFab),
+      // El hueco del FAB: sin él, el + tapaba la última fila.
+      padding: const EdgeInsets.only(bottom: huecoDelFab),
       children: [
         PagateSectionCard(
           child: Column(
@@ -268,62 +289,98 @@ class _ItemList extends StatelessWidget {
     );
   }
 
-  static const double _huecoDelFab = 88;
+  /// 56 del FAB + 16 de margen + 16 de aire.
+  static const double huecoDelFab = 88;
 }
 
 /// Una ficha del inventario, como fila de cartola.
 ///
 /// La CIFRA de la fila es el stock, no el precio, y es deliberado: en esta
-/// pantalla lo que se consulta es cuánto queda. El precio baja a la línea de
-/// metadato, donde ya va formateado por `formatCurrency`.
+/// pantalla lo que se consulta es cuánto queda. Va en una píldora a la
+/// derecha; el precio y el mínimo bajan a la línea de metadato.
 class _FilaDeItem extends StatelessWidget {
   const _FilaDeItem({required this.item, required this.esUltima});
 
   final InventoryItemEntity item;
   final bool esUltima;
 
-  /// Rojo para "sin stock", ámbar para "bajo del mínimo" y tinta normal
-  /// cuando no hay nada que avisar. Mismo criterio que la lista de stock de
-  /// Inicio, para que el color signifique lo mismo en las dos pantallas.
-  Color? get _colorDelStock {
-    switch (item.stockStatus) {
-      case StockStatus.critical:
-        return AppPalette.danger;
-      case StockStatus.low:
-        return AppPalette.warning;
-      case StockStatus.ok:
-        return null;
-    }
-  }
-
-  /// El estado en palabras. El color no basta: WCAG 1.4.1 prohíbe que el
-  /// color sea el único portador de la información.
-  String? get _estadoEnPalabras {
-    switch (item.stockStatus) {
-      case StockStatus.critical:
-        return 'Sin stock';
-      case StockStatus.low:
-        return 'Bajo el mínimo';
-      case StockStatus.ok:
-        return null;
-    }
-  }
-
   @override
   Widget build(final BuildContext context) {
     final precio = formatCurrency(item.price, currency: kFallbackCurrency);
-    final estado = _estadoEnPalabras;
+
+    // El estado también en palabras: WCAG 1.4.1 prohíbe que el color sea el
+    // único portador de la información. «Sin stock» lo dice la píldora;
+    // «bajo el mínimo», el metadato.
+    final metadato = switch (item.stockStatus) {
+      StockStatus.low => '$precio · bajo el mínimo (${item.minStock})',
+      _ => '$precio · mínimo ${item.minStock}',
+    };
+
+    // Con letra de 1,5 o más la píldora no cabe al lado del nombre: el
+    // stock baja bajo el nombre como el valor de cualquier fila, con el
+    // mismo color.
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
 
     return PagateDataRow(
+      icon: item.type == InventoryItemType.product
+          ? Icons.inventory_2_outlined
+          : Icons.category_outlined,
       label: item.name,
-      subtitle: estado == null ? precio : '$precio · $estado',
-      value: '${item.stock} ${item.unit}',
-      valueColor: _colorDelStock,
+      subtitle: metadato,
+      subtitleMaxLines: 2,
+      value: apilado ? _PildoraDeStock.texto(item) : '',
+      valueColor: item.stockStatus == StockStatus.ok
+          ? null
+          : AppPalette.danger,
+      trailing: apilado ? null : _PildoraDeStock(item: item),
       showDivider: !esUltima,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute<void>(
           builder: (final _) => DetalleItemScreen(item: item),
+        ),
+      ),
+    );
+  }
+}
+
+/// El stock en una píldora: «5 unidades» en el suave, y en carmesí cuando
+/// es una alerta («Sin stock», o bajo el mínimo). El carmesí es solo para
+/// alertas, y estas lo son.
+class _PildoraDeStock extends StatelessWidget {
+  const _PildoraDeStock({required this.item});
+
+  final InventoryItemEntity item;
+
+  /// «Sin stock» o «5 unidades».
+  static String texto(final InventoryItemEntity item) =>
+      item.stockStatus == StockStatus.critical
+          ? 'Sin stock'
+          : '${item.stock} ${item.unit}';
+
+  @override
+  Widget build(final BuildContext context) {
+    final alerta = item.stockStatus != StockStatus.ok;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.x3),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x2 + 2,
+          vertical: AppSpacing.x1,
+        ),
+        decoration: BoxDecoration(
+          color: alerta ? AppPalette.dangerSurface : AppPalette.sunken,
+          borderRadius: AppRadius.fullBorder,
+        ),
+        child: Text(
+          texto(item),
+          maxLines: 1,
+          softWrap: false,
+          style: AppText.weight(
+            Theme.of(context).textTheme.labelMedium!,
+            800,
+          ).copyWith(color: alerta ? AppPalette.danger : AppPalette.ink),
         ),
       ),
     );
