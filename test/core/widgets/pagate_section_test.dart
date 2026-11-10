@@ -19,7 +19,7 @@ BoxDecoration _decoracionDe(final WidgetTester tester, final Type tipo) {
 
 void main() {
   group('PagateSectionCard', () {
-    testWidgets('en móvil va a sangre, con radio 0 y sin sombra', (
+    testWidgets('en móvil es una tarjeta de radio 16 con sombra suave', (
       final tester,
     ) async {
       await pumpComponent(
@@ -29,19 +29,18 @@ void main() {
 
       final decoracion = _decoracionDe(tester, PagateSectionCard);
       expect(decoracion.color, AppPalette.surface);
-      expect(
-        decoracion.borderRadius,
-        isNull,
-        reason: 'radio 0: la sección es la página, no una tarjeta',
-      );
-      expect(
-        decoracion.boxShadow,
-        isNull,
-        reason: 'el sistema separa con línea y superficie, nunca con sombra',
-      );
+      expect(decoracion.borderRadius, AppRadius.r16Border);
+      expect(decoracion.boxShadow, AppShadows.level1);
 
-      // Ancho completo del lienzo de 360 dp: sin margen lateral.
-      expect(tester.getSize(find.byType(PagateSectionCard)).width, 360);
+      // Separada 16 dp de cada borde del lienzo de 360 dp.
+      expect(
+        tester.getSize(find.text('Movimientos')).width,
+        lessThanOrEqualTo(360 - 2 * AppSpacing.x4),
+      );
+      expect(
+        tester.getTopLeft(find.text('Movimientos')).dx,
+        greaterThanOrEqualTo(AppSpacing.x4),
+      );
     });
 
     testWidgets('en escritorio recupera radio 12 y margen lateral', (

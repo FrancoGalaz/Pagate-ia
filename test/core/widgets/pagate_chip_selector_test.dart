@@ -49,11 +49,10 @@ void main() {
           ),
         );
 
-    // Sin opacidades: los dos son colores planos del sistema, así que su
-    // ratio de contraste es comprobable. `brandSurface` con `brand` encima
-    // da 5,61:1.
-    expect(chipDe('Ventas').selectedColor, AppPalette.brandSurface);
-    expect(chipDe('Ventas').side?.color, AppPalette.brand);
+    // Variante A: el seleccionado va en el oscuro sobre `sunken`; la greda
+    // queda para la acción principal.
+    expect(chipDe('Ventas').selectedColor, AppPalette.sunken);
+    expect(chipDe('Ventas').side?.color, AppPalette.ink);
     expect(chipDe('Feria').backgroundColor, AppPalette.surface);
     expect(chipDe('Feria').side?.color, AppPalette.border);
   });

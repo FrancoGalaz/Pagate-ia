@@ -327,14 +327,19 @@ void main() {
       expect(find.text(titulo), findsNothing, reason: titulo);
     }
 
-    // El bloque verde con degradado, radio enorme y glow de marca.
+    // El bloque verde con degradado y glow de marca. La sombra suave de las
+    // tarjetas de la variante A es la del sistema (`AppShadows`).
     expect(
       find.byWidgetPredicate(
         (final w) =>
             w is DecoratedBox &&
             w.decoration is BoxDecoration &&
             ((w.decoration as BoxDecoration).gradient != null ||
-                ((w.decoration as BoxDecoration).boxShadow?.isNotEmpty ??
+                ((w.decoration as BoxDecoration).boxShadow?.any(
+                      (final s) =>
+                          !AppShadows.level1.contains(s) &&
+                          !AppShadows.level2.contains(s),
+                    ) ??
                     false)),
       ),
       findsNothing,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../theme/app_text.dart';
+import 'pagate_icon_square.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
 // FILA DE DATO — etiqueta a la izquierda, valor a la derecha
@@ -61,6 +62,10 @@ class PagateDataRow extends StatelessWidget {
   /// el total de una sección, nunca para más de una fila del mismo bloque.
   final bool emphasis;
 
+  /// Ícono a la izquierda, en un cuadro tintado (fila de formulario de la
+  /// variante A). Opcional.
+  final IconData? icon;
+
   /// Tiñe el valor. Si es `null`, el color lo decide la fila:
   /// `textPrimary`, o `moneyOut` cuando [emphasis] está activo y el valor
   /// empieza por el signo menos.
@@ -80,6 +85,7 @@ class PagateDataRow extends StatelessWidget {
     this.emphasis = false,
     this.valueColor,
     this.trailing,
+    this.icon,
   });
 
   /// U+2212 MINUS SIGN, el que usa `currency_formatter.dart`.
@@ -94,6 +100,17 @@ class PagateDataRow extends StatelessWidget {
             ? AppPalette.moneyOut
             : AppPalette.textPrimary);
 
+    final apilado = _apilado(context);
+    final textoValor = Text(
+      value,
+      textAlign: TextAlign.right,
+      softWrap: apilado,
+      style: (emphasis
+              ? theme.textTheme.displaySmall ?? AppText.displaySmall
+              : AppText.amountRow)
+          .copyWith(color: colorValor),
+    );
+
     final contenido = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
@@ -105,16 +122,15 @@ class PagateDataRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // `Expanded` en los DOS, y con factores: 3 para la etiqueta y 2
-            // para el valor. Con `Flexible` el valor se quedaba del tamaño de
-            // su texto dentro de una caja de la mitad de la fila, así que la
-            // columna de montos aparecía a media pantalla en vez de pegada al
-            // margen derecho. Con `Expanded` la caja llega hasta el final de
-            // la fila y `textAlign: right` deja la cifra donde tiene que
-            // estar; y como las dos son tight, la fila no puede desbordar por
-            // mucho que crezca la fuente del sistema.
+            if (icon != null) ...[
+              PagateIconSquare(icon: icon!),
+              const SizedBox(width: AppSpacing.x3),
+            ],
+            // La etiqueta se queda con lo que sobra y el valor con el ancho
+            // de su texto, SIN partirse: antes el valor iba en `Expanded(flex:
+            // 2)` y con letra 2,0 «$244.990» se partía en dos líneas. Con
+            // letra grande el valor baja bajo la etiqueta (ver [_apilado]).
             Expanded(
-              flex: value.isEmpty ? 1 : 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -122,8 +138,8 @@ class PagateDataRow extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.textSecondary,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppPalette.textPrimary,
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -137,22 +153,16 @@ class PagateDataRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  if (value.isNotEmpty && apilado) ...[
+                    const SizedBox(height: AppSpacing.x1),
+                    textoValor,
+                  ],
                 ],
               ),
             ),
-            if (value.isNotEmpty) ...[
+            if (value.isNotEmpty && !apilado) ...[
               const SizedBox(width: AppSpacing.x3),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  value,
-                  textAlign: TextAlign.right,
-                  style: (emphasis
-                          ? theme.textTheme.displaySmall ?? AppText.displaySmall
-                          : AppText.amountRow)
-                      .copyWith(color: colorValor),
-                ),
-              ),
+              textoValor,
             ],
             ?trailing,
             if (onTap != null) ...[
@@ -199,6 +209,11 @@ class PagateDataRow extends StatelessWidget {
       ],
     );
   }
+
+  /// Con letra de 1,5 o más el valor baja bajo la etiqueta: lado a lado,
+  /// una etiqueta y un monto grandes no caben en 360 dp sin partirse.
+  static bool _apilado(final BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(10) >= 15;
 
   /// 24 de contenido + 12 + 12 de relleno = los 48 dp que manda el sistema.
   /// Se expresa así, y no como un alto de 48 sobre el `Padding`, para que el
