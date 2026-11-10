@@ -74,28 +74,16 @@ class _LecturaBoletaScreenState extends State<LecturaBoletaScreen> {
     final provider = context.read<ReceiptScanProvider>();
     if (!provider.hayTrabajoQuePerder) return true;
 
-    final salir = await showDialog<bool>(
-      context: context,
-      builder: (final dialogo) => AlertDialog(
-        title: const Text('¿Descartar la lectura?'),
-        content: const Text(
-          'Se pierde la lista que revisaste. La boleta no se guardó en '
+    final salir = await confirmar(
+      context,
+      title: '¿Descartar la lectura?',
+      message: 'Se pierde la lista que revisaste. La boleta no se guardó en '
           'ningún sitio, así que tendrías que volver a leerla.',
-        ),
-        actions: [
-          PagatePrimaryButton.text(
-            label: 'Seguir revisando',
-            onPressed: () => Navigator.pop(dialogo, false),
-          ),
-          PagatePrimaryButton.text(
-            label: 'Descartar',
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialogo, true),
-          ),
-        ],
-      ),
+      cancelLabel: 'Seguir revisando',
+      confirmLabel: 'Descartar',
+      destructive: true,
     );
-    return salir ?? false;
+    return salir;
   }
 
   Future<void> _guardar() async {

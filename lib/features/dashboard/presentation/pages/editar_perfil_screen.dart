@@ -113,25 +113,15 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     if (_guardando) return false;
     if (!_tieneCambios) return true;
 
-    final salir = await showDialog<bool>(
-      context: context,
-      builder: (final dialogo) => AlertDialog(
-        title: const Text('¿Descartar los cambios?'),
-        content: const Text('Lo que cambiaste no se va a guardar.'),
-        actions: [
-          PagatePrimaryButton.text(
-            label: 'Seguir editando',
-            onPressed: () => Navigator.pop(dialogo, false),
-          ),
-          PagatePrimaryButton.text(
-            label: 'Descartar',
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialogo, true),
-          ),
-        ],
-      ),
+    final salir = await confirmar(
+      context,
+      title: '¿Descartar los cambios?',
+      message: 'Lo que cambiaste no se va a guardar.',
+      cancelLabel: 'Seguir editando',
+      confirmLabel: 'Descartar',
+      destructive: true,
     );
-    return salir ?? false;
+    return salir;
   }
 
   Future<void> _salir() async {

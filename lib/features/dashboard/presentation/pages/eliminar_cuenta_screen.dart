@@ -267,7 +267,7 @@ class _EliminarCuentaScreenState extends State<EliminarCuentaScreen> {
                     ),
                   ],
                   const SizedBox(height: AppSpacing.xl),
-                  PagatePrimaryButton(
+                  PagatePrimaryButton.destructive(
                     label: 'Eliminar mi cuenta',
                     isLoading: _borrando,
                     onPressed: _puedeBorrar ? _eliminar : null,

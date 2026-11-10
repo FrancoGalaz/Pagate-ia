@@ -195,31 +195,17 @@ class _ItemFormSheetState extends State<ItemFormSheet> {
     if (_guardando) return false;
     if (!_tieneCambios) return true;
 
-    final salir = await showDialog<bool>(
-      context: context,
-      builder: (final dialogo) => AlertDialog(
-        title: Text(
-          _esEdicion ? '¿Descartar los cambios?' : '¿Descartar la ficha?',
-        ),
-        content: Text(
-          _esEdicion
+    final salir = await confirmar(
+      context,
+      title: _esEdicion ? '¿Descartar los cambios?' : '¿Descartar la ficha?',
+      message: _esEdicion
               ? 'Lo que cambiaste no se va a guardar.'
               : 'Lo que escribiste no se va a guardar.',
-        ),
-        actions: [
-          PagatePrimaryButton.text(
-            label: 'Seguir editando',
-            onPressed: () => Navigator.pop(dialogo, false),
-          ),
-          PagatePrimaryButton.text(
-            label: 'Descartar',
-            isDestructive: true,
-            onPressed: () => Navigator.pop(dialogo, true),
-          ),
-        ],
-      ),
+      cancelLabel: 'Seguir editando',
+      confirmLabel: 'Descartar',
+      destructive: true,
     );
-    return salir ?? false;
+    return salir;
   }
 
   /// Valida un entero no negativo. Devuelve `null` si es válido.
