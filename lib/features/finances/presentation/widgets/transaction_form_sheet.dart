@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_text.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/month_labels.dart';
-import '../../../../core/widgets/pagate_chip_selector.dart';
-import '../../../../core/widgets/pagate_inline_error.dart';
-import '../../../../core/widgets/pagate_primary_button.dart';
-import '../../../../core/widgets/pagate_text_field.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../providers/finances_provider.dart';
 
@@ -55,26 +53,25 @@ const List<String> expenseCategories = [
 List<String> categoriesFor(final TransactionType type) =>
     type == TransactionType.income ? incomeCategories : expenseCategories;
 
-/// Abre el formulario para registrar un ingreso o gasto.
+/// Abre el formulario para registrar un ingreso o gasto, a pantalla
+/// completa (variante A: docs/diseno/variantes-cabal.html, pantalla 4).
 ///
-/// Toma el [FinancesProvider] del [context] que recibe (no del contexto del
-/// sheet), así funciona aunque los providers vivan por debajo del Navigator.
+/// Conserva el nombre de cuando era una hoja para no tocar a quien lo
+/// llama. Toma el [FinancesProvider] del [context] que recibe, así funciona
+/// aunque los providers vivan por debajo del Navigator.
 Future<void> showTransactionSheet(
   final BuildContext context, {
   final TransactionType? initialType,
 }) {
   final provider = context.read<FinancesProvider>();
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    // Ni `backgroundColor` ni `shape`: los pone `bottomSheetTheme`
-    // (blanco, radio 16 arriba, cero elevación, velo al 40% y asa). Aquí
-    // estaban escritos a mano con radio 24 y la superficie del tema oscuro.
-    builder: (final _) => ChangeNotifierProvider<FinancesProvider>.value(
-      value: provider,
-      child: TransactionFormSheet(
-        initialType: initialType ?? TransactionType.income,
+  return Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (final _) => ChangeNotifierProvider<FinancesProvider>.value(
+        value: provider,
+        child: TransactionFormSheet(
+          initialType: initialType ?? TransactionType.income,
+        ),
       ),
     ),
   );
@@ -82,6 +79,9 @@ Future<void> showTransactionSheet(
 
 /// Formulario de registro de movimientos. Úsalo a través de
 /// [showTransactionSheet].
+///
+/// El total grande ES el campo del monto: no hay un campo «Monto» aparte.
+/// Categoría, documento, fecha y comisión son filas que abren su selector.
 class TransactionFormSheet extends StatefulWidget {
   const TransactionFormSheet({
     super.key,
@@ -95,18 +95,10 @@ class TransactionFormSheet extends StatefulWidget {
 }
 
 class _TransactionFormSheetState extends State<TransactionFormSheet> {
-  static const _typeLabels = {
-    TransactionType.income: 'Ingreso',
-    TransactionType.expense: 'Gasto',
-  };
-
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
-
-  /// Comisión del medio de pago. Solo se pide en un ingreso.
-  final _feeController = TextEditingController();
 
   late TransactionType _type = widget.initialType;
   late String _category = _defaultCategory(widget.initialType);
@@ -116,13 +108,19 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   /// no está en Firestore.
   TransactionDocType _docType = TransactionDocType.fallback;
 
+  /// Comisión del medio de pago. Solo existe en un ingreso; 0 = ninguna.
+  double _fee = 0;
+
+  /// Error de la comisión al guardar (si el monto bajó por debajo de ella).
+  String? _errorComision;
+
   DateTime _date = DateTime.now();
   bool _saving = false;
 
   /// Mensaje del último guardado fallido, o `null` si no hubo ninguno.
   ///
-  /// Se dibuja DENTRO de la hoja, justo encima del botón: un fallo al
-  /// registrar dinero tiene que seguir legible cuando el usuario vuelve a
+  /// Se dibuja DENTRO del formulario, justo encima de los botones: un fallo
+  /// al registrar dinero tiene que seguir legible cuando el usuario vuelve a
   /// mirar el formulario, no desvanecerse a los pocos segundos.
   String? _errorGuardado;
 
@@ -134,24 +132,37 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     _titleController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
-    _feeController.dispose();
     super.dispose();
   }
 
-  void _onTypeToggle(final String label) {
-    final type = _typeLabels.entries
-        .firstWhere((final e) => e.value == label)
-        .key;
+  void _onTypeChanged(final TransactionType type) {
     if (type == _type) return;
     setState(() {
       _type = type;
       _category = _defaultCategory(type);
       // Los dos campos del contrato C-3 describen un ingreso. Si el usuario
-      // escribió una comisión y luego cambió a Gasto, se limpia: guardar una
+      // puso una comisión y luego cambió a Gasto, se limpia: guardar una
       // comisión en un gasto sería un dato falso.
       _docType = TransactionDocType.fallback;
-      _feeController.clear();
+      _fee = 0;
+      _errorComision = null;
       // El error era de otro movimiento: dejarlo visible sería mentir.
+      _errorGuardado = null;
+    });
+  }
+
+  /// Vuelve a dejar el formulario como al abrirlo, sin cambiar el tipo.
+  void _limpiar() {
+    _formKey.currentState?.reset();
+    _titleController.clear();
+    _amountController.clear();
+    _descriptionController.clear();
+    setState(() {
+      _category = _defaultCategory(_type);
+      _docType = TransactionDocType.fallback;
+      _fee = 0;
+      _errorComision = null;
+      _date = DateTime.now();
       _errorGuardado = null;
     });
   }
@@ -171,38 +182,53 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     setState(() => _date = picked);
   }
 
+  Future<void> _pickCategory() async {
+    final elegida = await _elegir(
+      context,
+      titulo: 'Categoría',
+      opciones: categoriesFor(_type),
+      actual: _category,
+    );
+    if (elegida != null && mounted) setState(() => _category = elegida);
+  }
+
+  Future<void> _pickDocType() async {
+    final elegida = await _elegir(
+      context,
+      titulo: 'Documento',
+      opciones: [for (final t in TransactionDocType.values) t.label],
+      actual: _docType.label,
+    );
+    if (elegida == null || !mounted) return;
+    setState(() {
+      _docType = TransactionDocType.values.firstWhere(
+        (final t) => t.label == elegida,
+        orElse: () => TransactionDocType.fallback,
+      );
+    });
+  }
+
+  Future<void> _pickFee() async {
+    final comision = await showPagateSheet<double>(
+      context: context,
+      builder: (final _) => _HojaComision(
+        inicial: _fee,
+        monto: _parseAmount(_amountController.text),
+      ),
+    );
+    if (comision == null || !mounted) return;
+    setState(() {
+      _fee = comision;
+      _errorComision = null;
+    });
+  }
+
   /// Lee el monto escrito con el formateador único de la app.
   ///
   /// Antes normalizaba la coma a punto y llamaba a `double.tryParse`, de modo
   /// que un movimiento de "150.000" se guardaba como **150 pesos** sin que
   /// ninguna validación lo detectara.
   static double? _parseAmount(final String raw) => parseCurrencyInput(raw);
-
-  /// Comisión escrita, o 0 si el campo está vacío o no corresponde.
-  ///
-  /// El campo es opcional: vacío significa "no me descontaron nada", que es
-  /// lo que pasa al cobrar en efectivo o por transferencia.
-  double get _platformFee {
-    if (_type != TransactionType.income) return 0;
-    final raw = _feeController.text.trim();
-    if (raw.isEmpty) return 0;
-    return _parseAmount(raw) ?? 0;
-  }
-
-  /// Valida la comisión contra el monto escrito en el mismo formulario.
-  String? _validateFee(final String? value) {
-    if (_type != TransactionType.income) return null;
-    final raw = (value ?? '').trim();
-    if (raw.isEmpty) return null;
-    final fee = _parseAmount(raw);
-    if (fee == null) return 'Ingresa una comisión válida';
-    if (fee < 0) return 'La comisión no puede ser negativa';
-    final amount = _parseAmount(_amountController.text);
-    if (amount != null && fee > amount) {
-      return 'La comisión no puede ser mayor que el monto';
-    }
-    return null;
-  }
 
   Future<void> _submit() async {
     if (_saving) return;
@@ -211,8 +237,17 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     final amount = _parseAmount(_amountController.text);
     if (amount == null || amount <= 0) return;
 
+    // La comisión se eligió contra el monto de ese momento: si después el
+    // monto bajó, no se guarda una comisión mayor que lo cobrado.
+    final fee = _type == TransactionType.income ? _fee : 0.0;
+    if (fee > amount) {
+      setState(() => _errorComision = _comisionMayorQueMonto);
+      return;
+    }
+
     setState(() {
       _saving = true;
+      _errorComision = null;
       // Un reintento empieza sin el error del intento anterior en pantalla.
       _errorGuardado = null;
     });
@@ -229,7 +264,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
         docType: _type == TransactionType.income
             ? _docType
             : TransactionDocType.fallback,
-        platformFee: _platformFee,
+        platformFee: fee,
       );
       if (!mounted) return;
       navigator.pop();
@@ -241,13 +276,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      // EL ERROR SE QUEDA DENTRO DE LA HOJA, no en un aviso que se va.
-      //
-      // Aquí estaba el defecto grave: la hoja sigue abierta en el `catch`, y
-      // el `SnackBar` que pintaba `AppFeedback` lo dibujaba el Scaffold de
-      // la pantalla de DETRÁS, así que quedaba tapado por la hoja. El botón
-      // volvía a su estado normal y no pasaba nada visible: ocho capturas
-      // seguidas sin spinner, sin aviso y sin error.
+      // EL ERROR SE QUEDA DENTRO DEL FORMULARIO, no en un aviso que se va:
+      // el `SnackBar` lo dibujaba el Scaffold de la pantalla de DETRÁS, y
+      // quedaba tapado.
       setState(() {
         _saving = false;
         _errorGuardado = FinancesProvider.describeError(
@@ -260,153 +291,231 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
 
   @override
   Widget build(final BuildContext context) {
-    final theme = Theme.of(context);
     final isIncome = _type == TransactionType.income;
+    final now = DateTime.now();
+    final esHoy = _date.year == now.year &&
+        _date.month == now.month &&
+        _date.day == now.day;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenHorizontal,
-          AppSpacing.md,
-          AppSpacing.screenHorizontal,
-          AppSpacing.xl,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // El tema ya dibuja el asa de arrastre (showDragHandle).
-              //
-              // Y el título va solo: el cuadrado teñido de 32 dp con la
-              // flecha arriba/abajo según el tipo no añadía nada que los
-              // chips "Ingreso / Gasto" de la línea siguiente no digan, y
-              // su `accent.withValues(alpha: 0.15)` era una opacidad
-              // inventada sobre un fondo que ya no es oscuro.
-              Text(
-                'Registrar movimiento',
-                style: theme.textTheme.headlineSmall,
-              ),
-              const SizedBox(height: AppSpacing.lg),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Nuevo movimiento')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x2,
+            AppSpacing.x4,
+            AppSpacing.x6,
+          ),
+          children: [
+            PagateSegmented<TransactionType>(
+              options: const [
+                (TransactionType.income, 'Ingreso'),
+                (TransactionType.expense, 'Gasto'),
+              ],
+              selected: _type,
+              onChanged: _onTypeChanged,
+            ),
+            const SizedBox(height: AppSpacing.x4),
 
-              const _EtiquetaDeGrupo('Tipo'),
-              const SizedBox(height: AppSpacing.xs),
-              PagateChipSelector(
-                options: _typeLabels.values.toList(),
-                selected: {_typeLabels[_type]!},
-                onToggle: _onTypeToggle,
-              ),
-              const SizedBox(height: AppSpacing.md),
+            _CampoTotal(
+              controller: _amountController,
+              isIncome: isIncome,
+              validator: (final v) {
+                final amount = _parseAmount(v ?? '');
+                if (amount == null) return 'Ingresa un monto válido';
+                if (amount <= 0) return 'El monto debe ser mayor que cero';
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.x4),
 
-              PagateTextField(
-                labelText: 'Título',
-                controller: _titleController,
-                hintText: isIncome ? 'Ej: venta en la feria' : 'Ej: greda 25 kg',
-                maxLength: 200,
-                validator: (final v) => (v == null || v.trim().isEmpty)
-                    ? 'Escribe un título'
-                    : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
+            PagateTextField(
+              labelText: 'Título',
+              controller: _titleController,
+              hintText: isIncome ? 'Ej: venta en la feria' : 'Ej: greda 25 kg',
+              maxLength: 200,
+              validator: (final v) =>
+                  (v == null || v.trim().isEmpty) ? 'Escribe un título' : null,
+            ),
+            const SizedBox(height: AppSpacing.x2),
 
-              PagateTextField(
-                labelText: 'Monto',
-                controller: _amountController,
-                hintText: '0',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            PagateSectionCard(
+              child: Column(
+                children: [
+                  _FilaFormulario(
+                    icon: Icons.sell_outlined,
+                    label: 'Categoría',
+                    value: _category,
+                    onTap: _pickCategory,
+                  ),
+                  // ─── Contrato C-3: documento y comisión, solo en un
+                  // ingreso. En un gasto no significan nada, así que no se
+                  // dibujan en lugar de dibujarse deshabilitados.
+                  if (isIncome)
+                    _FilaFormulario(
+                      icon: Icons.description_outlined,
+                      label: 'Documento',
+                      value: _docType.label,
+                      onTap: _pickDocType,
+                    ),
+                  _FilaFormulario(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Fecha',
+                    value: esHoy
+                        ? 'Hoy, ${formatDayMonth(_date)}'
+                        : formatDayMonthYear(_date),
+                    onTap: _pickDate,
+                    showDivider: isIncome,
+                  ),
+                  if (isIncome)
+                    _FilaFormulario(
+                      icon: Icons.percent_rounded,
+                      label: 'Comisión',
+                      subtitle: 'Opcional',
+                      value: formatCurrency(_fee, currency: kFallbackCurrency),
+                      onTap: _pickFee,
+                      showDivider: false,
+                    ),
                 ],
-                validator: (final v) {
-                  final amount = _parseAmount(v ?? '');
-                  if (amount == null) return 'Ingresa un monto válido';
-                  if (amount <= 0) return 'El monto debe ser mayor que cero';
-                  return null;
-                },
               ),
-              const SizedBox(height: AppSpacing.md),
+            ),
+            if (_errorComision != null) ...[
+              const SizedBox(height: AppSpacing.x2),
+              PagateInlineError(message: _errorComision),
+            ],
+            const SizedBox(height: AppSpacing.x4),
 
-              // ─── Contrato C-3: documento y comisión, solo en un ingreso ──
-              // En un gasto estos dos campos no significan nada, así que no
-              // se dibujan en lugar de dibujarse deshabilitados.
-              if (isIncome) ...[
-                const _EtiquetaDeGrupo('Documento'),
-                const SizedBox(height: AppSpacing.xs),
-                PagateChipSelector(
-                  options: TransactionDocType.values
-                      .map((final t) => t.label)
-                      .toList(),
-                  selected: {_docType.label},
-                  onToggle: (final label) => setState(() {
-                    _docType = TransactionDocType.values.firstWhere(
-                      (final t) => t.label == label,
-                      orElse: () => TransactionDocType.fallback,
-                    );
-                  }),
-                ),
-                const SizedBox(height: AppSpacing.md),
+            PagateTextField(
+              labelText: 'Descripción (opcional)',
+              controller: _descriptionController,
+              hintText: 'Detalles, cliente, notas...',
+              maxLength: 2000,
+            ),
 
-                PagateTextField(
-                  labelText: 'Comisión del medio de pago (opcional)',
-                  controller: _feeController,
-                  hintText: '0',
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+            if (_errorGuardado != null) ...[
+              const SizedBox(height: AppSpacing.x2),
+              PagateInlineError(message: _errorGuardado),
+            ],
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x4,
+            AppSpacing.x3,
+            AppSpacing.x4,
+            AppSpacing.x4,
+          ),
+          decoration: const BoxDecoration(
+            color: AppPalette.surface,
+            border: Border(
+              top: BorderSide(
+                color: AppPalette.hairline,
+                width: AppSizes.borderHairline,
+              ),
+            ),
+          ),
+          child: PagateClearCreateBar(
+            createLabel: isIncome ? 'Crear ingreso' : 'Crear gasto',
+            onCreate: _submit,
+            onClear: _saving ? null : _limpiar,
+            isLoading: _saving,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de la lista del formulario: icono, etiqueta y el valor elegido.
+///
+/// No es [PagateDataRow] porque aquí el valor es TEXTO («Venta por
+/// Instagram»), no un monto: tiene que poder partirse en vez de desbordar.
+/// Con letra de 1,5 o más el valor baja bajo la etiqueta.
+class _FilaFormulario extends StatelessWidget {
+  const _FilaFormulario({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.subtitle,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final String value;
+  final VoidCallback onTap;
+  final bool showDivider;
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final valor = Text(
+      value,
+      textAlign: apilado ? TextAlign.left : TextAlign.right,
+      style: AppText.weight(theme.textTheme.bodyMedium!, 700).copyWith(
+        color: AppPalette.ink,
+      ),
+    );
+    final etiqueta = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.titleSmall),
+        if (subtitle != null)
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppPalette.textMuted,
+            ),
+          ),
+        if (apilado) ...[const SizedBox(height: AppSpacing.x1), valor],
+      ],
+    );
+
+    return Material(
+      color: AppPalette.surface,
+      child: InkWell(
+        onTap: onTap,
+        highlightColor: AppPalette.sunken,
+        splashFactory: NoSplash.splashFactory,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x4,
+            vertical: AppSpacing.x3,
+          ),
+          decoration: showDivider
+              ? const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppPalette.hairline,
+                      width: AppSizes.borderHairline,
+                    ),
                   ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                  ],
-                  validator: _validateFee,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Lo que te descuenta el medio de pago: Mercado Pago, '
-                  'Khipu, Transbank. Si te pagaron por transferencia o en '
-                  'efectivo, déjalo en 0.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
+                )
+              : null,
+          child: Row(
+            children: [
+              PagateIconSquare(icon: icon),
+              const SizedBox(width: AppSpacing.x3),
+              if (apilado)
+                Expanded(child: etiqueta)
+              else ...[
+                etiqueta,
+                const SizedBox(width: AppSpacing.x3),
+                Expanded(child: valor),
               ],
-
-              const _EtiquetaDeGrupo('Categoría'),
-              const SizedBox(height: AppSpacing.xs),
-              PagateChipSelector(
-                options: categoriesFor(_type),
-                selected: {_category},
-                onToggle: (final c) => setState(() => _category = c),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              const _EtiquetaDeGrupo('Fecha'),
-              const SizedBox(height: AppSpacing.xs),
-              _DateField(date: _date, onTap: _pickDate),
-              const SizedBox(height: AppSpacing.md),
-
-              PagateTextField(
-                labelText: 'Descripción (opcional)',
-                controller: _descriptionController,
-                hintText: 'Detalles, cliente, notas...',
-                maxLength: 2000,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              if (_errorGuardado != null) ...[
-                PagateInlineError(message: _errorGuardado),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              PagatePrimaryButton(
-                label: isIncome ? 'Registrar ingreso' : 'Registrar gasto',
-                leadingIcon: Icons.check_rounded,
-                isLoading: _saving,
-                onPressed: _submit,
+              const SizedBox(width: AppSpacing.x2),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: AppIconSize.sm,
+                color: AppPalette.textMuted,
               ),
             ],
           ),
@@ -416,83 +525,216 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   }
 }
 
-class _DateField extends StatelessWidget {
-  const _DateField({required this.date, required this.onTap});
+const String _comisionMayorQueMonto =
+    'La comisión no puede ser mayor que el monto';
 
-  final DateTime date;
-  final VoidCallback onTap;
+/// El total grande, editable. Verde con «+» en un ingreso; oscuro con «−»
+/// en un gasto.
+class _CampoTotal extends StatelessWidget {
+  const _CampoTotal({
+    required this.controller,
+    required this.isIncome,
+    required this.validator,
+  });
+
+  final TextEditingController controller;
+  final bool isIncome;
+  final FormFieldValidator<String> validator;
 
   @override
   Widget build(final BuildContext context) {
-    final now = DateTime.now();
-    final isToday =
-        date.year == now.year && date.month == now.month && date.day == now.day;
-    final label =
-        '${formatDayMonthYear(date)}${isToday ? ' (hoy)' : ''}';
+    final theme = Theme.of(context);
+    final color = isIncome ? AppPalette.moneyIn : AppPalette.ink;
+    final estilo = AppText.weight(
+      theme.textTheme.displayMedium!,
+      800,
+    ).copyWith(color: color);
+    const sinBorde = InputBorder.none;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.r8Border,
-      child: Container(
-        height: AppSizes.inputHeight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
-
-        // El mismo píxel que un campo de texto del tema: blanco con
-        // contorno `borderField` de 1 dp (3,63:1) y radio 8. Era un relleno
-        // gris al 50% de opacidad con radio 100.
-        decoration: BoxDecoration(
-          color: AppPalette.surface,
-          borderRadius: AppRadius.r8Border,
-          border: Border.all(
-            color: AppPalette.borderField,
-            width: AppSizes.borderField,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x3,
+        AppSpacing.x4,
+        AppSpacing.x3,
+      ),
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: AppRadius.r16Border,
+        border: Border.all(color: AppPalette.ink, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'MONTO',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.calendar_today_outlined,
-              color: AppPalette.textMuted,
-              size: AppIconSize.sm,
-            ),
-            const SizedBox(width: AppSpacing.x3),
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPalette.textPrimary,
-                    ),
+          // El signo va fuera del campo: el `prefixText` de un campo vacío
+          // no se dibuja hasta que recibe el foco.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              // U+2212, el mismo signo que la columna de montos.
+              Text(isIncome ? r'+$' : r'−$', style: estilo),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  autofocus: true,
+                  style: estilo,
+                  cursorColor: AppPalette.ink,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  validator: validator,
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    hintStyle: estilo.copyWith(color: AppPalette.textDisabled),
+                    filled: false,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: sinBorde,
+                    enabledBorder: sinBorde,
+                    focusedBorder: sinBorde,
+                    errorBorder: sinBorde,
+                    focusedErrorBorder: sinBorde,
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.x1),
+          Text(
+            'Escribe el total. El teclado es numérico.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppPalette.textSecondary,
             ),
-            const Icon(
-              Icons.expand_more_rounded,
-              color: AppPalette.textMuted,
-              size: AppIconSize.sm,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Etiqueta de un grupo de controles que no es un campo de texto (los chips
-/// y el selector de fecha).
-///
-/// Sustituye a `PagateLabel`, que pintaba versalitas con tracking 0,8 en
-/// `textTertiary` #9CA3AF —2,54 sobre blanco, un fallo de AA— y que el paso
-/// R-5 retira. Es el mismo estilo que `PagateTextField` usa para su propia
-/// etiqueta, así que el formulario se lee con un solo criterio.
-class _EtiquetaDeGrupo extends StatelessWidget {
-  const _EtiquetaDeGrupo(this.texto);
+/// Hoja con una lista de opciones; devuelve la elegida o `null`.
+Future<String?> _elegir(
+  final BuildContext context, {
+  required final String titulo,
+  required final List<String> opciones,
+  required final String actual,
+}) =>
+    showPagateSheet<String>(
+      context: context,
+      builder: (final hoja) => PagateSheet(
+        title: titulo,
+        bodyPadding: EdgeInsets.zero,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final opcion in opciones)
+              Semantics(
+                selected: opcion == actual,
+                child: PagateDataRow(
+                  label: opcion,
+                  value: '',
+                  trailing: opcion == actual
+                      ? const Icon(Icons.check_rounded, color: AppPalette.ink)
+                      : null,
+                  onTap: () => Navigator.of(hoja).pop(opcion),
+                  showDivider: opcion != opciones.last,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
 
-  final String texto;
+/// Hoja de la comisión del medio de pago. Devuelve la comisión o `null`.
+class _HojaComision extends StatefulWidget {
+  const _HojaComision({required this.inicial, required this.monto});
+
+  final double inicial;
+
+  /// Monto escrito en el formulario, si hay uno válido.
+  final double? monto;
 
   @override
-  Widget build(final BuildContext context) => Text(
-        texto,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+  State<_HojaComision> createState() => _HojaComisionState();
+}
+
+class _HojaComisionState extends State<_HojaComision> {
+  final _formKey = GlobalKey<FormState>();
+  late final _controller = TextEditingController(
+    // «4.560», sin el signo de peso: es lo que el usuario escribiría.
+    text: widget.inicial > 0
+        ? formatCurrency(
+            widget.inicial,
+            currency: kFallbackCurrency,
+          ).replaceAll(r'$', '')
+        : '',
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String? _validar(final String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return null;
+    final fee = parseCurrencyInput(raw);
+    if (fee == null) return 'Ingresa una comisión válida';
+    if (fee < 0) return 'La comisión no puede ser negativa';
+    final monto = widget.monto;
+    if (monto != null && fee > monto) return _comisionMayorQueMonto;
+    return null;
+  }
+
+  void _listo() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final raw = _controller.text.trim();
+    Navigator.of(context).pop(raw.isEmpty ? 0.0 : parseCurrencyInput(raw));
+  }
+
+  @override
+  Widget build(final BuildContext context) => PagateSheet(
+    title: 'Comisión del medio de pago',
+    primaryAction: PagatePrimaryButton(label: 'Listo', onPressed: _listo),
+    child: Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PagateTextField(
+            labelText: 'Comisión (opcional)',
+            controller: _controller,
+            hintText: '0',
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            ],
+            validator: _validar,
+          ),
+          const SizedBox(height: AppSpacing.x2),
+          Text(
+            'Lo que te descuenta el medio de pago: Mercado Pago, Khipu, '
+            'Transbank. Si te pagaron por transferencia o en efectivo, déjalo '
+            'en 0.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppPalette.textSecondary,
             ),
-      );
+          ),
+        ],
+      ),
+    ),
+  );
 }
