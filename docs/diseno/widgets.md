@@ -1,8 +1,8 @@
 # Widgets compartidos para el sistema tomado de Cabal
 
-Acompaña a `variantes-cabal.html`. Todo vive en `lib/core/widgets/`. Lista de
-lo que hay que crear o cambiar cuando se elija una variante. Todavía no se toca
-nada.
+Acompaña a `variantes-cabal.html`. Todo vive en `lib/core/widgets/`. Se eligió
+la variante A; esta lista dice qué se creó o cambió y dónde se usa. Algunos
+nombres de la propuesta no llegaron a ser widgets propios: lo indica la tabla.
 
 Regla común: ningún widget declara colores sueltos. Leen `AppPalette` y el
 tema, y la variante elegida solo cambia esos valores.
@@ -19,19 +19,20 @@ tema, y la variante elegida solo cambia esos valores.
 
 | Widget | Para qué | Dónde se usa |
 |---|---|---|
-| `PagateSegmented` | Selector segmentado en píldora, de 2 o 3 opciones con selección única. La opción activa es blanca, con `sombra-1` y en el color oscuro. Con letra 2.0 el texto pasa a dos líneas centradas y no se corta. | Inventario (Productos/Materiales), Finanzas (período), Registrar (Ingreso/Gasto) |
-| `PagateMetricCard` | Monto en 800 con una etiqueta debajo. `tone` puede ser neutro, ingreso o gasto: cambia el color del monto y la flecha. | Finanzas (4 tarjetas en una grilla de 2) |
-| `PagateFormRow` | Ícono en un cuadro tintado, etiqueta (y subtítulo), valor y flecha. Toca para abrir un selector. El valor no se envuelve: si no cabe, baja bajo la etiqueta. | Registrar movimiento, Inicio (valor hora, gastos fijos, stock), Configuración |
-| `PagateClearCreateBar` | Par Limpiar (secundario) y Crear (acción), en proporción 1 : 1,4. Con letra 2.0 se apilan. | Registrar movimiento, formularios de inventario |
-| `PagateConfirmDialog` | Título, texto y el par Cancelar / confirmar, en radio 20. Una función `confirmar(context, …)` que devuelve `bool`. Reemplaza los `AlertDialog` sueltos. | Borrar historial, cerrar sesión, eliminar ítem, salir sin guardar |
-| `PagateHeroHeader` | Cabecera en el color oscuro con saludo y avatar. Lleva un `child` superpuesto 48 dp hacia arriba (la tarjeta blanca). Regla: el color de acción no va directo sobre la cabecera. | Inicio |
-| `PagateChecklist` | Primeros pasos: N de M, barra de progreso y filas con marca y enlace «ir a». Se oculta al completar los pasos o al descartarla. | Inicio (usuario nuevo) |
+| `PagateSegmented` | Selector segmentado en píldora, de 2 a 4 opciones con selección única. La opción activa es blanca, con `sombra-1` y en el color oscuro. Con letra grande el texto pasa a dos líneas centradas; si una palabra no cabe, la letra se achica en vez de cortarla. `onReselected` avisa al tocar la opción ya elegida. | Inventario (Productos/Materiales), Finanzas (Este mes / Mes pasado / Año / Otro mes), Registrar (Ingreso/Gasto) |
+| `PagateMetricCard` | Monto en 800 con una etiqueta debajo. `tone` puede ser neutro, ingreso o gasto: cambia el color del monto y la flecha. | Finanzas (grilla de 2; de 1 con letra 1.5 o más; la que queda sola va a todo el ancho) |
+| `PagateFormRow` | No es un widget propio. En Inicio y Configuración es `PagateDataRow` con `icon`; en Registrar, la fila local `_FilaFormulario`, porque su valor es texto y tiene que poder partirse. | Registrar movimiento, Inicio (valor hora, gastos fijos, stock), Configuración |
+| `confirmar()` (`pagate_confirm_dialog.dart`) | Título, texto y el par Cancelar / confirmar, en radio 20. Devuelve `bool`. Con `destructive: true` el botón va en carmesí. Reemplaza los `AlertDialog` sueltos. | Borrar historial, cerrar sesión, eliminar ítem o movimiento, salir sin guardar |
+| `PagateIconSquare` | Ícono en un cuadro tintado. | Filas de Inicio, Registrar y Configuración |
+| `PagateVasija` | Ilustración de dos colores de los estados vacíos. | `PagateEmptyState` |
+| Cabecera de Inicio | No es un widget compartido: `_Portada` en `home_tab.dart`, en el color oscuro con saludo y avatar, y la tarjeta del saldo superpuesta 48 dp. Regla: el color de acción no va directo sobre la cabecera. | Inicio |
+| Primeros pasos | No es un widget compartido: `_PrimerosPasos` en `home_tab.dart`. N de 4, barra de progreso y filas con marca y enlace. Se oculta cuando la cuenta tiene movimientos. | Inicio (cuenta nueva) |
 
 ## Cambian
 
 | Widget | Cambio |
 |---|---|
-| `PagateDataRow` | Queda para filas de solo lectura. Las que navegan pasan a `PagateFormRow`. Arreglo de desborde ya aprobado: el valor no se envuelve (`softWrap: false`) y baja de línea con letra grande. |
+| `PagateDataRow` | Filas de dato, con `icon` opcional (el cuadro tintado) y flecha si navegan. Arreglo de desborde: el valor no se envuelve (`softWrap: false`) y baja bajo la etiqueta con letra 1.5 o más. `subtitleMaxLines` deja el subtítulo en más de una línea (Gastos fijos en Inicio). |
 | `PagateMovementRow` | Ícono en un cuadro tintado. El monto con signo va en 800, verde o carmesí. Mismo arreglo de desborde. |
 | `PagateSectionHeader` | Título en 800. La acción («Ver todos») en color de acción, alineada a la derecha y sin repartir el ancho a la mitad: arregla los cortes de «Movimiento/s». |
 | `PagateSectionCard` | Radio 16 y `sombra-1` en lugar del borde de 1 px. Separadores internos al 10 % del oscuro. |
@@ -39,11 +40,17 @@ tema, y la variante elegida solo cambia esos valores.
 | `PagatePrimaryButton` | Primario en el color de acción. Secundario con contorno de 1,5 en el oscuro. Radio 10 y alto 48. |
 | `PagateTextField` | Borde en el token «borde» (3:1 o más) y radio 10. Etiqueta flotante en texto 2. |
 | `PagateBottomNav` | Pestaña activa en el oscuro con una barra de 3 dp. Las inactivas en el apagado. Sin la píldora de color de Material 3. |
-| `PagateSheet` | Registrar movimiento deja de ser hoja y pasa a pantalla completa (#54–57). Las demás hojas quedan, con radio 20. |
+| `PagateSheet` | Registrar movimiento deja de ser hoja y pasa a pantalla completa (#54–57), con «Limpiar» en la barra superior y solo «Crear» abajo. Las demás hojas quedan, con radio 20. |
+| `PagateSectionCard` (margen) | Gana `margin`; `EdgeInsets.zero` cuando el padre ya trae el margen de pantalla (la lista de Registrar). |
 | `PagateChipSelector` | Donde haya 2 o 3 opciones excluyentes, se reemplaza por `PagateSegmented`. Queda para las categorías. |
-| `PagateMonthSelector` | En Finanzas lo reemplaza `PagateSegmented` (Este mes / Mes pasado / Año). Decidir si se conserva para elegir un mes anterior. |
+| `PagateMonthSelector` | En Finanzas lo reemplaza `PagateSegmented`; «Otro mes» abre una hoja con la lista de meses. Hoy no lo usa ninguna pantalla. |
 
 ## Fuera
+
+- `PagateClearCreateBar`: Registrar pasó «Limpiar» a la barra superior y
+  ningún otro formulario la usaba. Borrado con su test.
+- El gráfico de línea «Cómo va tu balance» (`NetBalanceLineChart`): la
+  variante A deja en Finanzas solo las barras por mes y las categorías.
 
 - Mosaicos de colores, inicio como menú de módulos y tablas densas (#61–72).
 - `PagateWordmark`, `PagateSocialButton` y `PagateStepHeader` solo cambian

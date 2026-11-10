@@ -51,10 +51,10 @@ import '../widgets/transaction_form_sheet.dart';
 //   el signo ya dice.
 //
 // · EL BORDE EN CADA CHIP NO SELECCIONADO del selector de mes, que
-//   convertía la fila en una reja. Ahora es `PagateMonthSelector`, que
-//   además garantiza un chip del mes en curso: con datos hasta agosto y el
-//   mes actual sin movimientos, la pantalla abría en agosto sin forma de
-//   volver.
+//   convertía la fila en una reja. Ahora es un solo `PagateSegmented`
+//   (Este mes / Mes pasado / Año / Otro mes) que siempre deja volver al
+//   mes en curso: con datos hasta agosto y el mes actual sin movimientos,
+//   la pantalla abría en agosto sin forma de volver.
 //
 // · "Meta Mensual" y "Gastos Fijos" en Title Case inglés.
 //
@@ -120,6 +120,33 @@ class _FinanzasTabState extends State<FinanzasTab> {
     final mes = provider.selectedMonthKey;
     final anio = mes.split('-').first;
 
+    final selector = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        0,
+        AppSpacing.x4,
+        AppSpacing.x2,
+      ),
+      child: PagateSegmented<_Periodo>(
+        options: const [
+          (_Periodo.esteMes, 'Este mes'),
+          (_Periodo.mesPasado, 'Mes pasado'),
+          (_Periodo.anio, 'Año'),
+          (_Periodo.otroMes, 'Otro mes'),
+        ],
+        selected: _periodo(mes),
+        onChanged: (final p) => unawaited(_elegir(p)),
+        // «Otro mes» ya elegido vuelve a abrir la lista.
+        onReselected: (final p) {
+          if (p == _Periodo.otroMes) unawaited(_elegir(p));
+        },
+      ),
+    );
+    // Con letra de 1,5 o más el selector ocupa dos líneas: fijo, robaba ese
+    // alto a cada tramo de la lista. Ahí se desplaza con el contenido.
+    final desplazable = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final arriba = desplazable ? selector : null;
+
     return Column(
       children: [
         _Cabecera(
@@ -127,28 +154,15 @@ class _FinanzasTabState extends State<FinanzasTab> {
               ? 'Año $anio'
               : monthLabelFromMonthKey(mes).toLowerCase(),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.x4,
-            0,
-            AppSpacing.x4,
-            AppSpacing.x2,
-          ),
-          child: PagateSegmented<_Periodo>(
-            options: const [
-              (_Periodo.esteMes, 'Este mes'),
-              (_Periodo.mesPasado, 'Mes pasado'),
-              (_Periodo.anio, 'Año'),
-              (_Periodo.otroMes, 'Otro mes'),
-            ],
-            selected: _periodo(mes),
-            onChanged: (final p) => unawaited(_elegir(p)),
-          ),
-        ),
+        if (!desplazable) selector,
         Expanded(
           child: provider.error != null
-              ? _CuerpoConError(provider: provider)
-              : _Cuerpo(anio: _anual ? anio : null, onAbrirMes: _abrirMes),
+              ? _CuerpoConError(provider: provider, encabezado: arriba)
+              : _Cuerpo(
+                  anio: _anual ? anio : null,
+                  onAbrirMes: _abrirMes,
+                  encabezado: arriba,
+                ),
         ),
 
         // Barra fija, no FAB: no tapa la última fila y se apaga de verdad
@@ -296,14 +310,18 @@ class _CabeceraState extends State<_Cabecera> {
 // ─── Cuerpo ────────────────────────────────────────────────────────────
 
 class _CuerpoConError extends StatelessWidget {
-  const _CuerpoConError({required this.provider});
+  const _CuerpoConError({required this.provider, this.encabezado});
 
   final FinancesProvider provider;
 
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
+
   @override
   Widget build(final BuildContext context) => ListView(
-        padding: const EdgeInsets.only(top: AppSpacing.x6),
         children: [
+          ?encabezado,
+          const SizedBox(height: AppSpacing.x6),
           PagateErrorState(
             message: provider.error!,
             onRetry: provider.retry,
@@ -313,11 +331,18 @@ class _CuerpoConError extends StatelessWidget {
 }
 
 class _Cuerpo extends StatelessWidget {
-  const _Cuerpo({required this.anio, required this.onAbrirMes});
+  const _Cuerpo({
+    required this.anio,
+    required this.onAbrirMes,
+    this.encabezado,
+  });
 
   /// `'2026'` con «Año» elegido; `null` con un mes.
   final String? anio;
   final ValueChanged<String> onAbrirMes;
+
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
 
   @override
   Widget build(final BuildContext context) {
@@ -326,6 +351,7 @@ class _Cuerpo extends StatelessWidget {
     if (provider.isLoading) {
       return ListView(
         children: [
+          ?encabezado,
           PagateSkeleton.balance(),
           PagateSkeleton.rows(4),
         ],
@@ -352,6 +378,7 @@ class _Cuerpo extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: AppSpacing.x8),
       children: [
+        ?encabezado,
         _Metricas(
           ingresos: ingresos,
           gastos: gastos,
@@ -359,7 +386,7 @@ class _Cuerpo extends StatelessWidget {
           meta: anio == null ? provider.monthlyGoal : 0,
         ),
         const SizedBox(height: AppSpacing.x4),
-        const PagateSectionCard(child: MonthlyBarChart()),
+        PagateSectionCard(child: MonthlyBarChart(anio: anio)),
         if (anio == null) ...[
           const SizedBox(height: AppSpacing.x4),
           const PagateSectionCard(child: CategoryBars()),
@@ -431,7 +458,9 @@ class _Metricas extends StatelessWidget {
         children: [
           for (var i = 0; i < tarjetas.length; i += unaColumna ? 1 : 2) ...[
             if (i > 0) const SizedBox(height: hueco),
-            if (unaColumna)
+            // La que queda sola (el balance, sin meta) va a todo el ancho,
+            // sin un hueco al lado.
+            if (unaColumna || i + 1 == tarjetas.length)
               tarjetas[i]
             else
               IntrinsicHeight(
@@ -440,11 +469,7 @@ class _Metricas extends StatelessWidget {
                   children: [
                     Expanded(child: tarjetas[i]),
                     const SizedBox(width: hueco),
-                    Expanded(
-                      child: i + 1 < tarjetas.length
-                          ? tarjetas[i + 1]
-                          : const SizedBox.shrink(),
-                    ),
+                    Expanded(child: tarjetas[i + 1]),
                   ],
                 ),
               ),

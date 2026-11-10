@@ -1,6 +1,6 @@
 // Widget tests de los componentes nuevos de la variante A
 // (docs/diseno/variantes-cabal.html): selector segmentado, tarjeta de
-// métrica, par Limpiar/Crear y diálogo de confirmación.
+// métrica y diálogo de confirmación.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,32 +84,6 @@ void main() {
       expect(color(r'−$330.000'), AppPalette.ink);
       expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
       expect(find.byIcon(Icons.arrow_downward_rounded), findsOneWidget);
-    });
-  });
-
-  group('PagateClearCreateBar', () {
-    testWidgets('lado a lado en 1,0 y apilado en 2,0, sin desborde', (
-      final tester,
-    ) async {
-      Widget barra() => PagateClearCreateBar(
-        createLabel: 'Crear ingreso',
-        onCreate: () {},
-        onClear: () {},
-      );
-
-      await pumpComponent(tester, barra());
-      expect(
-        tester.getTopLeft(find.text('Limpiar')).dy,
-        tester.getTopLeft(find.text('Crear ingreso')).dy,
-      );
-
-      await pumpComponent(tester, barra(), textScale: 2);
-      esperarSinDesborde(tester);
-      expect(
-        tester.getTopLeft(find.text('Crear ingreso')).dy,
-        lessThan(tester.getTopLeft(find.text('Limpiar')).dy),
-        reason: 'apilados, con la acción arriba',
-      );
     });
   });
 

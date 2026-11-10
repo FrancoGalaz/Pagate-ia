@@ -23,11 +23,16 @@ class PagateSegmented<T> extends StatelessWidget {
   final T selected;
   final ValueChanged<T> onChanged;
 
+  /// Al tocar la opción que ya está elegida. Para las que abren algo, como
+  /// «Otro mes», que vuelve a abrir la lista.
+  final ValueChanged<T>? onReselected;
+
   const PagateSegmented({
     super.key,
     required this.options,
     required this.selected,
     required this.onChanged,
+    this.onReselected,
   });
 
   @override
@@ -48,7 +53,11 @@ class PagateSegmented<T> extends StatelessWidget {
                 etiqueta: etiqueta,
                 activa: valor == selected,
                 onTap: () {
-                  if (valor != selected) onChanged(valor);
+                  if (valor != selected) {
+                    onChanged(valor);
+                  } else {
+                    onReselected?.call(valor);
+                  }
                 },
                 estilo: theme.textTheme.labelMedium,
               ),

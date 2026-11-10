@@ -15,6 +15,7 @@ import 'package:pagate_ia/core/widgets/widgets.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_summary_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_transaction_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/fixed_expense_entity.dart';
+import 'package:pagate_ia/features/dashboard/presentation/widgets/financial_charts.dart';
 import 'package:pagate_ia/features/finances/presentation/pages/finanzas_tab.dart';
 import 'package:pagate_ia/features/finances/presentation/providers/finances_provider.dart';
 
@@ -451,6 +452,52 @@ void main() {
       await tester.pumpAndSettle();
       expect(finanzas.selectedMonthKey, antiguo);
       expect(find.text(r'+$100.000'), findsOneWidget);
+
+      // Ya elegido, tocarlo otra vez vuelve a abrir la lista.
+      await tester.tap(find.text('Otro mes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Elegir mes'), findsOneWidget);
+    });
+
+    testWidgets('el gráfico del año muestra solo los meses de ese año', (
+      final tester,
+    ) async {
+      final otroAnio = '${int.parse(anio) - 1}-06';
+      final finanzas = tresMeses()
+        ..months = [
+          ...tresMeses().months,
+          FinancesSummaryEntity(
+            monthKey: otroAnio,
+            totalIncome: 50000,
+            totalExpenses: 10000,
+            transactionCount: 1,
+          ),
+        ];
+      await _montar(tester, finanzas);
+
+      await tester.tap(find.text('Año'));
+      await tester.pumpAndSettle();
+      await _bajarHasta(tester, 'Ingresos y gastos por mes');
+
+      final delAnio = finanzas.months
+          .where((final m) => m.monthKey.startsWith('$anio-'))
+          .length;
+      final datos = tester.widget<BarChart>(find.byType(BarChart)).data;
+      expect(datos.barGroups, hasLength(delAnio));
+    });
+
+    testWidgets('en «Año» el balance va a todo el ancho', (
+      final tester,
+    ) async {
+      await _montar(tester, tresMeses());
+      await tester.tap(find.text('Año'));
+      await tester.pumpAndSettle();
+
+      final balance = find.ancestor(
+        of: find.text('Balance'),
+        matching: find.byType(PagateMetricCard),
+      );
+      expect(tester.getSize(balance).width, 360 - 2 * AppSpacing.x4);
     });
 
     testWidgets('«Año» suma los meses del año y lista cada uno', (
@@ -528,6 +575,72 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('el eje dice «oct», y el año solo si es otro', (
+    final tester,
+  ) async {
+    final finanzas = _conDatos()
+      ..months = const [
+        FinancesSummaryEntity(
+          monthKey: '2026-10',
+          totalIncome: 1240000,
+          totalExpenses: 860000,
+          transactionCount: 2,
+        ),
+        FinancesSummaryEntity(
+          monthKey: '2026-09',
+          totalIncome: 900000,
+          totalExpenses: 700000,
+          transactionCount: 2,
+        ),
+        FinancesSummaryEntity(
+          monthKey: '2025-12',
+          totalIncome: 500000,
+          totalExpenses: 300000,
+          transactionCount: 2,
+        ),
+      ];
+    await _montar(tester, finanzas);
+    await _bajarHasta(tester, 'Ingresos y gastos por mes');
+
+    Finder enElEje(final String texto) =>
+        find.descendant(of: find.byType(BarChart), matching: find.text(texto));
+    expect(enElEje('oct'), findsOneWidget);
+    expect(enElEje('sep'), findsOneWidget);
+    expect(enElEje('oct 26'), findsNothing);
+    // Un mes de otro año lleva el suyo: dos diciembres no se confunden.
+    expect(enElEje('dic 25'), findsOneWidget);
+  });
+
+  testWidgets('las barras de categoría van en el oscuro', (
+    final tester,
+  ) async {
+    await _montar(tester, _conDatos());
+    await _bajarHasta(tester, 'Insumos y materiales');
+
+    final barra = tester.widget<LinearProgressIndicator>(
+      find.descendant(
+        of: find.byType(CategoryBars),
+        matching: find.byType(LinearProgressIndicator),
+      ),
+    );
+    expect(barra.color, AppPalette.ink);
+  });
+
+  testWidgets('con letra 1,5 o más el selector se desplaza con la lista', (
+    final tester,
+  ) async {
+    Finder enLaLista() => find.ancestor(
+      of: find.text('Mes pasado'),
+      matching: find.byType(ListView),
+    );
+
+    await _montar(tester, _conDatos());
+    expect(enLaLista(), findsNothing, reason: 'en 1,0 va fijo');
+
+    await _montar(tester, _conDatos(), textScale: 1.5);
+    expect(enLaLista(), findsOneWidget);
   });
 
   testWidgets('con letra 2,0 ninguna palabra se parte ni se corta', (

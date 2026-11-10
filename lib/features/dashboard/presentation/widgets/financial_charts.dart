@@ -36,8 +36,8 @@ import '../../../finances/presentation/providers/finances_provider.dart';
 //
 // DOS TINTAS EN LAS SERIES, no diez: `moneyIn` #0B6A47 para los ingresos y
 // `textPrimary` #101828 para los gastos, los dos sobre blanco con ratio
-// verificado. Las barras de categoría usan `brand` sobre pista `sunken`
-// (5,78:1) y `seriesOther` #7E8794 (3,63:1, cumple 1.4.11 como objeto
+// verificado. Las barras de categoría usan `ink` sobre pista `sunken` (el
+// color de acción queda para lo que se toca) y `seriesOther` #7E8794 (3,63:1, cumple 1.4.11 como objeto
 // gráfico) para la fila "Otros".
 //
 // CADA GRÁFICO SE ANUNCIA. Antes la sección entera era un hueco mudo para
@@ -48,7 +48,10 @@ import '../../../finances/presentation/providers/finances_provider.dart';
 
 /// Ingresos y gastos de los últimos meses, en dos tintas.
 class MonthlyBarChart extends StatelessWidget {
-  const MonthlyBarChart({super.key});
+  const MonthlyBarChart({super.key, this.anio});
+
+  /// `'2026'` para mostrar solo los meses de ese año; `null`, todos.
+  final String? anio;
 
   @override
   Widget build(final BuildContext context) {
@@ -56,7 +59,22 @@ class MonthlyBarChart extends StatelessWidget {
 
     // El provider entrega del más reciente al más antiguo; una serie
     // temporal va en orden cronológico.
-    final months = finances.months.reversed.toList();
+    final months = [
+      for (final m in finances.months.reversed)
+        if (anio == null || m.monthKey.startsWith('$anio-')) m,
+    ];
+
+    // El año ya está en la cabecera: el eje dice «oct», y solo un mes de
+    // otro año lleva el suyo («dic 25»), para no confundir dos diciembres.
+    final anioDeReferencia = anio ?? finances.selectedMonthKey.split('-').first;
+    String etiquetaEje(final FinancesSummaryEntity m) {
+      final partes = m.monthKey.split('-');
+      final mes = partes.length == 2 ? int.tryParse(partes[1]) : null;
+      if (mes == null || mes < 1 || mes > 12) return m.monthKey;
+      return partes[0] == anioDeReferencia
+          ? monthAbbreviation(mes)
+          : shortMonthLabelFromMonthKey(m.monthKey);
+    }
 
     if (months.length < 2) {
       return _BloqueGrafico(
@@ -96,7 +114,7 @@ class MonthlyBarChart extends StatelessWidget {
                   final rodIndex,
                 ) =>
                     BarTooltipItem(
-                  '${_etiquetaEje(months[groupIndex])}\n'
+                  '${monthLabelFromMonthKey(months[groupIndex].monthKey)}\n'
                   '${formatCurrency(rod.toY, currency: kFallbackCurrency)}',
                   _estiloEje(context).copyWith(color: AppPalette.surface),
                 ),
@@ -115,7 +133,7 @@ class MonthlyBarChart extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.only(top: AppSpacing.x2),
                       child: Text(
-                        _etiquetaEje(months[idx]),
+                        etiquetaEje(months[idx]),
                         style: _estiloEje(context),
                       ),
                     );
@@ -214,129 +232,6 @@ class MonthlyBarChart extends StatelessWidget {
       ultimo.balance,
       currency: kFallbackCurrency,
     )}.';
-  }
-}
-
-/// Evolución del balance mes a mes.
-class NetBalanceLineChart extends StatelessWidget {
-  const NetBalanceLineChart({super.key});
-
-  @override
-  Widget build(final BuildContext context) {
-    final finances = context.watch<FinancesProvider>();
-    final months = finances.months.reversed.toList();
-
-    if (months.length < 2) {
-      return _BloqueGrafico(
-        title: 'Cómo va tu balance',
-        child: _MensajeVacio(
-          message: months.isEmpty
-              ? 'Registra movimientos para ver la evolución.'
-              : 'Con un mes más aparece la evolución.',
-        ),
-      );
-    }
-
-    final puntos = [
-      for (var i = 0; i < months.length; i++)
-        FlSpot(i.toDouble(), months[i].balance),
-    ];
-
-    // Escala con margen y un intervalo fijo de cuatro pasos. Sin esto,
-    // fl_chart rotula también el mínimo y el máximo exactos, que caen a un
-    // par de píxeles de los rótulos de la rejilla y se pisan.
-    final valores = [for (final p in puntos) p.y];
-    final crudoMin = valores.reduce((final a, final b) => a < b ? a : b);
-    final crudoMax = valores.reduce((final a, final b) => a > b ? a : b);
-    final margen = ((crudoMax - crudoMin).abs() * 0.15).clamp(1.0, 1e12);
-    final minY = crudoMin < 0 ? crudoMin - margen : 0.0;
-    final maxY = crudoMax + margen;
-    final paso = (maxY - minY) / 4;
-
-    return _BloqueGrafico(
-      title: 'Cómo va tu balance',
-      semanticsLabel: 'Evolución del balance. Último mes, '
-          '${monthLabelFromMonthKey(months.last.monthKey)}: '
-          '${formatCurrency(months.last.balance, currency: kFallbackCurrency)}.',
-      child: SizedBox(
-        height: 180,
-        child: LineChart(
-          LineChartData(
-            minY: minY,
-            maxY: maxY,
-
-            // Medio paso de aire a cada lado: con la serie pegada a los
-            // bordes, el rótulo del último mes se corta por la mitad.
-            minX: -0.3,
-            maxX: puntos.length - 1 + 0.3,
-            titlesData: FlTitlesData(
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 28,
-                  getTitlesWidget: (final value, final meta) {
-                    final idx = value.toInt();
-                    if (idx < 0 ||
-                        idx >= months.length ||
-                        value != idx.toDouble()) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.x2),
-                      child: Text(
-                        _etiquetaEje(months[idx]),
-                        style: _estiloEje(context),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: _anchoEjeVertical,
-                  interval: paso,
-                  // fl_chart rotula además los dos extremos del eje, que
-                  // caen a un par de píxeles del tick más cercano y se
-                  // pisan con él. Se ocultan.
-                  getTitlesWidget: (final value, final meta) =>
-                      value == meta.max || value == meta.min
-                          ? const SizedBox.shrink()
-                          : _rotuloVertical(
-                              context,
-                              formatCompactCurrency(
-                                value,
-                                currency: kFallbackCurrency,
-                              ),
-                            ),
-                ),
-              ),
-              topTitles: const AxisTitles(),
-              rightTitles: const AxisTitles(),
-            ),
-            gridData: FlGridData(
-              drawVerticalLine: false,
-              horizontalInterval: paso,
-              getDrawingHorizontalLine: _lineaRejilla,
-            ),
-            borderData: FlBorderData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                spots: puntos,
-                isCurved: false,
-                color: AppPalette.brand,
-                barWidth: 2,
-                dotData: const FlDotData(),
-
-                // Sin relleno bajo la línea: un área translúcida no tiene
-                // ratio comprobable y aquí no aporta información.
-                belowBarData: BarAreaData(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -504,7 +399,9 @@ class _FilaCategoria extends StatelessWidget {
                 value: fraccion.clamp(0, 1),
                 // El color aquí es redundante: la etiqueta, el monto y el
                 // porcentaje ya están escritos al lado.
-                color: esResto ? AppPalette.seriesOther : AppPalette.brand,
+                // El oscuro y no el color de acción: estas barras no se
+                // tocan.
+                color: esResto ? AppPalette.seriesOther : AppPalette.ink,
               ),
             ),
           ],
@@ -636,14 +533,6 @@ class _MensajeVacio extends StatelessWidget {
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
-/// Etiqueta del eje horizontal: `oct 26`.
-///
-/// Antes se obtenía recortando a tres letras la etiqueta larga ("Marzo
-/// 2025" → "Mar"), lo que perdía el año y hacía indistinguibles dos marzos
-/// de años distintos en la misma serie.
-String _etiquetaEje(final FinancesSummaryEntity month) =>
-    shortMonthLabelFromMonthKey(month.monthKey);
-
 /// Estilo de los rótulos de eje. Sale del `TextTheme`, así que hereda
 /// `fontVariations` y la familia; escrito a mano no las heredaría.
 ///
@@ -673,8 +562,3 @@ Widget _rotuloVertical(final BuildContext context, final String texto) =>
 /// Ancho reservado para el eje vertical. Cabe "$1.310 mil" a 11 dp con el
 /// hueco de 8 dp hasta la primera barra.
 const double _anchoEjeVertical = 72;
-
-FlLine _lineaRejilla(final double value) => const FlLine(
-      color: AppPalette.hairline,
-      strokeWidth: AppSizes.borderHairline,
-    );

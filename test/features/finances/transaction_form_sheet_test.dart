@@ -396,7 +396,6 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('Limpiar')),
       findsOneWidget,
     );
-    expect(find.byType(PagateClearCreateBar), findsNothing);
     final crear = find.widgetWithText(PagatePrimaryButton, 'Crear ingreso');
     expect(crear, findsOneWidget);
     // A todo el ancho, menos los 16 dp de cada lado.
