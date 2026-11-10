@@ -109,16 +109,6 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    // Cuántos meses hay que elegir, contando siempre el actual. Con uno
-    // solo el selector no se dibuja, y entonces su banda tampoco debe
-    // reservar alto.
-    final meses = context.select<FinancesProvider, int>(
-      (final p) => {
-        for (final m in p.months) m.monthKey,
-        FinancesProvider.currentMonthKey,
-      }.length,
-    );
-
     // La barra de estado va sobre el oscuro de la cabecera (el dashboard
     // pinta ese fondo en Inicio): íconos claros. El resto de la pantalla
     // sigue en el lienzo.
@@ -128,9 +118,6 @@ class HomeTab extends StatelessWidget {
         color: AppPalette.canvas,
         child: CustomScrollView(
           slivers: [
-            // El aviso va primero: con letra 2,0 la tarjeta del saldo ocupa la
-            // pantalla entera y, debajo de ella, el aviso no se veía.
-            const SliverToBoxAdapter(child: VerificarCorreoBanner()),
             SliverToBoxAdapter(
               child: _Portada(
                 onAyuda: onAyuda,
@@ -140,18 +127,13 @@ class HomeTab extends StatelessWidget {
               ),
             ),
 
-            // El selector queda pegado arriba al desplazarse: es el filtro
-            // global de la app y tiene que estar siempre a la vista. Va bajo la
-            // tarjeta porque la tarjeta se monta sobre la cabecera oscura.
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SelectorPegajoso(visible: meses > 1),
-            ),
-
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Bajo la tarjeta y en una línea: con letra 2,0 el balance
+                  // tiene que verse en la primera pantalla.
+                  const VerificarCorreoBanner(),
                   _PrimerosPasos(
                     onValorHora: onVerValorHora,
                     onRegistrar: onRegistrarIngreso,
@@ -329,46 +311,74 @@ const Widget _esqueletoIdentidad = PagateSkeletonGroup(
   ),
 );
 
-// ─── Selector de mes pegajoso ──────────────────────────────────────────
+// ─── Selector de mes ───────────────────────────────────────────────────
 
-class _SelectorPegajoso extends SliverPersistentHeaderDelegate {
-  const _SelectorPegajoso({required this.visible});
-
-  /// `false` cuando solo hay un mes: la banda desaparece entera en vez de
-  /// dejar un hueco.
-  final bool visible;
-
-  /// 32 del chip + 6 arriba + 6 abajo = 44, más el borde inferior.
-  static const double _alto = 45;
+/// El mes del balance, al lado del rótulo de la tarjeta. Inicio y Finanzas
+/// leen el MISMO provider: con el selector a la vista, el mes elegido en
+/// Finanzas no cambia el balance de aquí sin decirlo. Con un solo mes no se
+/// dibuja.
+class _SelectorDeMes extends StatelessWidget {
+  const _SelectorDeMes();
 
   @override
-  double get minExtent => visible ? _alto : 0;
-
-  @override
-  double get maxExtent => visible ? _alto : 0;
-
-  @override
-  Widget build(
-    final BuildContext context,
-    final double shrinkOffset,
-    final bool overlapsContent,
-  ) {
+  Widget build(final BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    return SizedBox(
-      height: _alto,
-      width: double.infinity,
-      child: PagateMonthSelector(
-        monthKeys: [for (final m in finances.months) m.monthKey],
-        selectedMonthKey: finances.selectedMonthKey,
-        currentMonthKey: FinancesProvider.currentMonthKey,
-        onSelected: finances.selectMonthKey,
+    final actual = FinancesProvider.currentMonthKey;
+    final meses = {for (final m in finances.months) m.monthKey, actual}.toList()
+      ..sort((final a, final b) => b.compareTo(a));
+    if (meses.length < 2) return const SizedBox.shrink();
+
+    String etiqueta(final String mes) =>
+        mes == actual ? 'Este mes' : _mesConAnio(mes);
+
+    final theme = Theme.of(context);
+    return PopupMenuButton<String>(
+      key: const Key('inicio-selector-mes'),
+      tooltip: 'Elegir mes',
+      initialValue: finances.selectedMonthKey,
+      onSelected: finances.selectMonthKey,
+      itemBuilder: (final _) => [
+        for (final mes in meses)
+          PopupMenuItem(value: mes, child: Text(etiqueta(mes))),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 32),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.x3,
+          right: AppSpacing.x1,
+        ),
+        decoration: BoxDecoration(
+          color: AppPalette.sunken,
+          borderRadius: AppRadius.fullBorder,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              etiqueta(finances.selectedMonthKey),
+              style: AppText.weight(
+                theme.textTheme.labelLarge!,
+                700,
+              ).copyWith(color: AppPalette.ink),
+            ),
+            const Icon(
+              Icons.arrow_drop_down_rounded,
+              color: AppPalette.ink,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  @override
-  bool shouldRebuild(final _SelectorPegajoso oldDelegate) =>
-      oldDelegate.visible != visible;
+  /// `'2026-10'` → `'oct 2026'`. Con el año entero: «oct 26» se leía como
+  /// un día.
+  static String _mesConAnio(final String monthKey) {
+    final partes = monthKey.split('-');
+    final mes = partes.length == 2 ? int.tryParse(partes[1]) : null;
+    if (mes == null) return monthKey;
+    return '${monthAbbreviation(mes)} ${partes[0]}';
+  }
 }
 
 // ─── Tarjeta de saldo ──────────────────────────────────────────────────
@@ -411,11 +421,21 @@ class _TarjetaSaldo extends StatelessWidget {
       saldo = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Balance de ${_nombreDelMes(summary.monthKey)}'.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textSecondary,
-            ),
+          // Si no caben en una línea, el selector baja bajo el rótulo.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSpacing.x2,
+            runSpacing: AppSpacing.x1,
+            children: [
+              Text(
+                'Balance de ${_nombreDelMes(summary.monthKey)}'.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textSecondary,
+                ),
+              ),
+              const _SelectorDeMes(),
+            ],
           ),
           const SizedBox(height: AppSpacing.x1),
           _CifraHeroe(balance: summary.balance),
@@ -962,7 +982,7 @@ class _Pendientes extends StatelessWidget {
                 // SIN signo menos: el menos de una fila significa "ya se
                 // restó del balance", y un gasto fijo no se resta. Y lo dice
                 // con palabras.
-                subtitle: 'Cada mes · no se resta del balance',
+                subtitle: 'No se restan del balance',
                 value: formatCurrency(totalFijos, currency: kFallbackCurrency),
                 onTap: onFinanzas,
                 showDivider: bajos.isNotEmpty,
@@ -970,11 +990,11 @@ class _Pendientes extends StatelessWidget {
             if (bajos.isNotEmpty)
               PagateDataRow(
                 icon: Icons.inventory_2_outlined,
-                label: 'Stock bajo',
+                // El total va junto al título y la fila no reserva columna
+                // de valor: así el resumen tiene el ancho entero.
+                label: 'Stock bajo (${bajos.length})',
                 subtitle: _resumenStock(bajos),
-                value: '${bajos.length}',
-                // El carmesí es solo para alertas, y esta lo es.
-                valueColor: AppPalette.danger,
+                value: '',
                 onTap: onInventario,
                 showDivider: false,
               ),

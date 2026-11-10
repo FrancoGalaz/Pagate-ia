@@ -178,10 +178,12 @@ class _Acciones {
   int ayuda = 0;
 }
 
-/// Correo ya verificado: el aviso de verificación tiene su propio test.
+/// Correo verificado por defecto: el aviso tiene su propio test.
 class _AuthVerificada extends ChangeNotifier implements FirebaseAuthService {
+  _AuthVerificada({this.correoVerificado = true});
+
   @override
-  bool get correoVerificado => true;
+  final bool correoVerificado;
 
   @override
   dynamic noSuchMethod(final Invocation invocation) =>
@@ -195,6 +197,7 @@ Future<_Acciones> _montar(
   final HourlyRateEntity? valorHora,
   final _InventarioFalso? inventario,
   final double textScale = 1.0,
+  final bool correoVerificado = true,
 }) async {
   tester.view
     ..physicalSize = const Size(360, 900)
@@ -221,7 +224,7 @@ Future<_Acciones> _montar(
             value: inventario ?? _InventarioFalso(),
           ),
           ChangeNotifierProvider<FirebaseAuthService>.value(
-            value: _AuthVerificada(),
+            value: _AuthVerificada(correoVerificado: correoVerificado),
           ),
         ],
         child: MaterialApp(
@@ -461,7 +464,32 @@ void main() {
     expect(find.text(r'$320.000'), findsOneWidget);
 
     // Y lo dice con palabras, no solo con la maquetación.
-    expect(find.textContaining('no se resta del balance'), findsOneWidget);
+    expect(find.text('No se restan del balance'), findsOneWidget);
+  });
+
+  testWidgets('el aviso de verificar correo va bajo la tarjeta, y con letra '
+      '2,0 el balance se ve en la primera pantalla', (final tester) async {
+    await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+      textScale: 2.0,
+      correoVerificado: false,
+    );
+
+    final tarjeta = find.byKey(const Key('inicio-tarjeta-saldo'));
+    expect(
+      tester.getBottomLeft(find.text(r'$380.000')).dy,
+      lessThan(900),
+      reason: 'el balance, dentro de la primera pantalla',
+    );
+    // El aviso puede quedar fuera de la pantalla: se busca sin filtrar.
+    final aviso = find.text('Verifica tu correo', skipOffstage: false);
+    await tester.scrollUntilVisible(aviso, 300);
+    expect(
+      tester.getTopLeft(aviso).dy,
+      greaterThan(tester.getBottomLeft(tarjeta).dy),
+    );
   });
 
   testWidgets('la barra de meta dice qué mide', (final tester) async {
@@ -656,11 +684,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Stock bajo'), findsOneWidget);
+    expect(find.text('Stock bajo (2)'), findsOneWidget);
     expect(find.text('2 materiales'), findsOneWidget);
-
-    // El carmesí es solo para alertas, y esta lo es.
-    expect(tester.widget<Text>(find.text('2')).style!.color, AppPalette.danger);
   });
 
   testWidgets('el stock bajo cuenta productos y materiales, no solo la '
@@ -696,8 +721,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Stock bajo'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Stock bajo (3)'), findsOneWidget);
     expect(find.text('1 producto y 2 materiales'), findsOneWidget);
   });
 
@@ -721,7 +745,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Stock bajo'));
+    await tester.tap(find.text('Stock bajo (1)'));
     expect(acciones.inventario, 1);
   });
 
@@ -795,8 +819,22 @@ void main() {
 
     // Antes el mes era un estado invisible compartido con Finanzas: tocar
     // "julio" allí cambiaba el balance de aquí sin decirlo.
-    expect(find.byType(PagateMonthSelector), findsOneWidget);
-    await tester.tap(find.text('sep 26'));
+    final selector = find.byKey(const Key('inicio-selector-mes'));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('inicio-tarjeta-saldo')),
+        matching: selector,
+      ),
+      findsOneWidget,
+      reason: 'dentro de la tarjeta, junto al rótulo del balance',
+    );
+
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    // El año entero: «sep 26» se leía como un día.
+    expect(find.text('sep 26'), findsNothing);
+    await tester.tap(find.text('sep 2026'));
+    await tester.pumpAndSettle();
     expect(finanzas.mesesElegidos, ['2026-09']);
   });
 
@@ -808,7 +846,7 @@ void main() {
     // Una cuenta recién creada veía 45 dp de hueco vacío entre la barra de
     // identidad y el balance: el selector no se dibujaba pero su banda
     // seguía reservando alto.
-    expect(find.byType(PagateMonthSelector), findsNothing);
+    expect(find.byKey(const Key('inicio-selector-mes')), findsNothing);
     expect(
       tester.getTopLeft(find.textContaining('BALANCE DE')).dy,
       lessThan(200),

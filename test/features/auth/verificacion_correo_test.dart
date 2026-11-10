@@ -252,6 +252,22 @@ void main() {
       final auth = await montar(tester, verificado: false);
       expect(find.text('Verifica tu correo'), findsOneWidget);
 
+      // Compacto: el reenvío está en la misma línea.
+      await tester.tap(find.text('Reenviar'));
+      await tester.pump();
+      expect(auth.reenvios, 1);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+    });
+
+    testWidgets('al tocarlo muestra el detalle, que también reenvía', (
+      final tester,
+    ) async {
+      final auth = await montar(tester, verificado: false);
+
+      await tester.tap(find.text('Verifica tu correo'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Te enviamos un enlace'), findsOneWidget);
+
       await tester.tap(find.text('Reenviar correo'));
       await tester.pump();
       expect(auth.reenvios, 1);
@@ -264,8 +280,10 @@ void main() {
       final auth = await montar(tester, verificado: false)
         ..verificaAlComprobar = true;
 
+      await tester.tap(find.text('Verifica tu correo'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ya lo verifiqué'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(auth.correoVerificado, isTrue);
       expect(find.text('Verifica tu correo'), findsNothing);

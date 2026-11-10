@@ -10,6 +10,10 @@ import '../../../../core/widgets/widgets.dart';
 
 /// Aviso de Inicio mientras el correo no está verificado. No bloquea nada:
 /// solo el asistente y la lectura ordenada de boletas lo exigen.
+///
+/// Compacto: una línea y «Reenviar». Al tocarlo se abre el detalle con el
+/// correo y «Ya lo verifiqué». Con letra 2,0 el aviso entero de tres líneas
+/// y dos botones empujaba el balance fuera de la primera pantalla.
 class VerificarCorreoBanner extends StatelessWidget {
   const VerificarCorreoBanner({super.key});
 
@@ -22,44 +26,67 @@ class VerificarCorreoBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.x4,
-        AppSpacing.x2,
+        AppSpacing.x3,
         AppSpacing.x4,
         AppSpacing.x0,
       ),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.x3),
-        decoration: BoxDecoration(
-          color: AppPalette.brandSurface,
+      child: Material(
+        color: AppPalette.brandSurface,
+        borderRadius: AppRadius.r12Border,
+        child: InkWell(
           borderRadius: AppRadius.r12Border,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Verifica tu correo', style: theme.textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.x1),
-            Text(
-              'Te enviamos un enlace a ${auth.email ?? 'tu correo'}. Lo '
-              'necesitas para usar el asistente.',
-              style: theme.textTheme.bodySmall,
-            ),
-            Wrap(
-              spacing: AppSpacing.x2,
+          onTap: () => unawaited(_verDetalle(context)),
+          child: Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.x3),
+            child: Row(
               children: [
-                PagatePrimaryButton.text(
-                  label: 'Reenviar correo',
-                  onPressed: () => unawaited(reenviarCorreo(context)),
+                const Icon(
+                  Icons.mark_email_unread_outlined,
+                  size: AppIconSize.sm,
+                  color: AppPalette.ink,
                 ),
-                PagatePrimaryButton.text(
-                  label: 'Ya lo verifiqué',
-                  onPressed: () => unawaited(_comprobar(context)),
+                const SizedBox(width: AppSpacing.x2),
+                Expanded(
+                  child: Text(
+                    'Verifica tu correo',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => unawaited(reenviarCorreo(context)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppPalette.brand,
+                  ),
+                  child: const Text('Reenviar'),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Future<void> _verDetalle(final BuildContext context) => showPagateSheet<void>(
+    context: context,
+    builder: (final hoja) => PagateSheet(
+      title: 'Verifica tu correo',
+      primaryAction: PagatePrimaryButton(
+        label: 'Ya lo verifiqué',
+        onPressed: () => unawaited(_comprobar(hoja)),
+      ),
+      secondaryAction: PagatePrimaryButton.secondary(
+        label: 'Reenviar correo',
+        onPressed: () => unawaited(reenviarCorreo(hoja)),
+      ),
+      child: Text(
+        'Te enviamos un enlace a '
+        '${context.read<FirebaseAuthService>().email ?? 'tu correo'}. Lo '
+        'necesitas para usar el asistente y la lectura de boletas.',
+        style: Theme.of(hoja).textTheme.bodyMedium,
+      ),
+    ),
+  );
 
   Future<void> _comprobar(final BuildContext context) async {
     try {
@@ -67,6 +94,11 @@ class VerificarCorreoBanner extends StatelessWidget {
           .read<FirebaseAuthService>()
           .comprobarVerificacion();
       if (!context.mounted) return;
+      if (listo) {
+        // Cierra el detalle: el aviso de Inicio ya desapareció solo.
+        Navigator.of(context).pop();
+        return;
+      }
       if (!listo) {
         AppFeedback.showError(
           context,

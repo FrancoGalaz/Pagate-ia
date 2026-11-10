@@ -90,10 +90,16 @@ void main() {
     await c.capturar('onboarding');
 
     // ─── Datos de ejemplo ──────────────────────────────────────────────
+    // Primero solo el perfil: una cuenta recién creada, sin movimientos ni
+    // valor hora, que ve «Primeros pasos».
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    await _sembrar(uid);
+    await _sembrarPerfil(uid);
     await c.esperar(find.byType(DashboardScreen));
-    await c.esperar(find.text('Verifica tu correo'));
+    await c.esperar(find.text('Primeros pasos'));
+    await c.capturar('inicio_primeros_pasos');
+
+    await _sembrar(uid);
+    await c.esperar(find.textContaining('60.500'));
     await c.capturar('inicio_aviso_verificar_correo');
 
     // Verifica el correo en el emulador y vuelve a entrar: así los
@@ -283,21 +289,25 @@ class _Capturador {
 
 // ─── Datos de ejemplo ────────────────────────────────────────────────────
 
+Future<void> _sembrarPerfil(final String uid) => UserProfileFirebaseDatasource(
+  firestore: FirebaseFirestore.instance,
+  userId: uid,
+).saveProfile(
+  const UserProfileModel(
+    id: '',
+    name: 'Camila Rojas',
+    businessName: 'Greda Austral',
+    businessType: 'Cerámica',
+    currency: 'CLP',
+    monthlyGoal: 900000,
+    isPro: false,
+    avatarInitials: 'CR',
+  ),
+);
+
 Future<void> _sembrar(final String uid) async {
   final db = FirebaseFirestore.instance;
 
-  await UserProfileFirebaseDatasource(firestore: db, userId: uid).saveProfile(
-    const UserProfileModel(
-      id: '',
-      name: 'Camila Rojas',
-      businessName: 'Greda Austral',
-      businessType: 'Cerámica',
-      currency: 'CLP',
-      monthlyGoal: 900000,
-      isPro: false,
-      avatarInitials: 'CR',
-    ),
-  );
   await HourlyRateLocalDataSource(firestore: db, userId: uid).saveHourlyRate(
     const HourlyRateModel(
       desiredMonthlySalary: 850000,
