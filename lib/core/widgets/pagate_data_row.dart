@@ -46,6 +46,9 @@ class PagateDataRow extends StatelessWidget {
   /// Segunda línea bajo la etiqueta, en `bodySmall` `textMuted`. Opcional.
   final String? subtitle;
 
+  /// Líneas del subtítulo antes de cortarse con «…».
+  final int subtitleMaxLines;
+
   /// Si se pasa, la fila es pulsable: gana un chevron de 20 dp y fondo
   /// `sunken` al presionar. El chevron dice "esto navega", así que una fila
   /// cuya única consecuencia es destructiva NO usa [onTap]: usa [trailing].
@@ -80,6 +83,7 @@ class PagateDataRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.subtitle,
+    this.subtitleMaxLines = 1,
     this.onTap,
     this.showDivider = true,
     this.emphasis = false,
@@ -149,7 +153,7 @@ class PagateDataRow extends StatelessWidget {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppPalette.textMuted,
                       ),
-                      maxLines: 1,
+                      maxLines: subtitleMaxLines,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],

@@ -298,7 +298,21 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
         _date.day == now.day;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo movimiento')),
+      appBar: AppBar(
+        // Con letra grande y «Limpiar» al lado, el título se achica para
+        // caber entero en vez de cortarse en «Nuevo movimie…».
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('Nuevo movimiento'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _limpiar,
+            child: const Text('Limpiar'),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+        ],
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -341,7 +355,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
             ),
             const SizedBox(height: AppSpacing.x2),
 
+            // Sin margen propio: la lista ya trae el de los campos.
             PagateSectionCard(
+              margin: EdgeInsets.zero,
               child: Column(
                 children: [
                   _FilaFormulario(
@@ -418,10 +434,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               ),
             ),
           ),
-          child: PagateClearCreateBar(
-            createLabel: isIncome ? 'Crear ingreso' : 'Crear gasto',
-            onCreate: _submit,
-            onClear: _saving ? null : _limpiar,
+          child: PagatePrimaryButton(
+            label: isIncome ? 'Crear ingreso' : 'Crear gasto',
+            onPressed: _submit,
             isLoading: _saving,
           ),
         ),
@@ -608,13 +623,6 @@ class _CampoTotal extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.x1),
-          Text(
-            'Escribe el total. El teclado es numérico.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppPalette.textSecondary,
-            ),
           ),
         ],
       ),

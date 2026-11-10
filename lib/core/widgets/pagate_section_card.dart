@@ -37,10 +37,15 @@ class PagateSectionCard extends StatelessWidget {
   /// escritorio 4 verticales también, con el margen lateral fuera.
   final EdgeInsetsGeometry? padding;
 
+  /// Margen exterior; por defecto 16 dp a cada lado. `EdgeInsets.zero`
+  /// cuando el padre ya trae ese margen (la lista de un formulario).
+  final EdgeInsetsGeometry margin;
+
   const PagateSectionCard({
     super.key,
     required this.child,
     this.padding,
+    this.margin = const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
   });
 
   /// Breakpoint único de la app, el mismo que decide rail contra barra
@@ -71,7 +76,7 @@ class PagateSectionCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+      margin: margin,
       padding: padding ??
           const EdgeInsets.symmetric(vertical: AppSpacing.x1),
       decoration: decoracion,

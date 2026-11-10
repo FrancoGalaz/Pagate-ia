@@ -467,6 +467,19 @@ void main() {
     expect(find.text('No se restan del balance'), findsOneWidget);
   });
 
+  testWidgets('el aviso de gastos fijos puede usar 2 líneas', (
+    final tester,
+  ) async {
+    await _montar(
+      tester,
+      finanzas: _conDatos(),
+      perfil: _perfil,
+      textScale: 2.0,
+    );
+    final aviso = find.text('No se restan del balance', skipOffstage: false);
+    expect(tester.widget<Text>(aviso).maxLines, 2);
+  });
+
   testWidgets('el aviso de verificar correo va bajo la tarjeta, y con letra '
       '2,0 el balance se ve en la primera pantalla', (final tester) async {
     await _montar(
@@ -648,6 +661,48 @@ void main() {
 
     expect(find.text('Sin movimientos este mes'), findsOneWidget);
     expect(find.byType(PagateEmptyState), findsOneWidget);
+  });
+
+  testWidgets('una cuenta sin ningún movimiento ofrece registrar el primero', (
+    final tester,
+  ) async {
+    final acciones = await _montar(
+      tester,
+      finanzas: _FinanzasFalsas(),
+      perfil: _perfil,
+    );
+
+    expect(find.text('Ver Finanzas'), findsNothing);
+    await tester.ensureVisible(find.text('Registrar movimiento'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Registrar movimiento'));
+    expect(acciones.ingreso, 1);
+    expect(acciones.finanzas, 0);
+  });
+
+  testWidgets('con movimientos en otros meses, el vacío lleva a Finanzas', (
+    final tester,
+  ) async {
+    final acciones = await _montar(
+      tester,
+      finanzas: _FinanzasFalsas(
+        months: const [
+          FinancesSummaryEntity(
+            monthKey: '2026-09',
+            totalIncome: 900000,
+            totalExpenses: 700000,
+            transactionCount: 2,
+          ),
+        ],
+      ),
+      perfil: _perfil,
+    );
+
+    expect(find.text('Registrar movimiento'), findsNothing);
+    await tester.ensureVisible(find.text('Ver Finanzas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver Finanzas'));
+    expect(acciones.finanzas, 1);
   });
 
   testWidgets('el stock bajo solo aparece si hay algo que decir', (

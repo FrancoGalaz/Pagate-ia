@@ -143,7 +143,10 @@ class HomeTab extends StatelessWidget {
                     onFinanzas: onVerFinanzas,
                     onInventario: onVerInventario,
                   ),
-                  _Movimientos(onVerTodos: onVerFinanzas),
+                  _Movimientos(
+                    onVerTodos: onVerFinanzas,
+                    onRegistrar: onRegistrarIngreso,
+                  ),
                   const SizedBox(height: AppSpacing.x8),
                 ],
               ),
@@ -983,6 +986,8 @@ class _Pendientes extends StatelessWidget {
                 // restó del balance", y un gasto fijo no se resta. Y lo dice
                 // con palabras.
                 subtitle: 'No se restan del balance',
+                // Con letra 2,0 no cabe en una línea; cortado perdía el «no».
+                subtitleMaxLines: 2,
                 value: formatCurrency(totalFijos, currency: kFallbackCurrency),
                 onTap: onFinanzas,
                 showDivider: bajos.isNotEmpty,
@@ -1022,9 +1027,10 @@ class _Pendientes extends StatelessWidget {
 // ─── Movimientos ───────────────────────────────────────────────────────
 
 class _Movimientos extends StatelessWidget {
-  const _Movimientos({required this.onVerTodos});
+  const _Movimientos({required this.onVerTodos, required this.onRegistrar});
 
   final VoidCallback onVerTodos;
+  final VoidCallback onRegistrar;
 
   @override
   Widget build(final BuildContext context) {
@@ -1065,11 +1071,16 @@ class _Movimientos extends StatelessWidget {
       return PagateSkeleton.rows(3);
     }
     if (movimientos.isEmpty) {
+      // Sin ningún movimiento en la cuenta, Finanzas también está vacía:
+      // la acción útil es registrar el primero.
+      final cuentaVacia = finances.months.every(
+        (final m) => m.transactionCount == 0,
+      );
       return PagateEmptyState(
         title: 'Sin movimientos este mes',
         description: 'Cuando registres una venta o un gasto, aparece aquí.',
-        actionLabel: 'Ver Finanzas',
-        onAction: onVerTodos,
+        actionLabel: cuentaVacia ? 'Registrar movimiento' : 'Ver Finanzas',
+        onAction: cuentaVacia ? onRegistrar : onVerTodos,
       );
     }
 

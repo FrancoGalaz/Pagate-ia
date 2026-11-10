@@ -10,8 +10,8 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
@@ -387,6 +387,38 @@ void main() {
     expect(find.text('Crear ingreso'), findsOneWidget);
   });
 
+  testWidgets('Limpiar va arriba y abajo queda solo la acción de crear', (
+    final tester,
+  ) async {
+    await montar(tester);
+
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('Limpiar')),
+      findsOneWidget,
+    );
+    expect(find.byType(PagateClearCreateBar), findsNothing);
+    final crear = find.widgetWithText(PagatePrimaryButton, 'Crear ingreso');
+    expect(crear, findsOneWidget);
+    // A todo el ancho, menos los 16 dp de cada lado.
+    expect(tester.getSize(crear).width, 420 - 2 * AppSpacing.x4);
+  });
+
+  testWidgets('el monto no lleva texto de ayuda', (final tester) async {
+    await montar(tester);
+    expect(find.textContaining('El teclado es numérico'), findsNothing);
+  });
+
+  testWidgets('la tarjeta de filas tiene el mismo margen que los campos', (
+    final tester,
+  ) async {
+    await montar(tester);
+
+    final tarjeta = find.byType(PagateSectionCard);
+    final titulo = find.byType(TextFormField).at(1);
+    expect(tester.getTopLeft(tarjeta).dx, tester.getTopLeft(titulo).dx);
+    expect(tester.getTopRight(tarjeta).dx, tester.getTopRight(titulo).dx);
+  });
+
   // ─── EL CAMINO DE ERROR, que era invisible ────────────────────────────
   //
   // Lo que pasaba: el aviso se pintaba con `ScaffoldMessenger`, es decir
@@ -558,5 +590,16 @@ void main() {
     );
     await tester.pump();
     expect(tester.takeException(), isNull);
+
+    // El título se achica junto a «Limpiar» en vez de cortarse.
+    final titulo = find.text('Nuevo movimiento');
+    expect(
+      tester.getTopRight(titulo).dx,
+      lessThanOrEqualTo(tester.getTopLeft(find.text('Limpiar')).dx),
+    );
+    expect(
+      tester.renderObject<RenderParagraph>(titulo).didExceedMaxLines,
+      isFalse,
+    );
   });
 }
