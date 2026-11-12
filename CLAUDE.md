@@ -70,7 +70,9 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   «Rediseño (variante A)» y «Pendiente».
 - **Git:** la rama de trabajo es `docs/reglas-trabajo`. PR #1 (este CLAUDE.md
   → `main`) y PR #2 (`docs/reglas-trabajo` → `arquitectura-segura`)
-  integrados. PR #3 (`arquitectura-segura` → `main`) abierto.
+  integrados. PR #3 (`arquitectura-segura` → `main`) cerrado sin merge:
+  `arquitectura-segura` solo tenía el merge del #2. El trabajo va a `main`
+  por el PR #4 (`docs/reglas-trabajo` → `main`), abierto.
 - **Tests (2026-11-12, rama `docs/reglas-trabajo`, commit `550611d`):**
   `flutter analyze` sin problemas; `flutter test` 579 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 316 pasan (12 archivos, con los
@@ -86,10 +88,13 @@ En este orden:
 
 1. Prueba del dueño en su teléfono (APK de debug contra los emuladores, con
    `EMULATOR_HOST=127.0.0.1` y `adb reverse`). No se empieza la capa 4 antes.
+   Datos: `scripts/seed-demo.js` (cuenta `demo@pagate.cl`); `dev.sh` los
+   conserva en `emulator-data/` entre sesiones.
 2. Capa 4 del rediseño: Configuración, Perfil, Bienvenida, Login, Onboarding,
    Asistente, Detalle de ítem y Ayuda, una pantalla por vez con el ciclo de
    abajo.
-3. Merge del PR #3 (`arquitectura-segura` → `main`) si sigue abierto.
+3. Merge del PR #4 (`docs/reglas-trabajo` → `main`), lo hace el dueño. El
+   PR crece con cada pantalla que se sube a la rama.
 
 ## Rediseño (variante A)
 

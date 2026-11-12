@@ -202,9 +202,10 @@ históricos. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`
   consola de Firebase, decisiones de producto).
 - Respetar el contrato de `docs/ARQUITECTURA.md`. Si hay que cambiarlo, cambiar
   primero el documento y luego reglas, funciones y datasources.
-- Commits locales, atómicos y descriptivos, en español. **Nada de `git push` ni
-  de cualquier otra operación contra `origin` sin que el dueño lo pida
-  explícitamente**, y él lo comprueba. Verificación en verde
+- Commits locales, atómicos y descriptivos, en español. `git push` está
+  autorizado **solo al cerrar cada pantalla y solo a la rama de trabajo**;
+  **nunca a `main`** (ver «Ciclo por pantalla» en `CLAUDE.md`). Cualquier otra
+  operación contra `origin` necesita que el dueño la pida. Verificación en verde
   (`flutter analyze`, `flutter test`, `npm --prefix functions run lint`,
   `run build` y `test`) **antes de commitear**, no antes de subir.
 - Usar los tokens de `app_constants.dart`; seguir `data/domain/presentation`

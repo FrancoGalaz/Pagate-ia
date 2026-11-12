@@ -4,7 +4,7 @@ Utilidades de desarrollo y publicación. Ninguna forma parte del build de la app
 
 | Script | Qué hace |
 |---|---|
-| `dev.sh` | Levanta los emuladores de Firebase (Auth 9099, Firestore 8080, Functions 5001, panel 4000). |
+| `dev.sh` | Levanta los emuladores de Firebase (Auth 9099, Firestore 8080, Functions 5001, panel 4000). Guarda los datos en `emulator-data/` al cerrar con Ctrl+C y los carga al volver a levantar; para empezar de cero, borra esa carpeta. |
 | `seed-demo.js` | Siembra la cuenta de demostración en los emuladores. |
 | `generate-android-icons.py` | Regenera los PNG del icono de Android desde la geometría del vector. |
 | `deploy-web.sh` | Despliegue a Firebase Hosting (hosting + firestore + functions). |

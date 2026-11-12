@@ -40,7 +40,7 @@ flutter pub get
 npm --prefix functions ci
 
 # 2. Emuladores (Auth 9099, Firestore 8080, Functions 5001, UI 4000)
-./scripts/dev.sh          # equivale a: npm --prefix functions exec -- firebase emulators:start
+./scripts/dev.sh          # emulators:start con --import/--export-on-exit en emulator-data/
 
 # 3. App apuntando a los emuladores (en otra terminal)
 flutter run --dart-define=PAGATE_ENV=dev

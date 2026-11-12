@@ -74,6 +74,8 @@ functions/.secret.local
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+# Datos de los emuladores que guarda scripts/dev.sh al cerrar
+emulator-data/
 
 # Capturas de pantalla generadas por scripts/capturas.sh
 capturas/
