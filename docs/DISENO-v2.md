@@ -1,5 +1,11 @@
 # Sistema visual — Cartola — sistema visual Págate v2 (tema claro único)
 
+> **Reemplazado (2026-11-12).** Este documento ya no es la fuente de verdad del
+> sistema visual. Lo reemplaza el rediseño de la variante A («Greda y carbón»):
+> `docs/diseno/widgets.md` y el código (`lib/core/theme/`,
+> `lib/core/constants/app_constants.dart`, `lib/core/widgets/`). Se conserva
+> como registro de la v2.
+
 Especificación única resultante de tres propuestas independientes, fusionadas y verificadas.
 Propuestas evaluadas: *Esmeralda disciplinada — sistema visual Págate v2 (tema claro único)*, *Extracto — sistema visual monocromo orientado a cifras*, *Libreta — sistema visual de Págate-IA (tema claro único)*.
 

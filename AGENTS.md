@@ -3,9 +3,11 @@
 Guía para agentes que trabajan en este repo. La fuente de verdad del modelo de
 datos, la API del backend y las convenciones del cliente es
 `docs/ARQUITECTURA.md`: léelo antes de tocar `lib/`, `functions/` o
-`firestore.rules`. La del sistema visual es `docs/DISENO-v2.md`: léelo antes de
-tocar `lib/core/theme/`, `lib/core/constants/app_constants.dart` o cualquier
-pantalla. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
+`firestore.rules`. La del sistema visual es `docs/diseno/widgets.md` junto con
+el código (`lib/core/theme/`, `lib/core/constants/app_constants.dart`,
+`lib/core/widgets/`): léelos antes de tocar cualquiera de ellos o una
+pantalla. `docs/DISENO-v2.md` y `docs/diseno/variantes-cabal.html` son
+históricos. Lo que falta para subir a Google Play está en `docs/FICHA-PLAY.md`.
 
 ## Entorno y toolchain
 - Flutter/Dart del canal **beta**: `pubspec.yaml` exige `sdk: ^3.12.0-113.1.beta` y `.metadata` está en `channel: beta`.
