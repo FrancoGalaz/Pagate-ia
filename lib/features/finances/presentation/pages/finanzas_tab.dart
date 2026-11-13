@@ -1,426 +1,841 @@
-import 'dart:typed_data';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/pdf_report_service.dart';
-import '../providers/finances_provider.dart';
+import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/error_messages.dart';
+import '../../../../core/utils/month_labels.dart';
+import '../../../../core/widgets/widgets.dart';
+import '../../../dashboard/presentation/widgets/financial_charts.dart';
 import '../../domain/entities/finances_summary_entity.dart';
+import '../../domain/entities/finances_transaction_entity.dart';
+import '../../domain/entities/fixed_expense_entity.dart';
+import '../providers/finances_provider.dart';
+import '../widgets/transaction_form_sheet.dart';
 
-class FinanzasTab extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════════════
+// PANTALLA DE FINANZAS
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 6.5.
+//
+// Reutiliza el 80% de lo que dejó montado Inicio: el selector de mes, la
+// fila de dato, la fila de movimiento, el esqueleto y el formateador. Y
+// aquí llegan los gráficos que salieron de la portada, con el donut
+// sustituido por barras de categoría.
+//
+// QUÉ SE BORRÓ Y POR QUÉ:
+//
+// · EL `FloatingActionButton.extended`. Flotaba con sombra propia, tapaba
+//   la última fila de la lista —no hay padding inferior que lo compense— y,
+//   cuando se deshabilitaba por un error del stream, SEGUÍA VIÉNDOSE verde
+//   y blanco, porque `backgroundColor` y `foregroundColor` estaban fijados
+//   explícitamente en el widget y ganan sobre el estado deshabilitado del
+//   tema. Un botón que parece activo y no responde es peor que uno apagado.
+//   Ahora es una `PagateActionBar` al pie.
+//
+// · LOS CUATRO `AlertDialog`. Dos problemas, uno de forma y otro de datos:
+//   el `elevatedButtonTheme` impone `minimumSize: Size(infinity, 48)`, lo
+//   que dentro del `OverflowBar` de un diálogo apila los botones a ancho
+//   completo y descoloca la jerarquía Cancelar / Eliminar; y el diálogo de
+//   gasto fijo cerraba con `Navigator.pop(dialogContext, true)` PASE LO QUE
+//   PASE y liberaba los controllers justo después, así que ante un error el
+//   usuario perdía todo lo escrito. Ahora son hojas con `Form` y
+//   validación.
+//
+// · LOS TRES CÍRCULOS DE ICONO TEÑIDOS de las filas (resumen, gasto fijo y
+//   movimiento), que robaban ~48 dp de ancho al nombre y duplicaban lo que
+//   el signo ya dice.
+//
+// · EL BORDE EN CADA CHIP NO SELECCIONADO del selector de mes, que
+//   convertía la fila en una reja. Ahora es un solo `PagateSegmented`
+//   (Este mes / Mes pasado / Año / Otro mes) que siempre deja volver al
+//   mes en curso: con datos hasta agosto y el mes actual sin movimientos,
+//   la pantalla abría en agosto sin forma de volver.
+//
+// · "Meta Mensual" y "Gastos Fijos" en Title Case inglés.
+//
+// Y EL `Dismissible` GANA `onDismissed`, que no tenía: dependía de que el
+// stream de Firestore reemitiera antes de que terminara la animación. Eso y
+// la acción semántica de borrado los trae ya `PagateMovementRow`.
+// ═══════════════════════════════════════════════════════════════════════
+
+class FinanzasTab extends StatefulWidget {
   const FinanzasTab({super.key});
+
+  @override
+  State<FinanzasTab> createState() => _FinanzasTabState();
+}
+
+/// Los cuatro períodos del selector único.
+enum _Periodo { esteMes, mesPasado, anio, otroMes }
+
+class _FinanzasTabState extends State<FinanzasTab> {
+  /// «Año» no es un mes, así que no vive en el provider: el mes elegido se
+  /// conserva debajo y define de qué año se habla.
+  bool _anual = false;
+
+  static String get _mesPasado {
+    final hoy = DateTime.now();
+    return monthKeyFromDate(DateTime(hoy.year, hoy.month - 1));
+  }
+
+  _Periodo _periodo(final String mes) {
+    if (_anual) return _Periodo.anio;
+    if (mes == FinancesProvider.currentMonthKey) return _Periodo.esteMes;
+    if (mes == _mesPasado) return _Periodo.mesPasado;
+    return _Periodo.otroMes;
+  }
+
+  Future<void> _elegir(final _Periodo periodo) async {
+    final provider = context.read<FinancesProvider>();
+    switch (periodo) {
+      case _Periodo.esteMes:
+        provider.selectMonthKey(FinancesProvider.currentMonthKey);
+      case _Periodo.mesPasado:
+        provider.selectMonthKey(_mesPasado);
+      case _Periodo.anio:
+        setState(() => _anual = true);
+        return;
+      case _Periodo.otroMes:
+        final mes = await _elegirMes(context, provider);
+        if (mes == null || !mounted) return;
+        provider.selectMonthKey(mes);
+    }
+    setState(() => _anual = false);
+  }
+
+  /// Desde la lista de meses del Año: abre ese mes.
+  void _abrirMes(final String mes) {
+    context.read<FinancesProvider>().selectMonthKey(mes);
+    setState(() => _anual = false);
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final provider = context.watch<FinancesProvider>();
+    final mes = provider.selectedMonthKey;
+    final anio = mes.split('-').first;
+
+    final selector = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        0,
+        AppSpacing.x4,
+        AppSpacing.x2,
+      ),
+      child: PagateSegmented<_Periodo>(
+        options: const [
+          (_Periodo.esteMes, 'Este mes'),
+          (_Periodo.mesPasado, 'Mes pasado'),
+          (_Periodo.anio, 'Año'),
+          (_Periodo.otroMes, 'Otro mes'),
+        ],
+        selected: _periodo(mes),
+        onChanged: (final p) => unawaited(_elegir(p)),
+        // «Otro mes» ya elegido vuelve a abrir la lista.
+        onReselected: (final p) {
+          if (p == _Periodo.otroMes) unawaited(_elegir(p));
+        },
+      ),
+    );
+    // Con letra de 1,5 o más el selector ocupa dos líneas: fijo, robaba ese
+    // alto a cada tramo de la lista. Ahí se desplaza con el contenido.
+    final desplazable = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final arriba = desplazable ? selector : null;
+
+    return Column(
+      children: [
+        _Cabecera(
+          periodo: _anual
+              ? 'Año $anio'
+              : monthLabelFromMonthKey(mes).toLowerCase(),
+        ),
+        if (!desplazable) selector,
+        Expanded(
+          child: provider.error != null
+              ? _CuerpoConError(provider: provider, encabezado: arriba)
+              : _Cuerpo(
+                  anio: _anual ? anio : null,
+                  onAbrirMes: _abrirMes,
+                  encabezado: arriba,
+                ),
+        ),
+
+        // Barra fija, no FAB: no tapa la última fila y se apaga de verdad
+        // cuando no hay nada que registrar.
+        PagateActionBar(
+          child: PagatePrimaryButton(
+            label: 'Registrar movimiento',
+            onPressed: provider.error != null
+                ? null
+                : () => showTransactionSheet(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hoja con los meses que tienen datos; devuelve el elegido o `null`.
+Future<String?> _elegirMes(
+  final BuildContext context,
+  final FinancesProvider provider,
+) {
+  final meses = {
+    for (final m in provider.months) m.monthKey,
+    FinancesProvider.currentMonthKey,
+  }.toList()..sort((final a, final b) => b.compareTo(a));
+
+  return showPagateSheet<String>(
+    context: context,
+    builder: (final hoja) => PagateSheet(
+      title: 'Elegir mes',
+      bodyPadding: EdgeInsets.zero,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final mes in meses)
+            Semantics(
+              selected: mes == provider.selectedMonthKey,
+              child: PagateDataRow(
+                label: monthLabelFromMonthKey(mes),
+                value: '',
+                trailing: mes == provider.selectedMonthKey
+                    ? const Icon(Icons.check_rounded, color: AppPalette.brand)
+                    : null,
+                onTap: () => Navigator.of(hoja).pop(mes),
+                showDivider: mes != meses.last,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ─── Cabecera: título, período y exportar ──────────────────────────────
+
+class _Cabecera extends StatefulWidget {
+  const _Cabecera({required this.periodo});
+
+  /// «noviembre 2026» o «Año 2026»: qué está mirando, dicho con palabras.
+  final String periodo;
+
+  @override
+  State<_Cabecera> createState() => _CabeceraState();
+}
+
+class _CabeceraState extends State<_Cabecera> {
+  bool _exportando = false;
+
+  Future<void> _exportar() async {
+    final provider = context.read<FinancesProvider>();
+    final summary = provider.summary;
+
+    setState(() => _exportando = true);
+    try {
+      final pdf = await PdfReportService.generateReport(
+        summary: summary,
+        transactions: provider.transactions,
+        fixedExpenses: provider.fixedExpenses,
+        monthlyGoal: provider.monthlyGoal,
+      );
+      await PdfReportService.share(pdfBytes: pdf, month: summary.month);
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showError(context, 'No se pudo exportar el informe: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = context.watch<FinancesProvider>();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x1,
+        AppSpacing.x2,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Finanzas', style: theme.textTheme.headlineMedium),
+                  Text(
+                    widget.periodo,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_exportando)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.x3),
+                child: SizedBox(
+                  width: AppIconSize.sm,
+                  height: AppIconSize.sm,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              IconButton(
+                tooltip: 'Exportar informe en PDF',
+                icon: const Icon(Icons.ios_share_rounded),
+                onPressed:
+                    provider.error == null ? () => unawaited(_exportar()) : null,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Cuerpo ────────────────────────────────────────────────────────────
+
+class _CuerpoConError extends StatelessWidget {
+  const _CuerpoConError({required this.provider, this.encabezado});
+
+  final FinancesProvider provider;
+
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
+
+  @override
+  Widget build(final BuildContext context) => ListView(
+        children: [
+          ?encabezado,
+          const SizedBox(height: AppSpacing.x6),
+          PagateErrorState(
+            message: provider.error!,
+            onRetry: provider.retry,
+          ),
+        ],
+      );
+}
+
+class _Cuerpo extends StatelessWidget {
+  const _Cuerpo({
+    required this.anio,
+    required this.onAbrirMes,
+    this.encabezado,
+  });
+
+  /// `'2026'` con «Año» elegido; `null` con un mes.
+  final String? anio;
+  final ValueChanged<String> onAbrirMes;
+
+  /// El selector de período, cuando se desplaza con la lista.
+  final Widget? encabezado;
 
   @override
   Widget build(final BuildContext context) {
     final provider = context.watch<FinancesProvider>();
 
     if (provider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView(
+        children: [
+          ?encabezado,
+          PagateSkeleton.balance(),
+          PagateSkeleton.rows(4),
+        ],
+      );
     }
 
-    final summary = provider.selected;
-    if (summary == null) return const SizedBox.shrink();
+    // Del año: la suma de sus meses, del más reciente al más antiguo.
+    final mesesDelAnio = anio == null
+        ? const <FinancesSummaryEntity>[]
+        : [
+            for (final m in provider.months)
+              if (m.monthKey.startsWith('$anio-')) m,
+          ];
+    final ingresos = anio == null
+        ? provider.summary.totalIncome
+        : mesesDelAnio.fold<double>(0, (final a, final m) => a + m.totalIncome);
+    final gastos = anio == null
+        ? provider.summary.totalExpenses
+        : mesesDelAnio.fold<double>(
+            0,
+            (final a, final m) => a + m.totalExpenses,
+          );
 
-    return SingleChildScrollView(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: AppSpacing.x8),
+      children: [
+        ?encabezado,
+        _Metricas(
+          ingresos: ingresos,
+          gastos: gastos,
+          // La meta es mensual: en el año no tiene contra qué compararse.
+          meta: anio == null ? provider.monthlyGoal : 0,
+        ),
+        const SizedBox(height: AppSpacing.x4),
+        PagateSectionCard(child: MonthlyBarChart(anio: anio)),
+        if (anio == null) ...[
+          const SizedBox(height: AppSpacing.x4),
+          const PagateSectionCard(child: CategoryBars()),
+          const _Movimientos(),
+        ] else
+          _MesesDelAnio(
+            anio: anio!,
+            meses: mesesDelAnio,
+            onAbrirMes: onAbrirMes,
+          ),
+        const _GastosFijos(),
+      ],
+    );
+  }
+}
+
+// ─── Métricas del período ──────────────────────────────────────────────
+
+/// Ingresos, gastos, balance y meta, de a dos. Con letra de 1,5 o más, de a
+/// una: una cifra partida a media columna no se lee.
+class _Metricas extends StatelessWidget {
+  const _Metricas({
+    required this.ingresos,
+    required this.gastos,
+    required this.meta,
+  });
+
+  final double ingresos;
+  final double gastos;
+  final double meta;
+
+  @override
+  Widget build(final BuildContext context) {
+    final tarjetas = <Widget>[
+      PagateMetricCard(
+        value: formatSigned(ingresos, currency: kFallbackCurrency),
+        label: 'Ingresos',
+        tone: PagateMetricTone.income,
+      ),
+      PagateMetricCard(
+        value: formatSigned(-gastos, currency: kFallbackCurrency),
+        label: 'Gastos',
+        tone: PagateMetricTone.expense,
+      ),
+      PagateMetricCard(
+        value: formatCurrency(ingresos - gastos, currency: kFallbackCurrency),
+        label: 'Balance',
+      ),
+      if (meta > 0)
+        PagateMetricCard(
+          // Sin tope: pasar la meta también se dice.
+          value: '${(ingresos / meta * 100).round()} %',
+          label: 'Ingresos sobre la meta de '
+              '${formatCurrency(meta, currency: kFallbackCurrency)}',
+        ),
+    ];
+
+    final unaColumna = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    const hueco = AppSpacing.x3;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.x4,
+        AppSpacing.x2,
+        AppSpacing.x4,
+        0,
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _FinanzasHeader(months: provider.months, selectedIndex: provider.selectedIndex),
-          const SizedBox(height: AppSpacing.xl),
-          _SummaryCard(summary: summary),
-          const SizedBox(height: AppSpacing.xl),
-          _GoalProgress(summary: summary),
-          const SizedBox(height: AppSpacing.xl),
-          _FixedExpenses(summary: summary),
-          const SizedBox(height: AppSpacing.xxl),
+          for (var i = 0; i < tarjetas.length; i += unaColumna ? 1 : 2) ...[
+            if (i > 0) const SizedBox(height: hueco),
+            // La que queda sola (el balance, sin meta) va a todo el ancho,
+            // sin un hueco al lado.
+            if (unaColumna || i + 1 == tarjetas.length)
+              tarjetas[i]
+            else
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: tarjetas[i]),
+                    const SizedBox(width: hueco),
+                    Expanded(child: tarjetas[i + 1]),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
   }
 }
 
-// ─── Header + month selector ──────────────────────────────────────────────
-class _FinanzasHeader extends StatefulWidget {
-  const _FinanzasHeader({required this.months, required this.selectedIndex});
-  final List<FinancesSummaryEntity> months;
-  final int selectedIndex;
+// ─── Meses del año ─────────────────────────────────────────────────────
 
-  @override
-  State<_FinanzasHeader> createState() => _FinanzasHeaderState();
-}
-
-class _FinanzasHeaderState extends State<_FinanzasHeader> {
-  bool _isExporting = false;
-
-  Future<void> _onExport() async {
-    final provider = context.read<FinancesProvider>();
-    final summary = provider.selected;
-    if (summary == null) return;
-
-    setState(() => _isExporting = true);
-    try {
-      final allTransactions = provider.recentTransactions;
-      final pdfBytes = await PdfReportService.generateReport(
-        summary: summary,
-        transactions: allTransactions,
-      );
-      await PdfReportService.share(
-        pdfBytes: pdfBytes,
-        month: summary.month,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al exportar: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
-  }
-
-  @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenHorizontal,
-          AppSpacing.xl,
-          AppSpacing.screenHorizontal,
-          0,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'Finanzas',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                IconButton(
-                  onPressed: _isExporting ? null : _onExport,
-                  icon: _isExporting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.brand,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.file_download_outlined,
-                          color: AppColors.textSecondaryDark,
-                        ),
-                  tooltip: 'Exportar PDF',
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.months.length,
-                separatorBuilder: (final context, final index) =>
-                    const SizedBox(width: AppSpacing.xs),
-                itemBuilder: (final context, final i) {
-                  final isSelected = i == widget.selectedIndex;
-                  return GestureDetector(
-                    onTap: () => context.read<FinancesProvider>().selectMonth(i),
-                    child: AnimatedContainer(
-                      duration: AppDurations.fast,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.xxs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.brand : AppColors.surfaceDark,
-                        borderRadius: AppRadius.pillBorder,
-                        border: Border.all(
-                          color: isSelected ? AppColors.brand : AppColors.borderDark,
-                        ),
-                      ),
-                      child: Text(
-                        widget.months[i].month,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: isSelected ? Colors.white : AppColors.textSecondaryDark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-// ─── Summary Card ─────────────────────────────────────────────────────────
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary});
-  final FinancesSummaryEntity summary;
-
-  @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: AppRadius.xxlBorder,
-            border: Border.all(color: AppColors.borderDark),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  children: [
-                    _StatRow(
-                      label: 'Ingresos',
-                      value: summary.totalIncome,
-                      color: AppColors.success,
-                      icon: Icons.arrow_upward_rounded,
-                    ),
-                    const Divider(color: AppColors.borderDark, height: AppSpacing.xl),
-                    _StatRow(
-                      label: 'Gastos',
-                      value: summary.totalExpenses,
-                      color: AppColors.error,
-                      icon: Icons.arrow_downward_rounded,
-                    ),
-                    const Divider(color: AppColors.borderDark, height: AppSpacing.xl),
-                    _StatRow(
-                      label: 'Balance',
-                      value: summary.balance,
-                      color: summary.balance >= 0 ? AppColors.brand : AppColors.error,
-                      icon: Icons.account_balance_wallet_outlined,
-                      isBold: true,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-    this.isBold = false,
+/// Con «Año», en lugar de los movimientos: un mes por fila, y al tocarlo se
+/// abre ese mes.
+class _MesesDelAnio extends StatelessWidget {
+  const _MesesDelAnio({
+    required this.anio,
+    required this.meses,
+    required this.onAbrirMes,
   });
-  final String label;
-  final double value;
-  final Color color;
-  final IconData icon;
-  final bool isBold;
 
-  String _fmt(final double v) =>
-      '\$${v.abs().toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+\.)'), (final m) => '${m[1]},')}';
+  final String anio;
+  final List<FinancesSummaryEntity> meses;
+  final ValueChanged<String> onAbrirMes;
 
   @override
-  Widget build(final BuildContext context) => Row(
+  Widget build(final BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: AppRadius.smBorder,
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondaryDark,
-                    fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+          PagateSectionHeader(title: 'Meses de $anio'),
+          PagateSectionCard(
+            child: meses.isEmpty
+                ? const PagateEmptyState(
+                    title: 'Sin movimientos este año',
+                    description: 'Cuando registres una venta o un gasto, '
+                        'aparece aquí.',
+                  )
+                : Column(
+                    children: [
+                      for (final m in meses)
+                        PagateDataRow(
+                          label: monthLabelFromMonthKey(m.monthKey),
+                          subtitle: '${m.transactionCount} '
+                              '${m.transactionCount == 1 ? 'movimiento' : 'movimientos'}',
+                          value: formatCurrency(
+                            m.balance,
+                            currency: kFallbackCurrency,
+                          ),
+                          onTap: () => onAbrirMes(m.monthKey),
+                          showDivider: m != meses.last,
+                        ),
+                    ],
                   ),
-            ),
-          ),
-          Text(
-            _fmt(value),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isBold ? color : AppColors.textPrimaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
           ),
         ],
       );
 }
 
-// ─── Goal Progress ────────────────────────────────────────────────────────
-class _GoalProgress extends StatelessWidget {
-  const _GoalProgress({required this.summary});
-  final FinancesSummaryEntity summary;
+// ─── Gastos fijos ──────────────────────────────────────────────────────
+
+class _GastosFijos extends StatelessWidget {
+  const _GastosFijos();
 
   @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: AppRadius.xxlBorder,
-            border: Border.all(color: AppColors.borderDark),
-          ),
+  Widget build(final BuildContext context) {
+    final provider = context.watch<FinancesProvider>();
+    final gastos = provider.fixedExpenses;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PagateSectionHeader(
+          title: 'Gastos fijos',
+          actionLabel: 'Agregar',
+          onAction: () => unawaited(_agregar(context)),
+        ),
+        PagateSectionCard(
+          child: gastos.isEmpty
+              ? PagateEmptyState(
+                  title: 'Sin gastos fijos',
+                  description: 'Agrega el arriendo del taller, la luz o el '
+                      'internet: lo que pagas todos los meses.',
+                  actionLabel: 'Agregar gasto fijo',
+                  onAction: () => unawaited(_agregar(context)),
+                )
+              : Column(
+                  children: [
+                    for (final gasto in gastos)
+                      PagateDataRow(
+                        label: gasto.name,
+                        // SIN signo menos. Coherencia con Inicio: el menos
+                        // de una fila significa "ya se restó del balance", y
+                        // un gasto fijo no se resta (el balance lo calcula
+                        // el backend desde las transacciones). El signo era
+                        // lo que hacía que la suma de la portada no cuadrara.
+                        value: formatCurrency(
+                          gasto.amount,
+                          currency: kFallbackCurrency,
+                        ),
+                        // Un chevron dice "esto navega". Borrar no navega,
+                        // así que la acción va en un control propio con su
+                        // etiqueta, alcanzable también con lector de
+                        // pantalla.
+                        trailing: IconButton(
+                          tooltip: 'Eliminar ${gasto.name}',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => unawaited(_eliminar(context, gasto)),
+                        ),
+                      ),
+                    PagateDataRow(
+                      label: 'Comprometido cada mes',
+                      value: formatCurrency(
+                        provider.totalFixedExpenses,
+                        currency: kFallbackCurrency,
+                      ),
+                      showDivider: false,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.x4,
+                        AppSpacing.x0,
+                        AppSpacing.x4,
+                        AppSpacing.x3,
+                      ),
+                      child: Text(
+                        'Referencia de lo que pagas todos los meses. No se '
+                        'resta del balance: cada pago entra cuando lo '
+                        'registras como gasto.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppPalette.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  /// Hoja con formulario, no `AlertDialog`.
+  ///
+  /// El diálogo anterior cerraba con `Navigator.pop(dialogContext, true)`
+  /// pase lo que pase y liberaba los controllers acto seguido, así que un
+  /// error de red o de permisos borraba lo que el usuario había escrito.
+  Future<void> _agregar(final BuildContext context) async {
+    final provider = context.read<FinancesProvider>();
+    final guardado = await showPagateSheet<bool>(
+      context: context,
+      builder: (final _) => _HojaGastoFijo(provider: provider),
+    );
+    if (guardado != true || !context.mounted) return;
+    AppFeedback.showMessage(context, 'Gasto fijo agregado.');
+  }
+
+  Future<void> _eliminar(
+    final BuildContext context,
+    final FixedExpenseEntity gasto,
+  ) async {
+    final provider = context.read<FinancesProvider>();
+    final confirmado = await confirmar(
+      context,
+      title: 'Eliminar gasto fijo',
+      message: '¿Eliminar "${gasto.name}"? Dejará de descontarse cada mes.',
+      confirmLabel: 'Eliminar',
+      destructive: true,
+    );
+    if (!confirmado || !context.mounted) return;
+
+    try {
+      await provider.deleteFixedExpense(gasto.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      // Aquí no hay hoja abierta (la de confirmación ya se cerró), pero
+      // el aviso va igual por el overlay raíz: `showError` se ve encima de
+      // cualquier cosa.
+      AppFeedback.showError(
+        context,
+        FinancesProvider.describeError(e, operation: DataOperation.delete),
+      );
+    }
+  }
+}
+
+/// Formulario de gasto fijo. Valida antes de cerrar y conserva lo escrito
+/// si el guardado falla.
+class _HojaGastoFijo extends StatefulWidget {
+  const _HojaGastoFijo({required this.provider});
+
+  final FinancesProvider provider;
+
+  @override
+  State<_HojaGastoFijo> createState() => _HojaGastoFijoState();
+}
+
+class _HojaGastoFijoState extends State<_HojaGastoFijo> {
+  final _formKey = GlobalKey<FormState>();
+  final _nombre = TextEditingController();
+  final _monto = TextEditingController();
+  bool _guardando = false;
+
+  /// Mensaje del último guardado fallido. Se pinta DENTRO de la hoja: un
+  /// aviso tapado por la propia hoja era lo que hacía que el botón pareciera
+  /// no responder.
+  String? _errorGuardado;
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _monto.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    if (_guardando) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _guardando = true;
+      _errorGuardado = null;
+    });
+    try {
+      await widget.provider.addFixedExpense(
+        name: _nombre.text.trim(),
+        // `parseCurrencyInput` y no `double.tryParse`: con el segundo,
+        // "50.000" se guardaba como CINCUENTA.
+        amount: parseCurrencyInput(_monto.text)!,
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _guardando = false;
+        _errorGuardado = FinancesProvider.describeError(
+          e,
+          operation: DataOperation.write,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(final BuildContext context) => PagateSheet(
+        title: 'Nuevo gasto fijo',
+        primaryAction: PagatePrimaryButton(
+          label: 'Guardar',
+          isLoading: _guardando,
+          onPressed: _guardar,
+        ),
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Meta Mensual',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppColors.textPrimaryDark,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  Text(
-                    '${(summary.goalProgress * 100).toStringAsFixed(0)}%',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppColors.brand,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
+              PagateTextField(
+                labelText: 'Nombre',
+                hintText: 'Arriendo del taller',
+                controller: _nombre,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+                validator: (final v) => (v == null || v.trim().isEmpty)
+                    ? 'Escribe un nombre'
+                    : null,
               ),
-              const SizedBox(height: AppSpacing.sm),
-              ClipRRect(
-                borderRadius: AppRadius.pillBorder,
-                child: LinearProgressIndicator(
-                  value: summary.goalProgress,
-                  minHeight: 10,
-                  backgroundColor: AppColors.surfaceDarkSecondary,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brand),
-                ),
+              const SizedBox(height: AppSpacing.x4),
+              PagateTextField.amount(
+                labelText: 'Monto mensual',
+                hintText: '0',
+                controller: _monto,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (final _) => unawaited(_guardar()),
+                validator: (final v) {
+                  final monto = parseCurrencyInput(v ?? '');
+                  if (monto == null) return 'Escribe un monto válido';
+                  if (monto <= 0) return 'El monto debe ser mayor que cero';
+                  return null;
+                },
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Objetivo: \$${summary.monthlyGoal.toStringAsFixed(0)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondaryDark,
-                    ),
-              ),
+              if (_errorGuardado != null) ...[
+                const SizedBox(height: AppSpacing.x4),
+                PagateInlineError(message: _errorGuardado),
+              ],
             ],
           ),
         ),
       );
 }
 
-// ─── Fixed Expenses ───────────────────────────────────────────────────────
-class _FixedExpenses extends StatelessWidget {
-  const _FixedExpenses({required this.summary});
-  final FinancesSummaryEntity summary;
+// ─── Movimientos del mes ───────────────────────────────────────────────
+
+class _Movimientos extends StatelessWidget {
+  const _Movimientos();
 
   @override
-  Widget build(final BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gastos Fijos',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimaryDark,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDark,
-                borderRadius: AppRadius.xxlBorder,
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: summary.fixedExpenses.asMap().entries.map((final e) {
-                  final expense = e.value;
-                  final isLast = e.key == summary.fixedExpenses.length - 1;
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: AppColors.error.withValues(alpha: 0.12),
-                                borderRadius: AppRadius.smBorder,
-                              ),
-                              child: const Icon(
-                                Icons.receipt_outlined,
-                                color: AppColors.error,
-                                size: 16,
-                              ),
+  Widget build(final BuildContext context) {
+    final provider = context.watch<FinancesProvider>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const PagateSectionHeader(title: 'Movimientos del mes'),
+        PagateSectionCard(
+          child: provider.isLoadingTransactions
+              ? PagateSkeleton.rows(4)
+              : provider.transactions.isEmpty
+                  ? PagateEmptyState(
+                      title: 'Sin movimientos este mes',
+                      description: 'Registra tu primera venta o tu primer '
+                          'gasto del mes.',
+                      actionLabel: 'Registrar movimiento',
+                      onAction: () => showTransactionSheet(context),
+                    )
+                  : Column(
+                      children: [
+                        for (final tx in provider.transactions)
+                          PagateMovementRow(
+                            title: tx.title,
+                            meta: '${formatDayMonth(tx.date)} · ${tx.category}',
+                            amount: formatSigned(
+                              tx.isIncome ? tx.amount : -tx.amount,
+                              currency: kFallbackCurrency,
                             ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    expense.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: AppColors.textPrimaryDark,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                  Text(
-                                    expense.category,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.textSecondaryDark,
-                                        ),
-                                  ),
-                                ],
-                              ),
+                            isIncome: tx.isIncome,
+                            dismissKey: tx.id,
+                            onConfirmDelete: () => _confirmarBorrado(
+                              context,
+                              provider,
+                              tx,
                             ),
-                            Text(
-                              '-\$${expense.amount.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.error,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!isLast)
-                        const Divider(
-                          height: 1,
-                          color: AppColors.borderDark,
-                          indent: AppSpacing.md,
-                          endIndent: AppSpacing.md,
-                        ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
+                            onDeleted: () {},
+                          ),
+                      ],
+                    ),
         ),
-      );
+      ],
+    );
+  }
+
+  Future<bool> _confirmarBorrado(
+    final BuildContext context,
+    final FinancesProvider provider,
+    final FinancesTransactionEntity tx,
+  ) async {
+    final confirmado = await confirmar(
+      context,
+      title: 'Eliminar movimiento',
+      message: '¿Eliminar "${tx.title}"?',
+      confirmLabel: 'Eliminar',
+      destructive: true,
+    );
+    if (!confirmado) return false;
+
+    try {
+      await provider.deleteTransaction(tx.id);
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        AppFeedback.showError(
+          context,
+          FinancesProvider.describeError(e, operation: DataOperation.delete),
+        );
+      }
+      return false;
+    }
+  }
 }

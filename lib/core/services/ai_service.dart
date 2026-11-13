@@ -1,252 +1,135 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import '../../features/finances/domain/entities/finances_transaction_entity.dart';
+import 'dart:async';
 
-/// Service that calls OpenRouter API for the AI assistant.
-///
-/// API key configuration (in priority order):
-/// 1. --dart-define=OPENROUTER_API_KEY=sk-or-...
-/// 2. OPENROUTER_API_KEY environment variable
-/// 3. Fallback value from String.fromEnvironment (compile-time)
-///
-/// In production, consider using Firebase Functions as a proxy
-/// to avoid exposing the API key to the client.
-class AiService {
-  static const String _defaultBaseUrl = 'https://openrouter.ai/api/v1';
-  static const String _defaultModel = 'deepseek/deepseek-v4-flash';
+import 'package:cloud_functions/cloud_functions.dart';
 
-  final String _apiKey;
-  final String _baseUrl;
-  final String _model;
-  final http.Client _client;
+import 'callable_errors.dart';
 
-  AiService({
-    String? apiKey,
-    String? baseUrl,
-    String? model,
-    http.Client? client,
-  })  : _apiKey = apiKey ??
-            const String.fromEnvironment(
-              'OPENROUTER_API_KEY',
-              defaultValue: '',
-            ),
-        _baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'OPENROUTER_BASE_URL',
-              defaultValue: _defaultBaseUrl,
-            ),
-        _model = model ??
-            const String.fromEnvironment(
-              'OPENROUTER_MODEL',
-              defaultValue: _defaultModel,
-            ),
-        _client = client ?? http.Client();
+/// Respuesta del callable `chat`.
+class ChatReply {
+  final String conversationId;
+  final String reply;
 
-  bool get hasApiKey => _apiKey.isNotEmpty;
+  const ChatReply({required this.conversationId, required this.reply});
+}
 
-  /// Sends a chat completion request to OpenRouter.
+/// Error del asistente con mensaje listo para mostrar al usuario.
+class AiServiceException implements Exception {
+  final String code;
+  final String message;
+
+  /// `true` cuando [message] viene tal cual del backend.
   ///
-  /// [messages] — the conversation history.
-  /// [systemPrompt] — the system-level instruction.
-  /// Returns the assistant's reply text, or null on failure.
-  Future<String?> sendMessage({
-    required List<Map<String, String>> messages,
-    String? systemPrompt,
-  }) async {
-    if (!hasApiKey) {
-      return '⚠️ IA no configurada. Configura OPENROUTER_API_KEY '
-          'al compilar con --dart-define=OPENROUTER_API_KEY=sk-or-...';
+  /// Sirve para no inventar: el cliente no sabe en qué plan está el usuario,
+  /// cuántos mensajes trae su plan ni si lo que se agotó fue su cuota o el
+  /// tope global del día. Todo eso solo lo sabe el servidor, que lo manda
+  /// escrito.
+  final bool fromServer;
+
+  const AiServiceException(this.code, this.message, {this.fromServer = false});
+
+  /// Construye el error a partir de lo que vino del callable.
+  ///
+  /// EL MENSAJE DEL SERVIDOR MANDA. Es público y está fuera de [AiService]
+  /// para poder probarlo sin levantar Cloud Functions: es la única pieza de
+  /// este archivo donde se decide qué lee el usuario.
+  factory AiServiceException.from(
+    final String code,
+    final String? serverMessage,
+  ) {
+    if (isHumanCallableMessage(serverMessage)) {
+      return AiServiceException(code, serverMessage!.trim(), fromServer: true);
     }
+    return AiServiceException(code, _fallbackFor(code));
+  }
 
-    final body = {
-      'model': _model,
-      'messages': [
-        if (systemPrompt != null)
-          {'role': 'system', 'content': systemPrompt},
-        ...messages,
-      ],
-      'temperature': 0.7,
-      'max_tokens': 2048,
-    };
-
-    try {
-      final response = await _client
-          .post(
-            Uri.parse('$_baseUrl/chat/completions'),
-            headers: {
-              'Authorization': 'Bearer $_apiKey',
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://pagate-ia.app',
-              'X-Title': 'Pagate-IA',
-            },
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final choices = data['choices'] as List<dynamic>?;
-        if (choices != null && choices.isNotEmpty) {
-          final message = choices[0]['message'] as Map<String, dynamic>?;
-          return message?['content'] as String?;
-        }
-        return '⚠️ No se recibió respuesta del asistente.';
-      } else {
-        return '⚠️ Error del servidor (${response.statusCode}). '
-            'Intenta de nuevo más tarde.';
-      }
-    } on SocketException {
-      return '⚠️ Sin conexión a internet. '
-          'Revisa tu conexión e intenta de nuevo.';
-    } on http.ClientException {
-      return '⚠️ Error de conexión. Verifica tu red.';
-    } catch (e) {
-      return '⚠️ Error inesperado: $e';
+  /// Respaldo para cuando el servidor no manda un texto legible.
+  ///
+  /// Ninguno de estos textos afirma nada que el cliente no pueda saber. En
+  /// particular, el de `resource-exhausted` ya NO dice "límite diario" ni
+  /// "vuelve mañana" ni "pasa a Pro", que era falso tres veces:
+  ///   - la cuota del plan gratuito es DE POR VIDA (`FREE_LIFETIME_QUOTA` en
+  ///     `functions/src/quota.ts`), así que no se renueva mañana;
+  ///   - el mismo código lo lanza también el tope global del día del dueño,
+  ///     que no es un límite del usuario ni depende de su plan;
+  ///   - y no hay ningún plan Pro que se pueda comprar dentro de la app.
+  /// El respaldo se queda en lo único cierto en los tres casos. Y como el
+  /// backend sí manda un texto en los tres, en la práctica el usuario lee el
+  /// del servidor, que es el único que sabe cuántos mensajes eran.
+  static String _fallbackFor(final String code) {
+    switch (code) {
+      case 'resource-exhausted':
+        return 'No quedan mensajes disponibles para el asistente.';
+      case 'unauthenticated':
+        return 'Inicia sesión para usar el asistente.';
+      case 'unavailable':
+      case 'deadline-exceeded':
+        return 'El asistente no responde. Intenta de nuevo.';
+      default:
+        return 'Ocurrió un error con el asistente.';
     }
   }
 
-  /// Builds a system prompt enriched with the user's financial context.
-  static String systemPromptWithContext({
-    String? businessName,
-    String? businessType,
-    double? monthlyGoal,
-    double? monthlyIncome,
-    double? monthlyExpenses,
-    List<FinancesTransactionEntity>? recentTransactions,
-    int? inventoryCount,
-    int? productsCount,
-    int? materialsCount,
-    double? hourlyRate,
-    String? currency,
-    int? monthsAvailable,
-    double? latestMonthIncome,
-    double? latestMonthExpenses,
-  }) {
-    final buffer = StringBuffer();
-    buffer.writeln(
-      'Eres Págate-IA, un asistente financiero amigable y experto '
-      'para artesanos y pequeños talleres latinoamericanos.',
-    );
-    buffer.writeln(
-      'Hablas español neutro, eres directo y práctico. '
-      'Ayudas al usuario a entender sus finanzas, '
-      'optimizar precios y tomar mejores decisiones.',
-    );
+  @override
+  String toString() => 'AiServiceException($code): $message';
+}
 
-    // ─── Business context ──────────────────────────────────────────
-    buffer.writeln('');
-    buffer.writeln('=== CONTEXTO DEL NEGOCIO ===');
+/// Cliente del callable `chat` de Cloud Functions.
+///
+/// El cliente nunca habla con OpenRouter: la clave y el system prompt viven en
+/// el backend (ver `docs/ARQUITECTURA.md`). Este servicio solo envía
+/// `{conversationId, message}` y devuelve `{conversationId, reply}`.
+class AiService {
+  /// Región donde se despliegan las funciones (contrato v1).
+  static const String region = 'southamerica-west1';
 
-    if (businessName != null) {
-      buffer.writeln('Negocio: $businessName');
-    }
-    if (businessType != null) {
-      buffer.writeln('Tipo: $businessType');
-    }
-    if (currency != null) {
-      buffer.writeln('Moneda: $currency');
-    }
+  /// Tiempo máximo de espera por una respuesta del asistente.
+  static const Duration timeout = Duration(seconds: 45);
 
-    // ─── Financial summary ─────────────────────────────────────────
-    buffer.writeln('');
-    buffer.writeln('=== RESUMEN FINANCIERO ===');
+  static const String _callableName = 'chat';
 
-    if (monthlyGoal != null) {
-      buffer.writeln('Meta mensual: \$${monthlyGoal.toStringAsFixed(0)}');
-    }
-    if (monthlyIncome != null) {
-      buffer.writeln('Ingresos del mes: \$${monthlyIncome.toStringAsFixed(0)}');
-    }
-    if (monthlyExpenses != null) {
-      buffer.writeln(
-        'Gastos del mes: \$${monthlyExpenses.toStringAsFixed(0)}',
-      );
-    }
-    if (monthlyIncome != null && monthlyExpenses != null) {
-      final balance = monthlyIncome - monthlyExpenses;
-      buffer.writeln('Balance mensual: \$${balance.toStringAsFixed(0)}');
-      if (monthlyGoal != null && monthlyIncome >= monthlyGoal) {
-        buffer.writeln('✅ Meta mensual alcanzada');
-      } else if (monthlyGoal != null) {
-        final progress = (monthlyIncome / monthlyGoal * 100).toStringAsFixed(0);
-        buffer.writeln('Progreso hacia meta: $progress%');
-      }
+  final FirebaseFunctions _functions;
+
+  AiService({FirebaseFunctions? functions})
+    : _functions = functions ?? FirebaseFunctions.instanceFor(region: region);
+
+  /// Envía [message] al asistente dentro de [conversationId].
+  ///
+  /// Si [conversationId] es nulo el backend crea una conversación nueva y
+  /// devuelve su id en [ChatReply.conversationId].
+  ///
+  /// Lanza [AiServiceException] con un mensaje en español ante cualquier fallo.
+  Future<ChatReply> sendMessage({
+    String? conversationId,
+    required String message,
+  }) async {
+    final HttpsCallableResult<dynamic> result;
+    try {
+      result = await _functions
+          .httpsCallable(_callableName)
+          .call<dynamic>({
+            'conversationId': ?conversationId,
+            'message': message,
+          })
+          .timeout(timeout);
+    } on FirebaseFunctionsException catch (e) {
+      // Antes se descartaba `e.message` y se mostraba un texto fijo, así que
+      // el cliente tenía que adivinar qué había pasado y lo adivinaba mal.
+      throw AiServiceException.from(e.code, e.message);
+    } on TimeoutException {
+      throw AiServiceException.from('deadline-exceeded', null);
+    } catch (_) {
+      throw AiServiceException.from('unknown', null);
     }
 
-    // ─── Trend data ────────────────────────────────────────────────
-    if (monthsAvailable != null && monthsAvailable > 1) {
-      buffer.writeln('Meses con datos: $monthsAvailable');
+    final data = result.data;
+    if (data is! Map) {
+      throw AiServiceException.from('internal', null);
     }
-    if (latestMonthIncome != null && monthlyIncome != null &&
-        monthlyIncome != 0 && latestMonthIncome != 0) {
-      final change = ((monthlyIncome - latestMonthIncome) /
-          latestMonthIncome * 100);
-      final arrow = change >= 0 ? '↑' : '↓';
-      buffer.writeln(
-        'Variación vs mes anterior: $arrow ${change.abs().toStringAsFixed(1)}%',
-      );
+    final id = data['conversationId'];
+    final reply = data['reply'];
+    if (id is! String || id.isEmpty || reply is! String) {
+      throw AiServiceException.from('internal', null);
     }
-
-    // ─── Recent transactions ───────────────────────────────────────
-    if (recentTransactions != null && recentTransactions.isNotEmpty) {
-      buffer.writeln('');
-      buffer.writeln('=== ÚLTIMAS TRANSACCIONES ===');
-      for (final t in recentTransactions) {
-        final type = t.type == TransactionType.income ? '💵 Ingreso' : '💸 Gasto';
-        buffer.writeln(
-          '- $type: ${t.title} — \$${t.amount.toStringAsFixed(0)} (${t.category})',
-        );
-      }
-    }
-
-    // ─── Inventory summary ────────────────────────────────────────
-    if (inventoryCount != null && inventoryCount > 0) {
-      buffer.writeln('');
-      buffer.writeln('=== INVENTARIO ===');
-      buffer.writeln('Total items: $inventoryCount');
-      if (productsCount != null) {
-        buffer.writeln('Productos: $productsCount');
-      }
-      if (materialsCount != null) {
-        buffer.writeln('Materiales: $materialsCount');
-      }
-    }
-
-    // ─── Hourly rate ──────────────────────────────────────────────
-    if (hourlyRate != null) {
-      buffer.writeln('');
-      buffer.writeln('=== TARIFA POR HORA ===');
-      buffer.writeln('Valor hora: \$${hourlyRate.toStringAsFixed(0)}/h');
-    }
-
-    // ─── Instructions ──────────────────────────────────────────────
-    buffer.writeln('');
-    buffer.writeln('=== INSTRUCCIONES ===');
-    buffer.writeln(
-      '1. Sé conciso — máximo 3 párrafos por respuesta.',
-    );
-    buffer.writeln(
-      '2. Usa números concretos del contexto cuando sea posible.',
-    );
-    buffer.writeln(
-      '3. No inventes datos que no estén en el contexto proporcionado.',
-    );
-    buffer.writeln(
-      '4. Si no sabes algo, dilo honestamente.',
-    );
-    buffer.writeln(
-      '5. Da sugerencias prácticas y accionables.',
-    );
-    buffer.writeln(
-      '6. Si el usuario pide análisis financiero, usa los datos disponibles '
-      'de transacciones, inventario y tarifa por hora.',
-    );
-    buffer.writeln(
-      '7. Recuerda que esta es una conversación continua — puedes '
-      'referenciar mensajes anteriores.',
-    );
-
-    return buffer.toString();
+    return ChatReply(conversationId: id, reply: reply);
   }
 }

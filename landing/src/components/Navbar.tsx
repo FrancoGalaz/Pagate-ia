@@ -1,12 +1,24 @@
+// Barra de navegación de la landing.
+//
+// Tenía un enlace «Iniciar sesión» que no llevaba a ninguna sesión: la app no
+// está publicada y la landing no tiene autenticación. Apuntaba a `#cta`, que
+// es el formulario de la lista de espera. Se eliminó en lugar de renombrarlo,
+// porque dos botones hacia el mismo destino no aportan nada.
+//
+// El menú «Funcionalidades» tenía un `ChevronDown` sin desplegable detrás; el
+// indicador se quitó para no insinuar un submenú inexistente.
+
 import { useState, useEffect } from 'react';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PagateLogo from './PagateLogo';
+import { LEGAL_ROUTES, siteUrl } from '../content/legal-meta';
 
 const links = [
-  { label: 'Funcionalidades', href: '#features', hasDropdown: true },
-  { label: 'Cómo funciona', href: '#how-it-works', hasDropdown: false },
-  { label: 'Precios', href: '#cta', hasDropdown: false },
+  { label: 'Por qué ahora', href: '#por-que-ahora' },
+  { label: 'Funcionalidades', href: '#features' },
+  { label: 'Cómo funciona', href: '#how-it-works' },
+  { label: 'Qué viene después', href: '#roadmap' },
 ];
 
 export default function Navbar() {
@@ -55,7 +67,11 @@ export default function Navbar() {
           }`}
         >
           {/* Logo */}
-          <a href="#" className="flex items-center pl-1 pr-4 group">
+          <a
+            href={siteUrl(LEGAL_ROUTES.inicio)}
+            className="flex items-center pl-1 pr-4 group"
+            aria-label="Inicio"
+          >
             <PagateLogo className="h-10 lg:h-12 group-hover:scale-105 transition-transform" />
           </a>
 
@@ -72,9 +88,6 @@ export default function Navbar() {
                 }`}
               >
                 {link.label}
-                {link.hasDropdown && (
-                  <ChevronDown className="w-3.5 h-3.5 opacity-50" />
-                )}
               </a>
             ))}
           </div>
@@ -86,19 +99,9 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center gap-1 pr-1">
             <a
               href="#cta"
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                isAtTop
-                  ? 'text-text-secondary hover:text-text-primary hover:bg-white/60'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
-              }`}
-            >
-              Iniciar sesión
-            </a>
-            <a
-              href="#cta"
               className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-white text-sm font-semibold shadow-md shadow-brand/20 hover:bg-brand-dark hover:shadow-brand/30 transition-all"
             >
-              Empieza gratis
+              Unirme a la lista
             </a>
           </div>
 
@@ -134,25 +137,15 @@ export default function Navbar() {
                   className="flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-all"
                 >
                   {link.label}
-                  {link.hasDropdown && (
-                    <ChevronDown className="w-4 h-4 opacity-50" />
-                  )}
                 </a>
               ))}
               <div className="pt-3 mt-3 border-t border-border flex flex-col gap-2">
                 <a
                   href="#cta"
                   onClick={() => setMobileOpen(false)}
-                  className="text-center px-4 py-3 rounded-xl text-sm font-semibold text-text-secondary hover:bg-surface-secondary transition-colors"
-                >
-                  Iniciar sesión
-                </a>
-                <a
-                  href="#cta"
-                  onClick={() => setMobileOpen(false)}
                   className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-brand text-white text-sm font-semibold shadow-md shadow-brand/20"
                 >
-                  Empieza gratis
+                  Unirme a la lista de espera
                 </a>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { LEGAL_ROUTES, siteUrl } from '../content/legal-meta';
 import { saveWaitlistEntry } from '../services/waitlist-service';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
@@ -10,7 +11,8 @@ export default function WaitlistForm() {
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const isValid = email.trim().length > 0 && email.includes('@');
+  const isValid =
+    name.trim().length > 0 && email.trim().length > 0 && email.includes('@');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,19 +25,22 @@ export default function WaitlistForm() {
       await saveWaitlistEntry({
         name: name.trim(),
         email: email.trim(),
-        createdAt: new Date().toISOString(),
         source: 'landing-page',
       });
       setStatus('success');
     } catch (err) {
       setStatus('error');
-      setErrorMsg(err instanceof Error ? err.message : 'Error al registrarte');
+      setErrorMsg(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No pudimos registrarte. Inténtalo de nuevo.',
+      );
     }
   };
 
   if (status === 'success') {
     return (
-      <div className="text-center py-6">
+      <div role="status" className="text-center py-6">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/20 mb-4">
           <CheckCircle2 className="w-8 h-8 text-success" />
         </div>
@@ -43,7 +48,7 @@ export default function WaitlistForm() {
           ¡Estás en la lista!
         </h3>
         <p className="text-text-muted">
-          Te avisaremos cuando Pagate esté disponible.{'\n'}
+          Te avisaremos cuando Págate-IA esté disponible.{'\n'}
           Mientras tanto, síguenos para novedades.
         </p>
       </div>
@@ -51,11 +56,16 @@ export default function WaitlistForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md">
+    <form
+      onSubmit={handleSubmit}
+      className="w-full max-w-md"
+      aria-busy={status === 'submitting'}
+    >
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 space-y-3 sm:space-y-0 sm:flex sm:gap-3">
           <input
             type="text"
+            required
             placeholder="Tu nombre"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -92,11 +102,18 @@ export default function WaitlistForm() {
       </div>
 
       {status === 'error' && (
-        <p className="mt-2 text-sm text-red-300">{errorMsg}</p>
+        <p role="alert" className="mt-2 text-sm text-red-300">
+          {errorMsg}
+        </p>
       )}
 
       <p className="mt-3 text-xs text-text-muted">
-        Sin spam. Solo te escribiremos cuando lancemos.
+        Usamos tu nombre y correo solo para avisarte del lanzamiento. Puedes pedir
+        que los borremos cuando quieras. Más detalle en la{' '}
+        <a className="underline" href={`${siteUrl(LEGAL_ROUTES.privacidad)}#lista-de-espera`}>
+          política de privacidad
+        </a>
+        .
       </p>
     </form>
   );

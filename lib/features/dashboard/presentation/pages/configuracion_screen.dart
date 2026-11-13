@@ -1,161 +1,248 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/app_links.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
-import '../../../../core/widgets/pagate_back_button.dart';
-import '../../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/url_opener.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../hourly_value/presentation/bloc/hourly_rate_provider.dart';
 import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
+import '../../../user_profile/domain/entities/user_profile_entity.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../widgets/borrar_historial_row.dart';
 import 'editar_perfil_screen.dart';
+import 'eliminar_cuenta_screen.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 7.
+//
+// QUÉ SE SUSTITUYÓ Y POR QUÉ:
+//
+// · `_Section`: versalitas con `letterSpacing: 1.2` sobre un contenedor de
+//   radio 32 con borde. Era uno de los dos criterios opuestos de título de
+//   bloque que convivían en la app. Pasa a [PagateSectionHeader] +
+//   [PagateSectionCard].
+//
+// · `_ItemRow`: la cuarta reimplementación de la fila etiqueta/valor, con
+//   un cuadrado teñido de icono de 36 dp que robaba 48 dp de ancho al
+//   texto. Pasa a [PagateDataRow], que trae el chevron, el fondo de
+//   pulsación, el divisor a sangre y los 48 dp de alto mínimo.
+//
+// · `_Divider` con `indent`/`endIndent` de 16: el divisor del sistema va a
+//   sangre completa, y además ya lo pone cada [PagateDataRow].
+//
+// · LA SECCIÓN "NOTIFICACIONES" COMPLETA. Sus dos filas ("Alertas de stock
+//   bajo" y "Resumen semanal") respondían 'Todavía no está disponible.' No
+//   hay notificaciones en el proyecto: ni `firebase_messaging` en
+//   `pubspec.yaml`, ni permiso `POST_NOTIFICATIONS` en el manifiesto, ni
+//   nada en `functions/`. Dos ajustes que no ajustan nada, en la pantalla
+//   de ajustes, delante de un revisor de Google Play. Vuelven cuando haya
+//   notificaciones de verdad.
+//
+// LO QUE NO SE TOCÓ: el orden de las secciones, los textos legales y la
+// entrada de borrado de cuenta. Eso lo fijó la tarea C-3 y es requisito de
+// la ficha de Play.
+// ═══════════════════════════════════════════════════════════════════════
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final profile = context.watch<UserProfileProvider>().profile;
     final hourlyRate = context.watch<HourlyRateProvider>().currentRate;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Volver',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Configuración'),
+      ),
       body: SafeArea(
-        child: Column(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: AppSpacing.x8),
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenHorizontal,
-                AppSpacing.md,
-                AppSpacing.screenHorizontal,
-                AppSpacing.xl,
-              ),
-              child: Row(
+            // ─── Negocio ────────────────────────────────────────────
+            const PagateSectionHeader(title: 'Negocio'),
+            PagateSectionCard(
+              child: Column(
                 children: [
-                  const PagateBackButton(),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Configuración',
-                    style:
-                        Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: AppColors.textPrimaryDark,
-                              fontWeight: FontWeight.w800,
-                            ),
+                  PagateDataRow(
+                    label: 'Nombre del negocio',
+                    value: (profile?.businessName.isNotEmpty ?? false)
+                        ? profile!.businessName
+                        : 'Sin definir',
+                    onTap: () => _abrirEdicion(context),
+                  ),
+                  PagateDataRow(
+                    label: 'Rubro',
+                    value: (profile?.businessType.isNotEmpty ?? false)
+                        ? profile!.businessType
+                        : 'Sin definir',
+                    onTap: () => _abrirEdicion(context),
+                  ),
+                  PagateDataRow(
+                    label: 'Moneda',
+                    value: profile?.currency ?? kDefaultCurrency,
+                    onTap: () => _abrirEdicion(context),
+                    showDivider: false,
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenHorizontal),
+
+            // ─── Metas ──────────────────────────────────────────────
+            const PagateSectionHeader(title: 'Metas'),
+            PagateSectionCard(
+              child: Column(
                 children: [
-                  _Section(
-                    title: 'Negocio',
-                    children: [
-                      _ItemRow(
-                        icon: Icons.store_outlined,
-                        label: 'Nombre del negocio',
-                        subtitle: profile?.businessName ?? 'No definido',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const EditarPerfilScreen()),
-                        ),
-                      ),
-                      const _Divider(),
-                      _ItemRow(
-                        icon: Icons.build_outlined,
-                        label: 'Tipo de negocio',
-                        subtitle: profile?.businessType ?? 'No definido',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const EditarPerfilScreen()),
-                        ),
-                      ),
-                      const _Divider(),
-                      _ItemRow(
-                        icon: Icons.currency_exchange_rounded,
-                        label: 'Moneda',
-                        subtitle: profile?.currency ?? 'MXN',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const EditarPerfilScreen()),
-                        ),
-                      ),
-                    ],
+                  PagateDataRow(
+                    label: 'Meta de ingresos',
+                    subtitle: 'Al mes',
+                    value: formatCurrency(
+                      profile?.monthlyGoal ?? 0,
+                      currency: kFallbackCurrency,
+                    ),
+                    onTap: () => _abrirEdicion(context),
                   ),
-                  const SizedBox(height: AppSpacing.xl),
-                  _Section(
-                    title: 'Metas',
-                    children: [
-                      _ItemRow(
-                        icon: Icons.flag_outlined,
-                        label: 'Meta de ingresos',
-                        subtitle: profile != null
-                            ? '\$${profile.monthlyGoal.toStringAsFixed(0)} mensuales'
-                            : '\$0 mensuales',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const EditarPerfilScreen()),
-                        ),
+                  PagateDataRow(
+                    label: 'Valor de tu hora',
+                    subtitle: hourlyRate == null
+                        ? 'Calcular desde tu sueldo objetivo'
+                        : 'Por hora trabajada',
+                    value: hourlyRate == null
+                        ? 'Calcular'
+                        : formatCurrency(
+                            hourlyRate.hourlyValue,
+                            currency: kFallbackCurrency,
+                          ),
+                    valueColor: hourlyRate == null ? AppPalette.brand : null,
+                    showDivider: false,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (final _) => const HourlyRateSetupPage(),
                       ),
-                      const _Divider(),
-                      _ItemRow(
-                        icon: Icons.timer_outlined,
-                        label: 'Valor Hora',
-                        subtitle: hourlyRate != null
-                            ? '\$${hourlyRate.hourlyValue.toStringAsFixed(0)}/h'
-                            : 'Calcular desde sueldo objetivo',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const HourlyRateSetupPage()),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.xl),
-                  _Section(
-                    title: 'Seguridad',
-                    children: [
-                      _ItemRow(
-                        icon: Icons.lock_outline_rounded,
-                        label: 'Cambiar contraseña',
-                        subtitle: 'Enviar correo de restablecimiento',
-                        onTap: () => _resetPassword(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  _Section(
-                    title: 'Notificaciones',
-                    children: [
-                      _ItemRow(
-                        icon: Icons.notifications_outlined,
-                        label: 'Alertas de stock bajo',
-                        subtitle: 'Próximamente',
-                        onTap: () => AppFeedback.showMessage(
-                          context,
-                          'Próximamente disponible.',
-                        ),
-                      ),
-                      const _Divider(),
-                      _ItemRow(
-                        icon: Icons.bar_chart_rounded,
-                        label: 'Resumen semanal',
-                        subtitle: 'Próximamente',
-                        onTap: () => AppFeedback.showMessage(
-                          context,
-                          'Próximamente disponible.',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
                 ],
+              ),
+            ),
+
+            // ─── Seguridad ──────────────────────────────────────────
+            const PagateSectionHeader(title: 'Seguridad'),
+            PagateSectionCard(
+              child: PagateDataRow(
+                label: 'Cambiar contraseña',
+                subtitle: 'Te llega un correo con el enlace',
+                value: '',
+                showDivider: false,
+                onTap: () => unawaited(_resetPassword(context)),
+              ),
+            ),
+
+            // ─── Asistente ──────────────────────────────────────────
+            const PagateSectionHeader(title: 'Asistente'),
+            const PagateSectionCard(child: BorrarHistorialRow()),
+
+            // ─── Legal ──────────────────────────────────────────────
+            // LOS TEXTOS LEGALES, ALCANZABLES DESDE LA APP.
+            //
+            // Antes no existía esta sección y la pantalla de registro decía
+            // que los términos se podían revisar desde Configuración: no
+            // había nada que revisar. Ahora los tres enlaces abren de verdad
+            // en el navegador del sistema, y si la landing aún no está
+            // publicada se avisa y se copia el enlace en vez de dejar un 404
+            // en pantalla.
+            const PagateSectionHeader(title: 'Legal'),
+            PagateSectionCard(
+              child: Column(
+                children: [
+                  PagateDataRow(
+                    label: 'Términos de uso',
+                    subtitle: 'Se abre en el navegador',
+                    value: '',
+                    onTap: () =>
+                        unawaited(abrirEnlaceExterno(context, kUrlTerminos)),
+                  ),
+                  PagateDataRow(
+                    label: 'Política de privacidad',
+                    subtitle: 'Se abre en el navegador',
+                    value: '',
+                    onTap: () =>
+                        unawaited(abrirEnlaceExterno(context, kUrlPrivacidad)),
+                  ),
+                  // Distinta de "Eliminar cuenta" de más abajo: esa borra los
+                  // datos desde la app; esta es la página pública que exige la
+                  // ficha de Play, consultable sin instalar nada.
+                  PagateDataRow(
+                    label: 'Cómo borrar tu cuenta',
+                    subtitle: 'Instrucciones en la web',
+                    value: '',
+                    showDivider: false,
+                    onTap: () => unawaited(
+                      abrirEnlaceExterno(context, kUrlBorradoCuenta),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ─── Cuenta ─────────────────────────────────────────────
+            // Requisito de Google Play: la app tiene que ofrecer el borrado
+            // de cuenta desde dentro, no solo desde una URL. Va en su propia
+            // sección y al final, separada de los ajustes corrientes, porque
+            // es la única acción de esta pantalla que no se puede deshacer.
+            const PagateSectionHeader(title: 'Cuenta'),
+            PagateSectionCard(
+              child: PagateDataRow(
+                label: 'Eliminar cuenta',
+                subtitle: 'Borra todos tus datos',
+                value: '',
+                showDivider: false,
+
+                // El icono en `danger` es lo que distingue esta fila ANTES
+                // de tocarla: es la única acción de la pantalla que no se
+                // puede deshacer. La fila anterior pintaba de rojo la
+                // etiqueta entera, y [PagateDataRow] no tiñe etiquetas a
+                // propósito —la jerarquía del sistema la lleva el valor—,
+                // así que el aviso pasa al único sitio del componente
+                // pensado para un control explícito.
+                trailing: const Padding(
+                  padding: EdgeInsets.only(left: AppSpacing.x2),
+                  child: Icon(
+                    Icons.delete_outline_rounded,
+                    size: AppIconSize.sm,
+                    color: AppPalette.danger,
+                  ),
+                ),
+                onTap: () {
+                  // El servicio de auth se lee aquí, en la pantalla que sí
+                  // vive bajo los providers: la de borrado no depende de
+                  // Firebase a propósito.
+                  final auth = context.read<FirebaseAuthService>();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (final _) => EliminarCuentaScreen(
+                        email: auth.email,
+                        onDeleted: auth.cerrarSesion,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -164,11 +251,17 @@ class ConfiguracionScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _resetPassword(BuildContext context) async {
+  /// Las tres filas de "Negocio" y la meta llevan al mismo formulario.
+  void _abrirEdicion(final BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute<void>(builder: (final _) => const EditarPerfilScreen()),
+  );
+
+  Future<void> _resetPassword(final BuildContext context) async {
     final auth = context.read<FirebaseAuthService>();
     final email = auth.email;
-    if (email.isEmpty) {
-      AppFeedback.showMessage(
+    if (email == null || email.isEmpty) {
+      AppFeedback.showError(
         context,
         'No hay un correo asociado a esta cuenta.',
       );
@@ -183,117 +276,7 @@ class ConfiguracionScreen extends StatelessWidget {
       );
     } catch (e) {
       if (!context.mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al enviar correo. Intenta de nuevo.',
-      );
+      AppFeedback.showError(context, describeFirebaseError(e));
     }
   }
-}
-
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-
-  const _Section({required this.title, required this.children});
-
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondaryDark,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
-              borderRadius: AppRadius.xxlBorder,
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(children: children),
-          ),
-        ],
-      );
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) => const Divider(
-        height: 1,
-        color: AppColors.borderDark,
-        indent: AppSpacing.md,
-        endIndent: AppSpacing.md,
-      );
-}
-
-class _ItemRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _ItemRow({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.smBorder,
-                ),
-                child: Icon(icon, color: AppColors.brand, size: 18),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textPrimaryDark,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textSecondaryDark,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      );
 }

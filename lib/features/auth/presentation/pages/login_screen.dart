@@ -1,18 +1,55 @@
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
-import '../../../../core/widgets/pagate_primary_button.dart';
-import '../../../../core/widgets/pagate_social_button.dart';
-import '../../../../core/widgets/pagate_text_field.dart';
-import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/services/google_auth_service.dart';
-import 'post_login_welcome_screen.dart';
-import 'welcome_screen.dart';
-import '../../../dashboard/presentation/pages/dashboard_screen.dart';
+import '../../../../core/widgets/widgets.dart';
+import '../../../onboarding/presentation/pages/identity_step_screen.dart';
 
+// ═══════════════════════════════════════════════════════════════════════
+// INICIO DE SESIÓN
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 7.
+//
+// QUÉ SE SUSTITUYÓ Y POR QUÉ:
+//
+// · EL BOTÓN "Continuar con Apple". Era un botón visible, a ancho completo,
+//   cuya única consecuencia era un aviso que decía 'El ingreso con Apple
+//   todavía no está disponible.' No hay `sign_in_with_apple` en
+//   `pubspec.yaml` ni proveedor de Apple configurado. En el APK que va a
+//   Play, con Google oculto (`isAvailable` es `kIsWeb`), ESE era el único
+//   botón social visible: la pantalla ofrecía una forma de entrar que no
+//   existía. Fuera el botón y fuera `_onAppleSignIn`.
+//
+// · EL SEPARADOR "o continúa con", que ahora solo se dibuja si queda algún
+//   proveedor social. Antes partía la pantalla en dos para presentar un
+//   botón muerto.
+//
+// · EL LOGOTIPO: un cuadrado de 72 dp con degradado de marca, glow verde
+//   al 40% y un
+//   `Icons.bolt_rounded` dentro, más el nombre debajo en `displaySmall` con
+//   `AppText.weight(..., 800)`. Era el SEGUNDO logotipo de la app. Pasa a
+//   [PagateWordmark], el único.
+//
+// · EL CENTRADO. Toda la pantalla iba en `CrossAxisAlignment.center`,
+//   incluida la frase bajo el nombre; el sistema alinea a la izquierda.
+//
+// · "¿Olvidaste tu contraseña?" y "Crear cuenta", que eran `TextButton` con
+//   `minimumSize: Size.zero` + `tapTargetSize: shrinkWrap` —dos de los once
+//   controles por debajo del área táctil mínima—, pasan a la variante de
+//   texto del botón del sistema, que trae los 48 dp.
+//
+// · LOS DOS CAMPOS pierden su `prefixIcon` (sobre y candado) y ganan
+//   etiqueta, `autofillHints` y `textInputAction`: el gestor de contraseñas
+//   del teléfono ahora los reconoce.
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Inicio de sesión con correo/contraseña (y Google en web).
+///
+/// No navega al terminar: el `AuthGate` reacciona al cambio de sesión.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -21,9 +58,22 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _googleAuth = GoogleAuthService();
+
   bool _isLoading = false;
+
+  /// Mensaje del último intento fallido.
+  ///
+  /// Se queda EN LA PANTALLA y no en un aviso flotante: un error de
+  /// autenticación hay que poder volver a leerlo mientras se corrige el
+  /// correo, y el `SnackBar` se iba a los cuatro segundos.
+  String? _error;
+
+  /// Confirmación de que se envió el correo de recuperación.
+  String? _aviso;
 
   @override
   void dispose() {
@@ -32,289 +82,230 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _goToPostLoginWelcome() {
-    final fallbackName = _emailController.text.trim().isNotEmpty
-        ? _emailController.text.trim().split('@').first
-        : 'Artesano';
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (final _) => PostLoginWelcomeScreen(userName: fallbackName),
-      ),
-    );
-  }
+  void _goToRegister() => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (final _) => const IdentityStepScreen(),
+        ),
+      );
 
   Future<void> _onForgotPassword() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      AppFeedback.showMessage(
-        context,
-        'Ingresa tu correo primero para enviarte el enlace de recuperación.',
-      );
+      setState(() {
+        _aviso = null;
+        _error = 'Escribe tu correo y te enviamos el enlace de recuperación.';
+      });
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _aviso = null;
+    });
     try {
       await context
           .read<FirebaseAuthService>()
           .sendPasswordReset(email: email);
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Te enviamos un enlace de recuperación a $email',
-      );
+      setState(() => _aviso = 'Te enviamos un enlace de recuperación '
+          'a $email.');
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al enviar recuperación. Verifica que el correo esté registrado.',
-      );
+      setState(() => _error = describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _onGoogleSignIn() async {
-    if (!kIsWeb) {
-      AppFeedback.showMessage(
-        context,
-        'Google Sign-In en Android requiere configuración adicional.',
-      );
-      return;
-    }
+    if (!_googleAuth.isAvailable) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _aviso = null;
+    });
     try {
-      final googleAuth = GoogleAuthService();
-      await googleAuth.signIn();
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (final _) => const DashboardScreen()),
-        (final route) => false,
-      );
+      await _googleAuth.signIn();
+      // El AuthGate detecta la sesión nueva.
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      if (e.code == 'web-config-not-found' ||
-          e.code == 'configuration-not-found') {
-        AppFeedback.showMessage(
-          context,
-          'Configura una App Web en Firebase Console para usar Google Sign-In.',
-        );
-      } else if (e.code == 'popup-closed-by-user') {
-        // User closed the popup, do nothing
-      } else {
-        AppFeedback.showMessage(
-          context,
-          'Error al iniciar con Google: ${e.message ?? e.code}',
-        );
+      if (e.code == 'popup-closed-by-user' ||
+          e.code == 'cancelled-popup-request') {
+        return; // El usuario cerró el popup: no es un error.
       }
+      setState(() => _error = describeFirebaseError(e));
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Google Sign-In no disponible en esta plataforma.',
-      );
+      setState(() => _error = describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _onAppleSignIn() {
-    AppFeedback.showMessage(
-      context,
-      'Apple Sign-In estará disponible próximamente.',
-    );
-  }
-
   Future<void> _onLogin() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    if (_isLoading) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (email.isEmpty || password.isEmpty) {
-      AppFeedback.showMessage(
-        context,
-        'Completa correo y contraseña para continuar.',
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _aviso = null;
+    });
     try {
       await context.read<FirebaseAuthService>().signInWithEmailAndPassword(
-            email: email,
-            password: password,
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
           );
-      if (!mounted) return;
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (final _) => const DashboardScreen()),
-        (final route) => false,
-      );
+      // El AuthGate detecta la sesión nueva.
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showMessage(
-        context,
-        'Error al iniciar sesión. Verifica tus credenciales.',
-      );
+      setState(() => _error = describeFirebaseError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
-  Widget build(final BuildContext context) => Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Volver',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+        top: false,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.x4,
+              AppSpacing.x2,
+              AppSpacing.x4,
+              AppSpacing.x8,
+            ),
             children: [
-              const SizedBox(height: AppSpacing.hero),
-
-              // Logo
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  gradient: AppColors.brandGradient,
-                  borderRadius: AppRadius.xlBorder,
-                  boxShadow: AppShadows.brandStrong,
-                ),
-                child: const Icon(
-                  Icons.bolt_rounded,
-                  color: Colors.white,
-                  size: AppIconSize.xxl,
+              const PagateWordmark(size: PagateWordmarkSize.grande),
+              const SizedBox(height: AppSpacing.x6),
+              Text(
+                'Entra con el correo con el que creaste tu cuenta.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppPalette.textSecondary,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
 
-              // Title
-              Text(
-                'Págate-IA',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Controla tu taller, maximiza tus ganancias',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondaryDark,
-                    ),
-                textAlign: TextAlign.center,
-              ),
+              const SizedBox(height: AppSpacing.x8),
 
-              const SizedBox(height: AppSpacing.section),
-
-              // Form
               PagateTextField(
+                labelText: 'Correo',
                 controller: _emailController,
-                hintText: 'Correo electrónico',
+                hintText: 'tu@correo.cl',
                 keyboardType: TextInputType.emailAddress,
-                prefixIcon: Icons.email_outlined,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
+                validator: (final v) => (v == null || v.trim().isEmpty)
+                    ? 'Escribe tu correo'
+                    : null,
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.x4),
               PagateTextField(
+                labelText: 'Contraseña',
                 controller: _passwordController,
-                hintText: 'Contraseña',
                 isPassword: true,
-                prefixIcon: Icons.lock_outline_rounded,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.password],
+                onFieldSubmitted: (final _) => _onLogin(),
+                validator: (final v) => (v == null || v.isEmpty)
+                    ? 'Escribe tu contraseña'
+                    : null,
               ),
 
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: AppSpacing.x2),
               Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _onForgotPassword,
-                  child: Text(
-                    '¿Olvidaste tu contraseña?',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.brand,
-                        ),
+                alignment: Alignment.centerLeft,
+                child: PagatePrimaryButton.text(
+                  label: '¿Olvidaste tu contraseña?',
+                  onPressed: _isLoading ? null : _onForgotPassword,
+                ),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: AppSpacing.x2),
+                PagateInlineError(message: _error),
+              ],
+              if (_aviso != null) ...[
+                const SizedBox(height: AppSpacing.x2),
+                Text(
+                  _aviso!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppPalette.brand,
                   ),
                 ),
-              ),
+              ],
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.x6),
               PagatePrimaryButton(
-                label: 'Iniciar Sesión',
+                label: 'Iniciar sesión',
                 isLoading: _isLoading,
                 onPressed: _onLogin,
               ),
 
-              const SizedBox(height: AppSpacing.xl),
+              // El separador y el botón de Google solo existen donde Google
+              // existe de verdad: `isAvailable` es `kIsWeb`. Antes, en el
+              // APK, este bloque dejaba en pantalla un único botón social y
+              // era el de Apple, que no hacía nada.
+              if (_googleAuth.isAvailable) ...[
+                const SizedBox(height: AppSpacing.x6),
+                const _Separador(),
+                const SizedBox(height: AppSpacing.x4),
+                PagateSocialButton(
+                  label: 'Continuar con Google',
+                  icon: Icons.g_mobiledata_rounded,
+                  onPressed: _isLoading ? null : _onGoogleSignIn,
+                ),
+              ],
 
-              // Divider
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    child: Text(
-                      'o continúa con',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
-                    ),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
+              const SizedBox(height: AppSpacing.x8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: PagatePrimaryButton.text(
+                  label: 'No tengo cuenta: crear una',
+                  onPressed: _isLoading ? null : _goToRegister,
+                ),
               ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              // Social buttons
-              PagateSocialButton(
-                label: 'Continuar con Google',
-                icon: Icons.g_mobiledata_rounded,
-                onPressed: _onGoogleSignIn,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              PagateSocialButton(
-                label: 'Continuar con Apple',
-                icon: Icons.apple_rounded,
-                onPressed: _onAppleSignIn,
-              ),
-
-              const SizedBox(height: AppSpacing.xxl),
-
-              // Register link
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '¿No tienes cuenta? ',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondaryDark,
-                        ),
-                  ),
-                  TextButton(
-                    onPressed: _goToSignupWelcome,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Crear cuenta',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.brand,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// Línea con "o continúa con" en medio.
+class _Separador extends StatelessWidget {
+  const _Separador();
+
+  @override
+  Widget build(final BuildContext context) => Row(
+        children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x3),
+            child: Text(
+              'o continúa con',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted,
+                  ),
+            ),
+          ),
+          const Expanded(child: Divider()),
+        ],
+      );
 }

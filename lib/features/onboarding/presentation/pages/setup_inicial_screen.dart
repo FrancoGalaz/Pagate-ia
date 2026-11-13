@@ -1,13 +1,54 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
-import '../../../../core/widgets/pagate_chip_selector.dart';
-import '../../../../core/widgets/pagate_primary_button.dart';
-import '../../../../core/widgets/pagate_section_card.dart';
-import '../../../../core/widgets/pagate_text_field.dart';
-import '../../../dashboard/presentation/pages/dashboard_screen.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/widgets/widgets.dart';
+import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
+import '../../../auth/presentation/widgets/cerrar_sesion.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// ONBOARDING — CONFIGURAR EL TALLER
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, paso 6.3.
+//
+// Se muestra dentro del `UserScope` cuando el usuario autenticado todavía no
+// tiene perfil en `users/{uid}`. Al guardar, el stream del perfil hace que el
+// gate pase solo al dashboard; no hay navegación manual.
+//
+// EL BUG FUNCIONAL QUE SE ARREGLA AQUÍ. La versión anterior reinyectaba el
+// `displayName` desde `didChangeDependencies`, que se dispara con CADA
+// cambio de dependencia: abrir el teclado, rotar, cambiar el tamaño de
+// fuente. Si el usuario borraba el nombre para escribir otro, se lo volvían
+// a rellenar y el cursor saltaba al inicio. Ahora la precarga ocurre UNA
+// vez, controlada por [_nombrePrecargado].
+//
+// QUÉ MÁS CAMBIA:
+//   · `_SectionLabel` (titleSmall en 700, numerado "1.", "2.", "3.") y
+//     `_PillSelector` (GestureDetector + AnimatedContainer con radio
+//     pastilla) desaparecen: son dos de los cuatro criterios de selección
+//     que coexistían en la app. Ahora son `PagateSectionHeader` y
+//     `PagateChipSelector`, con el rol y el estado que pone Material.
+//   · Las tres validaciones dejan de ser snackbars genéricos lanzados al
+//     pulsar el botón y pasan a `Form` con `validator`: el error sale
+//     debajo del campo que lo causa. La del tipo de negocio, que no es un
+//     campo de texto, sigue siendo un aviso, pero ahora al lado del grupo.
+//   · El botón de guardar vive en una `PagateActionBar` fija: en un
+//     formulario de cuatro datos no tiene sentido desplazarse para llegar
+//     a la acción.
+//
+// LA META SE LEE CON `parseCurrencyInput`, que ya estaba. Vale la pena
+// repetir por qué: `double.tryParse('800.000')` devuelve 800.0 y la
+// validación `goal <= 0` lo dejaba pasar en silencio, así que una meta de
+// ochocientos mil pesos entraba al perfil como OCHOCIENTOS y la barra de
+// progreso de Inicio marcaba 100% con la primera venta.
+// ═══════════════════════════════════════════════════════════════════════
 
 class SetupInicialScreen extends StatefulWidget {
   const SetupInicialScreen({super.key});
@@ -17,272 +58,220 @@ class SetupInicialScreen extends StatefulWidget {
 }
 
 class _SetupInicialScreenState extends State<SetupInicialScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _businessController = TextEditingController();
   final _goalController = TextEditingController();
 
+  final _businessFocus = FocusNode();
+  final _goalFocus = FocusNode();
+
   Set<String> _selectedType = {};
-  String _selectedCurrency = 'MXN';
-  String _selectedUnit = 'mensual';
+  String _selectedCurrency = kDefaultCurrency;
+  bool _isSaving = false;
 
-  static const List<String> _businessTypes = [
-    'Taller Mecánico',
-    'Carpintería',
-    'Herrería',
-    'Electrónica',
-    'Costura / Moda',
-    'Construcción',
-    'Otro',
-  ];
+  /// El `displayName` de Auth llega de forma asíncrona, así que no se puede
+  /// leer en `initState`. Esta bandera hace que la precarga sea de UNA sola
+  /// vez aunque `didChangeDependencies` se dispare muchas.
+  bool _nombrePrecargado = false;
 
-  static const List<String> _currencies = ['MXN', 'USD', 'EUR', 'ARS', 'COP'];
-  static const List<String> _units = ['mensual', 'semanal', 'diario'];
+  /// Se muestra bajo los chips cuando el usuario intenta guardar sin elegir
+  /// rubro. No es un campo de texto, así que no tiene `validator` propio.
+  bool _faltaRubro = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_nombrePrecargado) return;
+
+    final displayName = context.watch<FirebaseAuthService>().displayName;
+    if (displayName == null || displayName.isEmpty) return;
+
+    _nameController.text = displayName;
+    _nombrePrecargado = true;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _businessController.dispose();
     _goalController.dispose();
+    _businessFocus.dispose();
+    _goalFocus.dispose();
     super.dispose();
   }
 
-  void _onContinue() {
-    final name = _nameController.text.trim();
-    final businessName = _businessController.text.trim();
-    final rawGoal = _goalController.text.replaceAll(',', '.').trim();
-    final goal = double.tryParse(rawGoal);
+  String? _validarObligatorio(final String? valor, final String queFalta) =>
+      (valor == null || valor.trim().isEmpty) ? queFalta : null;
 
-    if (name.isEmpty || businessName.isEmpty) {
-      AppFeedback.showMessage(
-        context,
-        'Completa tu nombre y el nombre del negocio.',
+  String? _validarMeta(final String? valor) {
+    final meta = parseCurrencyInput(valor ?? '');
+    if (meta == null) return 'Escribe cuánto quieres ganar al mes';
+    if (meta <= 0) return 'La meta tiene que ser mayor que cero';
+    return null;
+  }
+
+  Future<void> _guardar() async {
+    if (_isSaving) return;
+
+    final formularioValido = _formKey.currentState?.validate() ?? false;
+    final hayRubro = _selectedType.isNotEmpty;
+    if (!hayRubro) setState(() => _faltaRubro = true);
+    if (!formularioValido || !hayRubro) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await context.read<UserProfileProvider>().updateFromSetup(
+        name: _nameController.text.trim(),
+        businessName: _businessController.text.trim(),
+        businessType: _selectedType.first,
+        currency: _selectedCurrency,
+        monthlyGoal: parseCurrencyInput(_goalController.text)!,
       );
-      return;
+      // El gate reacciona al stream del perfil y muestra el dashboard.
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.showError(context, describeFirebaseError(e));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-
-    if (_selectedType.isEmpty) {
-      AppFeedback.showMessage(
-        context,
-        'Selecciona un tipo de negocio para continuar.',
-      );
-      return;
-    }
-
-    if (goal == null || goal <= 0) {
-      AppFeedback.showMessage(
-        context,
-        'Ingresa una meta económica válida.',
-      );
-      return;
-    }
-
-    context.read<UserProfileProvider>().updateFromSetup(
-          name: name,
-          businessName: businessName,
-          businessType: _selectedType.first,
-          currency: _selectedCurrency,
-          monthlyGoal: goal,
-        );
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (final _) => const DashboardScreen()),
-      (final route) => false,
-    );
   }
 
   @override
-  Widget build(final BuildContext context) => Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.screenHorizontal,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSpacing.xl),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+                child: Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.x6),
+                      Text(
+                        'Configura tu taller',
+                        style: theme.textTheme.headlineLarge,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      Text(
+                        'Puedes cambiar todo esto después.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.x8),
 
-              // Header
-              Text(
-                'Configura tu negocio',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Solo tarda 2 minutos. Puedes editar esto después.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondaryDark,
-                    ),
-              ),
+                      // ── Quién eres ────────────────────────────────────
+                      PagateTextField(
+                        labelText: 'Tu nombre',
+                        hintText: 'Camila Rojas',
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (final _) =>
+                            _businessFocus.requestFocus(),
+                        validator: (final v) =>
+                            _validarObligatorio(v, 'Escribe tu nombre'),
+                      ),
+                      const SizedBox(height: AppSpacing.x4),
+                      PagateTextField(
+                        labelText: 'Nombre de tu taller',
+                        hintText: 'Greda Austral',
+                        controller: _businessController,
+                        focusNode: _businessFocus,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (final _) =>
+                            _goalFocus.requestFocus(),
+                        validator: (final v) => _validarObligatorio(
+                          v,
+                          'Escribe el nombre de tu taller',
+                        ),
+                      ),
 
-              const SizedBox(height: AppSpacing.xxl),
+                      const SizedBox(height: AppSpacing.x6),
 
-              // ── Sección 1: Datos básicos ───────────────────────────
-              const _SectionLabel(label: '1. ¿Cómo te llamas?'),
-              const SizedBox(height: AppSpacing.sm),
-              PagateSectionCard(
-                child: Column(
-                  children: [
-                    PagateTextField(
-                      controller: _nameController,
-                      hintText: 'Tu nombre',
-                      prefixIcon: Icons.person_outline_rounded,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    PagateTextField(
-                      controller: _businessController,
-                      hintText: 'Nombre de tu negocio',
-                      prefixIcon: Icons.store_outlined,
-                    ),
-                  ],
+                      // ── Rubro ─────────────────────────────────────────
+                      Text(
+                        '¿A qué te dedicas?',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      PagateChipSelector(
+                        options: kBusinessTypes,
+                        selected: _selectedType,
+                        onToggle: (final option) => setState(() {
+                          _selectedType = {option};
+                          _faltaRubro = false;
+                        }),
+                      ),
+                      if (_faltaRubro) ...[
+                        const SizedBox(height: AppSpacing.x1),
+                        Text(
+                          'Elige tu rubro para continuar',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppPalette.danger,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: AppSpacing.x6),
+
+                      // ── Meta del mes ──────────────────────────────────
+                      Text(
+                        'Moneda',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      PagateChipSelector(
+                        options: kSupportedCurrencies,
+                        selected: {_selectedCurrency},
+                        onToggle: (final v) =>
+                            setState(() => _selectedCurrency = v),
+                      ),
+                      const SizedBox(height: AppSpacing.x4),
+                      PagateTextField.amount(
+                        labelText: '¿Cuánto quieres ganar al mes?',
+                        hintText: '0',
+                        controller: _goalController,
+                        focusNode: _goalFocus,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (final _) => unawaited(_guardar()),
+                        validator: _validarMeta,
+                      ),
+
+                      const SizedBox(height: AppSpacing.x6),
+                      PagatePrimaryButton.text(
+                        label: 'Usar otra cuenta',
+                        onPressed: () => cerrarSesionConAviso(context),
+                      ),
+                      const SizedBox(height: AppSpacing.x6),
+                    ],
+                  ),
                 ),
               ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              // ── Sección 2: Tipo de negocio ─────────────────────────
-              const _SectionLabel(label: '2. ¿Qué tipo de negocio tienes?'),
-              const SizedBox(height: AppSpacing.sm),
-              PagateChipSelector(
-                options: _businessTypes,
-                selected: _selectedType,
-                onToggle: (final option) =>
-                    setState(() => _selectedType = {option}),
+            ),
+            PagateActionBar(
+              child: PagatePrimaryButton(
+                label: 'Guardar y empezar',
+                isLoading: _isSaving,
+                onPressed: _guardar,
               ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              // ── Sección 3: Meta económica ──────────────────────────
-              const _SectionLabel(label: '3. ¿Cuánto quieres ganar?'),
-              const SizedBox(height: AppSpacing.sm),
-              PagateSectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Currency pills
-                    Text(
-                      'Moneda',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _PillSelector(
-                      options: _currencies,
-                      selected: _selectedCurrency,
-                      onSelect: (final v) =>
-                          setState(() => _selectedCurrency = v),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    PagateTextField(
-                      controller: _goalController,
-                      hintText: 'Meta de ingresos',
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      prefixIcon: Icons.flag_outlined,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Período',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _PillSelector(
-                      options: _units,
-                      selected: _selectedUnit,
-                      onSelect: (final v) =>
-                          setState(() => _selectedUnit = v),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.xxxl),
-
-              PagatePrimaryButton(
-                label: 'Empezar a ganar más',
-                trailingIcon: Icons.arrow_forward_rounded,
-                onPressed: _onContinue,
-              ),
-
-              const SizedBox(height: AppSpacing.xxl),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
-}
-
-// ─── Helper widgets ────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-  final String label;
-
-  @override
-  Widget build(final BuildContext context) => Text(
-        label,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppColors.textPrimaryDark,
-              fontWeight: FontWeight.w700,
-            ),
-      );
-}
-
-class _PillSelector extends StatelessWidget {
-  const _PillSelector({
-    required this.options,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<String> options;
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(final BuildContext context) => Wrap(
-        spacing: AppSpacing.xs,
-        children: options.map((final opt) {
-          final isSelected = opt == selected;
-          return GestureDetector(
-            onTap: () => onSelect(opt),
-            child: AnimatedContainer(
-              duration: AppDurations.fast,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xxs + 2,
-              ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.brand
-                    : AppColors.surfaceDarkSecondary,
-                borderRadius: AppRadius.pillBorder,
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.brand
-                      : AppColors.borderDark,
-                  width: AppSizes.borderThin,
-                ),
-              ),
-              child: Text(
-                opt,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.textSecondaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-          );
-        }).toList(),
-      );
+  }
 }

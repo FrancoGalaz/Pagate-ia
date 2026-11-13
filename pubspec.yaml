@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   provider: ^6.1.2
@@ -22,9 +24,90 @@ dependencies:
   fl_chart: ^0.70.2
   pdf: ^3.11.3
   printing: ^5.14.2
+  cloud_functions: ^5.6.2
+  firebase_app_check: ^0.3.2+10
+
+  # ─── LECTOR DE BOLETAS ───────────────────────────────────────────────
+  # Reconocimiento de texto de ML Kit, CIEN POR CIEN EN EL DISPOSITIVO: la
+  # imagen no viaja a ningun servidor, no hace falta conexion y no cuesta
+  # nada por lectura. Es la pieza que permite que la politica de privacidad
+  # pueda afirmar que la foto no sale del telefono.
+  #
+  # LA VERSION NO ES LA 0.17.1. Esa es la ultima de pub.dev, pero su
+  # `environment` exige `flutter >=3.44.0` y este proyecto esta clavado en
+  # Flutter 3.42.0-0.0.pre (`.metadata` canal beta, `sdk: ^3.12.0-113.1.beta`
+  # en este mismo archivo). Con ^0.17.1 el solucionador falla antes de
+  # compilar. La 0.16.0 pide `flutter >=3.32.0` y `google_mlkit_commons
+  # ^0.12.0`, que si entran. Subir a 0.17.x es una tarea de cuando el
+  # proyecto mueva de version de Flutter, no de este carril.
+  google_mlkit_text_recognition: ^0.16.0
+
+  # La camara y la galeria, SIEMPRE con el selector del sistema: la camara se
+  # abre con el intento `ACTION_IMAGE_CAPTURE` de Android y la galeria con el
+  # selector de fotos, asi que la ficha de Play no gana el permiso CAMERA ni
+  # el de leer el almacenamiento. Verificado sobre el manifiesto fusionado
+  # (ver el comentario de android/app/src/main/AndroidManifest.xml).
+  image_picker: ^1.2.4
+
+  # Recibir una boleta COMPARTIDA desde WhatsApp, el correo o cualquier otra
+  # app. Es el unico de los cuatro con un solo mantenedor, asi que es el
+  # eslabon mas debil de la cadena; si algun dia se abandona, las otras dos
+  # entradas (camara y galeria) siguen funcionando sin el.
+  #
+  # CLAVADA EN 1.8.1, SIN `^`, Y NO ES PEREZA. La 1.9.0 (la ultima) NO
+  # COMPILA en este proyecto, comprobado ejecutando `flutter build apk`:
+  #   · su `android/build.gradle` declara `plugins { id "com.android.library" }`
+  #     y despues usa un bloque `kotlin { compilerOptions { ... } }` sin
+  #     aplicar nunca `kotlin-android`, asi que Gradle falla con
+  #     "Could not find method kotlin()" en su linea 53;
+  #   · y pide `compileSdk 37`, mientras este proyecto esta en 36
+  #     (`flutter.compileSdkVersion`).
+  # La 1.8.1 aplica `kotlin-android` y pide `compileSdk 34`, y expone
+  # exactamente la misma API que usa este carril (`instance`,
+  # `getInitialMedia`, `getMediaStream`, `reset`, `SharedMediaFile.path` y
+  # `.mimeType`): verificado en el cache de pub. Subir a 1.9.x es tarea de
+  # cuando el proyecto mueva de compileSdk, y de que el paquete arregle su
+  # Gradle.
+  receive_sharing_intent: 1.8.1
+
+  # ELEGIR UN ARCHIVO QUE YA ESTA GUARDADO EN EL TELEFONO (un PDF en
+  # Descargas, la boleta que el proveedor mando por correo y se bajo). Es la
+  # cuarta entrada del lector, y la unica que `image_picker` no puede dar:
+  # su API devuelve imagenes y nunca un PDF (`pickImage`, `pickMedia`).
+  #
+  # NO ANADE NI UN PERMISO, y es el motivo de elegir este camino y no leer
+  # el almacenamiento. En Android el selector es el MARCO DE ACCESO AL
+  # ALMACENAMIENTO (`ACTION_OPEN_DOCUMENT` / `ACTION_GET_CONTENT`): el
+  # sistema abre SU selector, el usuario elige UN archivo y la app recibe
+  # permiso solo sobre ese `content://`. `READ_EXTERNAL_STORAGE` daria
+  # acceso a TODO el almacenamiento, saldria en la ficha de Play y haria
+  # falta justificarlo en la revision. Verificado sobre el APK de release
+  # con `build-tools/36.1.0/aapt2.exe dump permissions`: la lista sigue
+  # siendo INTERNET, ACCESS_NETWORK_STATE y la
+  # DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION propia de la app.
+  #
+  # CLAVADA EN 13.1.0, SIN `^`: el tope de version es lo que impide que un
+  # `pub upgrade` futuro meta un manifiesto nuevo con un permiso dentro sin
+  # que nadie vuelva a pasar el aapt2.
+  file_picker: 13.1.0
+
+  # `getTemporaryDirectory()`: donde se escribe el PNG intermedio de un PDF
+  # rasterizado, que ML Kit necesita como archivo porque su
+  # `InputImageFormat` no acepta RGBA. Se borra siempre, haya ido bien o mal.
+  path_provider: ^2.1.6
+
+  # Abrir los textos legales en el navegador del sistema. Sin esto, la linea
+  # legal de Bienvenida solo copiaba la URL al portapapeles: el usuario
+  # aceptaba unos terminos que no podia leer, que es material de rechazo en
+  # la revision de Google Play.
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_driver:
     sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.4.13
@@ -32,6 +115,26 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # LOS DOS TTF DEL INFORME EN PDF, declarados como ASSETS y NO como una
+  # familia de fuentes.
+  #
+  # Van aqui, y no en `fonts:`, a proposito: registrarlos como caras de la
+  # familia Manrope cambiaria la tipografia de TODA la app (el motor elegiria
+  # entre tres caras en vez de mover el eje `wght` de la variable, que es lo
+  # que hace `core/theme/app_text.dart`). Como assets solo se empaquetan para
+  # que `rootBundle.load` los lea desde `core/services/pdf_report_service.dart`.
+  #
+  # Son instancias estaticas de `Manrope[wght].ttf`, generadas con
+  # `fontTools.varLib.instancer` en los pesos 400 y 700. Hacen falta porque el
+  # paquete `pdf` no interpreta `fvar`/`gvar`: embeber la variable tal cual
+  # pondria el informe entero en ExtraLight (el default del eje es 200) y sin
+  # diferencia entre un total y una linea de detalle. Conservan el copyright y
+  # el aviso de licencia OFL en su tabla `name`.
+  assets:
+    - assets/fonts/pdf/Manrope-Regular.ttf
+    - assets/fonts/pdf/Manrope-Bold.ttf
+
   fonts:
     - family: Manrope
       fonts:

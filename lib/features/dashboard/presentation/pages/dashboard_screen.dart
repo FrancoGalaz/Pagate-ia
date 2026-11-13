@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/widgets/widgets.dart';
 import 'ayuda_screen.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/ia_tab.dart';
+import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/pages/finanzas_tab.dart';
+import '../../../finances/presentation/providers/finances_provider.dart';
+import '../../../finances/presentation/widgets/transaction_form_sheet.dart';
+import '../../../hourly_value/presentation/pages/hourly_rate_setup_page.dart';
 import '../../../inventory/presentation/pages/inventario_tab.dart';
 import '../../../user_profile/presentation/pages/perfil_tab.dart';
+import '../../../user_profile/presentation/providers/user_profile_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,28 +29,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ─── Navigation Items ──────────────────────────────────────────────
 
-  static const List<_NavItem> _navItems = [
-    _NavItem(
+  static const List<PagateNavItem> _navItems = [
+    PagateNavItem(
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
       label: 'Inicio',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.bar_chart_outlined,
       activeIcon: Icons.bar_chart_rounded,
       label: 'Finanzas',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2_rounded,
       label: 'Inventario',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.smart_toy_outlined,
       activeIcon: Icons.smart_toy_rounded,
       label: 'IA',
     ),
-    _NavItem(
+    PagateNavItem(
       icon: Icons.person_outline_rounded,
       activeIcon: Icons.person_rounded,
       label: 'Perfil',
@@ -58,8 +66,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _pages = [
       HomeTab(
-        onQuickActionTap: _onQuickAction,
-        onNotificationsTap: _openHelp,
+        onRegistrarIngreso: () => showTransactionSheet(
+          context,
+          initialType: TransactionType.income,
+        ),
+        onRegistrarGasto: () => showTransactionSheet(
+          context,
+          initialType: TransactionType.expense,
+        ),
+        onVerFinanzas: () => _setPage(1),
+        onVerInventario: () => _setPage(2),
+        onVerValorHora: _abrirValorHora,
+        onAyuda: _abrirAyuda,
       ),
       const FinanzasTab(),
       const InventarioTab(),
@@ -68,36 +86,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
   }
 
-  void _onQuickAction(HomeQuickAction action) {
-    switch (action) {
-      case HomeQuickAction.sale:
-        _setPage(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar una venta.',
-        );
-      case HomeQuickAction.expense:
-        _setPage(1);
-        AppFeedback.showMessage(
-          context,
-          'Abre Finanzas para registrar un gasto.',
-        );
-      case HomeQuickAction.inventory:
-        _setPage(2);
-      case HomeQuickAction.ai:
-        _setPage(3);
-    }
-  }
-
   void _setPage(int index) {
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
   }
 
-  void _openHelp() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AyudaScreen()),
+  void _abrirAyuda() {
+    unawaited(
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(builder: (final _) => const AyudaScreen()),
+      ),
+    );
+  }
+
+  /// Inicio enseña el valor hora y lleva a configurarlo. Hasta ahora esa
+  /// pantalla estaba enterrada detrás de Perfil → Configuración.
+  void _abrirValorHora() {
+    unawaited(
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute(builder: (final _) => const HourlyRateSetupPage()),
+      ),
     );
   }
 
@@ -105,228 +115,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 720;
+    return _MonthlyGoalSync(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
 
-        if (isWide) {
-          return _buildDesktopLayout();
-        }
-        return _buildMobileLayout(compact: constraints.maxWidth < 380);
-      },
+          if (isWide) {
+            return _buildDesktopLayout();
+          }
+
+          // Se elimina la variante `compact` por debajo de 380 dp, que
+          // escondía las etiquetas de la barra: un icono sin etiqueta no se
+          // entiende, y es de lo que revisa el informe previo de Play.
+          return _buildMobileLayout();
+        },
+      ),
     );
   }
 
   // ─── Desktop Layout (NavigationRail) ───────────────────────────────
 
-  Widget _buildDesktopLayout() {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: Row(
-        children: [
-          // Rail
-          NavigationRail(
-            backgroundColor: AppColors.surfaceDark,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _setPage,
-            labelType: NavigationRailLabelType.all,
-            elevation: 0,
-            minWidth: 80,
-            groupAlignment: 0.8,
-            leading: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.md),
-              child: Column(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      gradient: AppColors.brandGradient,
-                      borderRadius: AppRadius.xlBorder,
-                    ),
-                    child: const Icon(
-                      Icons.bolt_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+  Widget _buildDesktopLayout() => Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              // Los colores, los iconos y los dos estilos de etiqueta salen
+              // de `navigationRailTheme`, que el paso R-4 añadió al tema.
+              // Antes se escribían aquí en línea con ocho colores oscuros,
+              // porque ese tema no existía en ninguno de los dos temas.
+              NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _setPage,
+                labelType: NavigationRailLabelType.all,
+                minWidth: 80,
+                groupAlignment: 0.8,
+                leading: const Padding(
+                  padding: EdgeInsets.only(
+                    top: AppSpacing.x5,
+                    bottom: AppSpacing.x4,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Pagate',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondaryDark,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
+                  child: PagateWordmark.apilada(),
+                ),
+                destinations: [
+                  for (final item in _navItems)
+                    NavigationRailDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.activeIcon),
+                      label: Text(item.label),
+                    ),
                 ],
               ),
-            ),
-            destinations: _navItems
-                .map((item) => NavigationRailDestination(
-                      icon: Icon(item.icon, color: AppColors.textSecondaryDark),
-                      selectedIcon:
-                          Icon(item.activeIcon, color: AppColors.brand),
-                      label: Text(
-                        item.label,
-                        style: TextStyle(
-                          color: _currentIndex == _navItems.indexOf(item)
-                              ? AppColors.brand
-                              : AppColors.textSecondaryDark,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-
-          // Separator
-          const VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: AppColors.borderDark,
-          ),
-
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.screenHorizontal,
-                right: AppSpacing.screenHorizontal,
+              const VerticalDivider(
+                width: AppSizes.borderHairline,
+                thickness: AppSizes.borderHairline,
+                color: AppPalette.border,
               ),
-              child: _pages[_currentIndex],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Mobile Layout (BottomNavigationBar) ───────────────────────────
-
-  Widget _buildMobileLayout({required bool compact}) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceDark,
-          border: Border(
-            top: BorderSide(color: AppColors.borderDark, width: 1),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: compact ? 56 : 64,
-            child: Row(
-              children: List.generate(
-                _navItems.length,
-                (i) => Expanded(
-                  child: _NavButton(
-                    item: _navItems[i],
-                    isSelected: _currentIndex == i,
-                    compact: compact,
-                    onTap: () => _setPage(i),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Navigation Item Models ─────────────────────────────────────────────
-
-class _NavItem {
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-  });
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-}
-
-class _NavButton extends StatelessWidget {
-  const _NavButton({
-    required this.item,
-    required this.isSelected,
-    required this.compact,
-    required this.onTap,
-  });
-
-  final _NavItem item;
-  final bool isSelected;
-  final bool compact;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          child: Stack(
-            children: [
-              // Active indicator
-              if (isSelected)
-                Positioned(
-                  top: 0,
-                  left: 16,
-                  right: 16,
-                  child: Container(
-                    height: 3,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.brandGradient,
-                      borderRadius: BorderRadius.vertical(
-                        bottom: const Radius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: AppDurations.fast,
-                      child: Icon(
-                        isSelected ? item.activeIcon : item.icon,
-                        key: ValueKey('$isSelected-${compact}'),
-                        color: isSelected
-                            ? AppColors.brand
-                            : AppColors.textSecondaryDark,
-                        size: compact ? 20 : AppIconSize.md,
-                      ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 10,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.brand
-                              : AppColors.textSecondaryDark,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              Expanded(child: _pages[_currentIndex]),
             ],
           ),
         ),
       );
+
+  // ─── Layout móvil ──────────────────────────────────────────────────
+
+  Widget _buildMobileLayout() => Scaffold(
+        // Inicio empieza con una cabecera oscura: el fondo bajo la barra de
+        // estado sigue ese color. Las demás pestañas, el lienzo del tema.
+        backgroundColor: _currentIndex == 0 ? AppPalette.ink : null,
+        // `SafeArea(bottom: false)`: hasta ahora las cinco pestañas empezaban
+        // a 24 dp del borde FÍSICO, así que en cualquier móvil con muesca el
+        // avatar y el título quedaban bajo la barra de estado. Abajo no,
+        // porque de esa zona ya se ocupa la barra de navegación.
+        body: SafeArea(
+          bottom: false,
+          child: IndexedStack(index: _currentIndex, children: _pages),
+        ),
+        bottomNavigationBar: PagateBottomNav(
+          items: _navItems,
+          currentIndex: _currentIndex,
+          onSelected: _setPage,
+        ),
+      );
 }
+
+// ─── Meta mensual: perfil → finanzas ────────────────────────────────────
+
+/// La meta mensual vive en `users/{uid}.monthlyGoal`. Este widget la copia al
+/// [FinancesProvider] cada vez que cambia en el perfil, fuera del build.
+class _MonthlyGoalSync extends StatelessWidget {
+  const _MonthlyGoalSync({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = context.select<UserProfileProvider, double>(
+      (p) => p.profile?.monthlyGoal ?? 0,
+    );
+    final finances = Provider.of<FinancesProvider>(context, listen: false);
+    if (finances.monthlyGoal != goal) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => finances.setMonthlyGoal(goal),
+      );
+    }
+    return child;
+  }
+}
+
+// ─── Marca del rail ─────────────────────────────────────────────────────
+
+// LA MARCA DEL RAIL VIVE EN core/widgets/pagate_wordmark.dart.
+//
+// Aquí había un `_RailWordmark` con su propio cuadrado en degradado de marca
+// y el nombre "Págate", sin el "-IA": era la tercera marca y el tercer nombre
+// de la misma app, junto al rayo del login y del splash. Los cinco sitios
+// usan ahora [PagateWordmark] y `kAppName`.

@@ -1,48 +1,56 @@
-// Waitlist service — captures emails for the landing page.
+// Waitlist service: envía el registro a la Cloud Function `waitlist`.
 //
-// Currently uses localStorage as a zero-dependency fallback.
-// When Firebase web credentials are configured, swap this for Firestore.
+// Contrato (docs/ARQUITECTURA.md):
+//   POST { name: string, email: string, source?: string }
+//   200 { ok: true } | 400 { error } | 429 { error }
 //
-// To switch to Firestore:
-// 1. `pnpm add firebase`
-// 2. Create a firebase.ts config with the project's web credentials
-// 3. Replace saveWaitlistEntry with a Firestore set() call
+// La URL se configura con VITE_WAITLIST_URL (ver .env.example).
 
 export interface WaitlistEntry {
   name: string;
   email: string;
-  createdAt: string;
   source: string;
 }
 
-const STORAGE_KEY = 'pagate_waitlist';
+export const WAITLIST_NOT_CONFIGURED = 'Lista de espera no configurada';
 
-export async function saveWaitlistEntry(entry: WaitlistEntry): Promise<void> {
-  // Store in localStorage
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  existing.push(entry);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-
-  // Also try to send via a beacon/analytics if available
-  try {
-    // TODO: Replace with Firestore when web credentials are configured
-    // Example Firestore integration:
-    // import { db } from './firebase';
-    // import { collection, addDoc } from 'firebase/firestore';
-    // await addDoc(collection(db, 'waitlist'), entry);
-
-    console.log('Waitlist entry saved:', entry.email);
-  } catch (e) {
-    // localStorage is the reliable fallback
-    console.warn('Could not send waitlist entry to server:', e);
-  }
+function messageForStatus(status: number): string {
+  if (status === 429) return 'Demasiados intentos. Espera un momento y vuelve a probar.';
+  if (status === 400) return 'Revisa tu nombre y correo e inténtalo de nuevo.';
+  return `No pudimos registrarte (error ${status}). Inténtalo más tarde.`;
 }
 
-export function getWaitlistCount(): number {
-  try {
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return existing.length;
-  } catch {
-    return 0;
+export async function saveWaitlistEntry(entry: WaitlistEntry): Promise<void> {
+  const url = import.meta.env.VITE_WAITLIST_URL;
+  if (!url) {
+    throw new Error(WAITLIST_NOT_CONFIGURED);
   }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: entry.name,
+        email: entry.email,
+        source: entry.source,
+      }),
+    });
+  } catch {
+    throw new Error('No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.');
+  }
+
+  if (response.ok) return;
+
+  let message = messageForStatus(response.status);
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    if (typeof body?.error === 'string' && body.error.trim()) {
+      message = body.error;
+    }
+  } catch {
+    // Cuerpo no JSON: se usa el mensaje por estado.
+  }
+  throw new Error(message);
 }

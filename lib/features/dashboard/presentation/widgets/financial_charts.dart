@@ -1,518 +1,564 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/month_labels.dart';
 import '../../../finances/domain/entities/finances_summary_entity.dart';
 import '../../../finances/domain/entities/finances_transaction_entity.dart';
 import '../../../finances/presentation/providers/finances_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════
-// FINANCIAL CHARTS — Dashboard visualizations for the home tab
+// GRÁFICOS DE FINANZAS
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, "Color" (series de datos) y paso 6.5.
+//
+// VIVEN EN FINANZAS, NO EN INICIO. En la portada sumaban ~834 dp de los
+// ~1.697 totales —el 49% del scroll— y dos de los tres mostraban "Aún no
+// hay datos mensuales" hasta que el usuario tuviera dos meses registrados.
+// Aquí el usuario llega con intención de analizar.
+//
+// EL DONUT DESAPARECE, y no se sustituye por una rampa de seis colores.
+// Tenía `_pieColors`, diez colores hexadecimales literales de los cuales
+// seis duplicaban
+// tokens y cuatro —violeta #8B5CF6, rosa #EC4899, turquesa #14B8A6, índigo
+// #6366F1— no existían en la paleta. El texto blanco de 11 dp que iba
+// dentro de cada porción fallaba el contraste en NUEVE de los diez colores
+// (2,15 el ámbar, 2,49 el teal, 2,54 el verde, 2,67 el coral, 3,53 el rosa,
+// 3,68 el azul, 3,76 el rojo, 4,23 el violeta, 4,47 el índigo; solo el
+// #006B5F pasaba con 6,43). Lo sustituyen barras horizontales con etiqueta,
+// monto y porcentaje, donde el color es REDUNDANTE y no hay problema de
+// contraste entre segmentos adyacentes. El hallazgo se cierra eliminando la
+// necesidad, no inventando seis colores más.
+//
+// DOS TINTAS EN LAS SERIES, no diez: `moneyIn` #0B6A47 para los ingresos y
+// `textPrimary` #101828 para los gastos, los dos sobre blanco con ratio
+// verificado. Las barras de categoría usan `ink` sobre pista `sunken` (el
+// color de acción queda para lo que se toca) y `seriesOther` #7E8794 (3,63:1, cumple 1.4.11 como objeto
+// gráfico) para la fila "Otros".
+//
+// CADA GRÁFICO SE ANUNCIA. Antes la sección entera era un hueco mudo para
+// el lector de pantalla: `Semantics`, `semanticLabel` y `ExcludeSemantics`
+// aparecían CERO veces en todo `lib/`. Ahora el `CustomPaint` va excluido y
+// el bloque lleva una etiqueta que dice las cifras.
 // ═══════════════════════════════════════════════════════════════════════
 
-// ─── Monthly Income vs Expenses (Bar Chart) ──────────────────────────
-
+/// Ingresos y gastos de los últimos meses, en dos tintas.
 class MonthlyBarChart extends StatelessWidget {
-  const MonthlyBarChart({super.key});
+  const MonthlyBarChart({super.key, this.anio});
 
-  static const String _title = 'Ingresos vs Gastos';
+  /// `'2026'` para mostrar solo los meses de ese año; `null`, todos.
+  final String? anio;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final months = finances.months;
 
-    return _ChartCard(
-      title: _title,
-      icon: Icons.bar_chart_rounded,
-      child: months.length < 2
-          ? _EmptyChartMessage(
-              message: months.isEmpty
-                  ? 'Aún no hay datos mensuales'
-                  : 'Registra otro mes para ver la comparativa',
-            )
-          : SizedBox(
-              height: 220,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: _maxY(months),
-                  minY: 0,
-                  barTouchData: BarTouchData(
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final m = months.length > groupIndex ? months[groupIndex] : null;
-                        return BarTooltipItem(
-                          '${m?.month ?? ''}\n\$${_fmt(rod.toY)}',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          final idx = value.toInt();
-                          if (idx < 0 || idx >= months.length) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              _shortMonth(months[idx].month),
-                              style: const TextStyle(
-                                color: AppColors.textSecondaryDark,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        },
-                        reservedSize: 28,
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 44,
-                        getTitlesWidget: (value, meta) {
-                          if (value == 0) return const SizedBox.shrink();
-                          return Text(
-                            '\$${_fmt(value)}',
-                            style: const TextStyle(
-                              color: AppColors.textSecondaryDark,
-                              fontSize: 10,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: _maxY(months) / 4,
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: AppColors.borderDark.withValues(alpha: 0.4),
-                      strokeWidth: 0.5,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  barGroups: months.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final m = entry.value;
-                    return BarChartGroupData(
-                      x: i,
-                      barRods: [
-                        BarChartRodData(
-                          toY: m.totalIncome,
-                          color: AppColors.success,
-                          width: 14,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(4),
-                          ),
-                        ),
-                        BarChartRodData(
-                          toY: m.totalExpenses,
-                          color: AppColors.error,
-                          width: 14,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(4),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-                duration: const Duration(milliseconds: 400),
-              ),
-            ),
-    );
-  }
+    // El provider entrega del más reciente al más antiguo; una serie
+    // temporal va en orden cronológico.
+    final months = [
+      for (final m in finances.months.reversed)
+        if (anio == null || m.monthKey.startsWith('$anio-')) m,
+    ];
 
-  double _maxY(List<FinancesSummaryEntity> months) {
-    double max = 0;
-    for (final m in months) {
-      final v = m.totalIncome > m.totalExpenses ? m.totalIncome : m.totalExpenses;
-      if (v > max) max = v;
+    // El año ya está en la cabecera: el eje dice «oct», y solo un mes de
+    // otro año lleva el suyo («dic 25»), para no confundir dos diciembres.
+    final anioDeReferencia = anio ?? finances.selectedMonthKey.split('-').first;
+    String etiquetaEje(final FinancesSummaryEntity m) {
+      final partes = m.monthKey.split('-');
+      final mes = partes.length == 2 ? int.tryParse(partes[1]) : null;
+      if (mes == null || mes < 1 || mes > 12) return m.monthKey;
+      return partes[0] == anioDeReferencia
+          ? monthAbbreviation(mes)
+          : shortMonthLabelFromMonthKey(m.monthKey);
     }
-    return max > 0 ? max * 1.15 : 1000;
-  }
-}
-
-// ─── Net Balance Trend (Line Chart) ──────────────────────────────────
-
-class NetBalanceLineChart extends StatelessWidget {
-  const NetBalanceLineChart({super.key});
-
-  static const String _title = 'Tendencia Mensual';
-
-  @override
-  Widget build(BuildContext context) {
-    final finances = context.watch<FinancesProvider>();
-    final months = finances.months;
 
     if (months.length < 2) {
-      return _ChartCard(
-        title: _title,
-        icon: Icons.trending_up_rounded,
-        child: _EmptyChartMessage(
+      return _BloqueGrafico(
+        title: 'Ingresos y gastos por mes',
+        child: _MensajeVacio(
           message: months.isEmpty
-              ? 'Aún no hay datos mensuales'
-              : 'Registra otro mes para ver la tendencia',
+              ? 'Registra movimientos para ver la comparación.'
+              : 'Con un mes más aparece la comparación.',
         ),
       );
     }
 
-    final spots = months.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value.balance);
-    }).toList();
+    final (maxY, paso) = _escala(months);
 
-    final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
-    final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
-
-    return _ChartCard(
-      title: _title,
-      icon: Icons.trending_up_rounded,
+    return _BloqueGrafico(
+      title: 'Ingresos y gastos por mes',
+      semanticsLabel: _describir(months),
+      leyenda: const [
+        _Leyenda(color: AppPalette.moneyIn, texto: 'Ingresos'),
+        _Leyenda(color: AppPalette.textPrimary, texto: 'Gastos'),
+      ],
       child: SizedBox(
         height: 200,
-        child: LineChart(
-          LineChartData(
-            minX: 0,
-            maxX: (months.length - 1).toDouble(),
-            minY: minY > 0 ? 0 : minY * 1.15,
-            maxY: maxY > 0 ? maxY * 1.15 : 1000,
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
-                  final idx = spot.spotIndex;
-                  final m = idx < months.length ? months[idx] : null;
-                  return LineTooltipItem(
-                    '${m?.month ?? ''}\n\$${_fmt(spot.y)}',
-                    const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  );
-                }).toList(),
+        child: BarChart(
+          BarChartData(
+            alignment: BarChartAlignment.spaceAround,
+            // El eje parte en $0 y lo dice: una barra que arranca más
+            // arriba exagera la diferencia entre meses.
+            minY: 0,
+            maxY: maxY,
+            barTouchData: BarTouchData(
+              touchTooltipData: BarTouchTooltipData(
+                getTooltipItem: (
+                  final group,
+                  final groupIndex,
+                  final rod,
+                  final rodIndex,
+                ) =>
+                    BarTooltipItem(
+                  '${monthLabelFromMonthKey(months[groupIndex].monthKey)}\n'
+                  '${formatCurrency(rod.toY, currency: kFallbackCurrency)}',
+                  _estiloEje(context).copyWith(color: AppPalette.surface),
+                ),
               ),
             ),
             titlesData: FlTitlesData(
-              show: true,
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  getTitlesWidget: (value, meta) {
+                  reservedSize: 28,
+                  getTitlesWidget: (final value, final meta) {
                     final idx = value.toInt();
                     if (idx < 0 || idx >= months.length) {
                       return const SizedBox.shrink();
                     }
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.x2),
                       child: Text(
-                        _shortMonth(months[idx].month),
-                        style: const TextStyle(
-                          color: AppColors.textSecondaryDark,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        etiquetaEje(months[idx]),
+                        style: _estiloEje(context),
                       ),
                     );
                   },
-                  reservedSize: 28,
                 ),
               ),
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 44,
-                  getTitlesWidget: (value, meta) {
-                    if (value == 0) return const SizedBox.shrink();
-                    return Text(
-                      '\$${_fmt(value)}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
-                        fontSize: 10,
+                  reservedSize: _anchoEjeVertical,
+                  interval: paso,
+                  // Único sitio del sistema donde se abrevia una cifra: en
+                  // un eje no cabe entera. El $0 también se rotula.
+                  getTitlesWidget: (final value, final meta) =>
+                      _rotuloVertical(
+                        context,
+                        formatCompactCurrency(
+                          value,
+                          currency: kFallbackCurrency,
+                        ),
                       ),
-                    );
-                  },
                 ),
               ),
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
+              topTitles: const AxisTitles(),
+              rightTitles: const AxisTitles(),
             ),
             gridData: FlGridData(
-              show: true,
               drawVerticalLine: false,
-              getDrawingHorizontalLine: (value) => FlLine(
-                color: AppColors.borderDark.withValues(alpha: 0.4),
-                strokeWidth: 0.5,
+              horizontalInterval: paso,
+              getDrawingHorizontalLine: (final value) => const FlLine(
+                color: AppPalette.hairline,
+                strokeWidth: AppSizes.borderHairline,
               ),
             ),
             borderData: FlBorderData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
-                curveSmoothness: 0.3,
-                color: AppColors.brand,
-                barWidth: 3,
-                isStrokeCapRound: true,
-                dotData: FlDotData(
-                  show: true,
-                  getDotPainter: (spot, percent, barData, index) {
-                    final isPositive = spot.y >= 0;
-                    return FlDotCirclePainter(
-                      radius: 4,
-                      color: isPositive ? AppColors.success : AppColors.error,
-                      strokeWidth: 2,
-                      strokeColor: AppColors.surfaceDark,
-                    );
-                  },
+            barGroups: [
+              for (var i = 0; i < months.length; i++)
+                BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    BarChartRodData(
+                      toY: months[i].totalIncome,
+                      color: AppPalette.moneyIn,
+                      width: 14,
+                      borderRadius: _topeBarra,
+                    ),
+                    BarChartRodData(
+                      toY: months[i].totalExpenses,
+                      color: AppPalette.textPrimary,
+                      width: 14,
+                      borderRadius: _topeBarra,
+                    ),
+                  ],
                 ),
-                belowBarData: BarAreaData(
-                  show: true,
-                  color: AppColors.brand.withValues(alpha: 0.12),
-                ),
-              ),
             ],
           ),
-          duration: const Duration(milliseconds: 400),
         ),
       ),
     );
   }
+
+  static const BorderRadius _topeBarra = BorderRadius.vertical(
+    top: Radius.circular(AppRadius.r4),
+  );
+
+  /// Tope y paso del eje, en números redondos: $100 mil, $200 mil… y no
+  /// $89,3 mil. Como mucho cuatro tramos sobre el $0.
+  static (double, double) _escala(final List<FinancesSummaryEntity> months) {
+    var max = 0.0;
+    for (final m in months) {
+      final v = math.max(m.totalIncome, m.totalExpenses);
+      if (v > max) max = v;
+    }
+    if (max <= 0) return (1000, 250);
+    final crudo = max / 4;
+    final base = math
+        .pow(10, (math.log(crudo) / math.ln10).floor())
+        .toDouble();
+    final paso = [1, 2, 2.5, 5, 10]
+        .map((final f) => f * base)
+        .firstWhere((final v) => v >= crudo);
+    return ((max / paso).ceil() * paso, paso);
+  }
+
+  String _describir(final List<FinancesSummaryEntity> months) {
+    final ultimo = months.last;
+    return 'Ingresos y gastos por mes. '
+        'Último mes, ${monthLabelFromMonthKey(ultimo.monthKey)}: '
+        'ingresos ${formatCurrency(
+      ultimo.totalIncome,
+      currency: kFallbackCurrency,
+    )}, gastos ${formatCurrency(
+      ultimo.totalExpenses,
+      currency: kFallbackCurrency,
+    )}, balance ${formatCurrency(
+      ultimo.balance,
+      currency: kFallbackCurrency,
+    )}.';
+  }
 }
 
-// ─── Category Breakdown (Pie Chart) ──────────────────────────────────
+/// Gastos por categoría, en barras horizontales con etiqueta, monto y
+/// porcentaje. Sustituye al donut de diez colores.
+class CategoryBars extends StatelessWidget {
+  const CategoryBars({super.key});
 
-class CategoryPieChart extends StatelessWidget {
-  const CategoryPieChart({super.key});
-
-  static const String _title = 'Gastos por Categoría';
+  /// Cinco categorías y el resto agrupado en "Otros". Más filas se leen
+  /// como una lista, y la lista ya está debajo.
+  static const int _maxCategorias = 5;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final finances = context.watch<FinancesProvider>();
-    final transactions = finances.recentTransactions.where(
-      (t) => t.type == TransactionType.expense,
-    );
 
-    // Aggregate by category
-    final Map<String, double> categoryTotals = {};
-    for (final t in transactions) {
-      final cat = t.category.isNotEmpty ? t.category : 'Sin categoría';
-      categoryTotals.update(cat, (v) => v + t.amount, ifAbsent: () => t.amount);
+    final porCategoria = <String, double>{};
+    for (final t in finances.transactions) {
+      if (t.type != TransactionType.expense || t.amount <= 0) continue;
+      final categoria = t.category.isNotEmpty ? t.category : 'Sin categoría';
+      porCategoria.update(
+        categoria,
+        (final v) => v + t.amount,
+        ifAbsent: () => t.amount,
+      );
     }
 
-    if (categoryTotals.isEmpty) {
-      return _ChartCard(
-        title: _title,
-        icon: Icons.pie_chart_rounded,
-        child: const _EmptyChartMessage(
-          message: 'Registra gastos para ver el desglose',
+    final total = porCategoria.values.fold<double>(0, (final a, final b) => a + b);
+    if (total <= 0) {
+      return const _BloqueGrafico(
+        title: 'En qué se te va el mes',
+        child: _MensajeVacio(
+          message: 'Registra gastos para ver en qué se te va el mes.',
         ),
       );
     }
 
-    final colors = _pieColors;
-    final total = categoryTotals.values.fold(0.0, (a, b) => a + b);
-    final entries = categoryTotals.entries.toList();
+    final ordenadas = porCategoria.entries.toList()
+      ..sort((final a, final b) => b.value.compareTo(a.value));
 
-    return _ChartCard(
-      title: _title,
-      icon: Icons.pie_chart_rounded,
-      child: Row(
-        children: [
-          SizedBox(
-            height: 140,
-            width: 140,
-            child: PieChart(
-              PieChartData(
-                sections: entries.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final e = entry.value;
-                  final percentage = (e.value / total) * 100;
-                  return PieChartSectionData(
-                    color: colors[i % colors.length],
-                    value: e.value,
-                    title: '${percentage.toStringAsFixed(0)}%',
-                    radius: 42,
-                    titleStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  );
-                }).toList(),
-                centerSpaceRadius: 24,
-                sectionsSpace: 2,
-              ),
-              duration: const Duration(milliseconds: 400),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: entries.asMap().entries.map((entry) {
-                final i = entry.key;
-                final e = entry.value;
-                final pct = (e.value / total) * 100;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: colors[i % colors.length],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          e.key,
-                          style: const TextStyle(
-                            color: AppColors.textSecondaryDark,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '${pct.toStringAsFixed(0)}%',
-                        style: const TextStyle(
-                          color: AppColors.textPrimaryDark,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final filas = <_FilaCategoria>[];
+    for (var i = 0; i < ordenadas.length && i < _maxCategorias; i++) {
+      filas.add(
+        _FilaCategoria(
+          nombre: ordenadas[i].key,
+          monto: ordenadas[i].value,
+          fraccion: ordenadas[i].value / total,
+        ),
+      );
+    }
+    if (ordenadas.length > _maxCategorias) {
+      final resto = ordenadas
+          .skip(_maxCategorias)
+          .fold<double>(0, (final a, final b) => a + b.value);
+      filas.add(
+        _FilaCategoria(
+          nombre: 'Otros',
+          monto: resto,
+          fraccion: resto / total,
+          esResto: true,
+        ),
+      );
+    }
 
-// ─── Shared Widgets ──────────────────────────────────────────────────
-
-class _ChartCard extends StatelessWidget {
-  const _ChartCard({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
-
-  final String title;
-  final IconData icon;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: AppRadius.xxlBorder,
-        border: Border.all(color: AppColors.borderDark),
-      ),
+    return _BloqueGrafico(
+      title: 'En qué se te va el mes',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.brand, size: 18),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimaryDark,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          child,
+          for (final fila in filas) ...[
+            fila,
+            if (fila != filas.last) const SizedBox(height: AppSpacing.x3),
+          ],
         ],
       ),
     );
   }
 }
 
-class _EmptyChartMessage extends StatelessWidget {
-  const _EmptyChartMessage({required this.message});
+/// Una categoría: nombre, monto, porcentaje y la barra debajo.
+class _FilaCategoria extends StatelessWidget {
+  const _FilaCategoria({
+    required this.nombre,
+    required this.monto,
+    required this.fraccion,
+    this.esResto = false,
+  });
 
-  final String message;
+  final String nombre;
+  final double monto;
+  final double fraccion;
+  final bool esResto;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 80,
-      child: Center(
-        child: Text(
-          message,
-          style: const TextStyle(
-            color: AppColors.textSecondaryDark,
-            fontSize: 13,
-          ),
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final porcentaje = (fraccion * 100).round();
+    // Con letra de 1,5 o más el nombre va en su línea, entero, y el monto
+    // con el porcentaje debajo: al lado quedaba en «Arriendo …».
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final cifras = <Widget>[
+      Text(
+        formatCurrency(monto, currency: kFallbackCurrency),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: AppPalette.textPrimary,
+        ),
+      ),
+      Text(
+        '$porcentaje %',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: AppPalette.textMuted,
+        ),
+      ),
+    ];
+
+    return Semantics(
+      label: '$nombre, '
+          '${formatCurrency(monto, currency: kFallbackCurrency)}, '
+          '$porcentaje por ciento',
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (apilado) ...[
+              Text(nombre, style: theme.textTheme.bodyMedium),
+              Wrap(
+                spacing: AppSpacing.x3,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: cifras,
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      nombre,
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  Flexible(
+                    child: Text(
+                      formatCurrency(monto, currency: kFallbackCurrency),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppPalette.textPrimary,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Text(
+                    '$porcentaje %',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: AppSpacing.x1),
+            ClipRRect(
+              borderRadius: AppRadius.r4Border,
+              child: LinearProgressIndicator(
+                value: fraccion.clamp(0, 1),
+                // El color aquí es redundante: la etiqueta, el monto y el
+                // porcentaje ya están escritos al lado.
+                // El oscuro y no el color de acción: estas barras no se
+                // tocan.
+                color: esResto ? AppPalette.seriesOther : AppPalette.ink,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+// ─── Piezas compartidas ────────────────────────────────────────────────
 
-String _fmt(double v) =>
-    v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}K' : v.toStringAsFixed(0);
+/// Encabezado, leyenda y marco de un gráfico.
+class _BloqueGrafico extends StatelessWidget {
+  const _BloqueGrafico({
+    required this.title,
+    required this.child,
+    this.semanticsLabel,
+    this.leyenda,
+  });
 
-String _shortMonth(String month) {
-  // month is like "Marzo 2025" → "Mar"
-  final parts = month.split(' ');
-  final name = parts.isNotEmpty ? parts[0] : month;
-  if (name.length <= 3) return name;
-  return name.substring(0, 3);
+  final String title;
+  final Widget child;
+
+  /// Lo que el lector de pantalla anuncia en lugar del dibujo. Si es `null`
+  /// (gráfico vacío), basta con el texto del mensaje.
+  final String? semanticsLabel;
+
+  final List<Widget>? leyenda;
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Con letra de 1,5 o más la leyenda baja bajo el título: a su lado lo
+    // estrujaba hasta partir «Ingresos» en «Ingres / os».
+    final apilado = MediaQuery.textScalerOf(context).scale(10) >= 15;
+    final titulo = Text(title, style: theme.textTheme.titleLarge);
+
+    final contenido = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (apilado) ...[
+          titulo,
+          if (leyenda != null) ...[
+            const SizedBox(height: AppSpacing.x2),
+            Wrap(
+              spacing: AppSpacing.x3,
+              runSpacing: AppSpacing.x1,
+              children: leyenda!,
+            ),
+          ],
+        ] else
+          Row(
+            children: [
+              Expanded(child: titulo),
+              if (leyenda != null)
+                for (final item in leyenda!) ...[
+                  const SizedBox(width: AppSpacing.x3),
+                  item,
+                ],
+            ],
+          ),
+        const SizedBox(height: AppSpacing.x4),
+
+        // El dibujo es mudo para un lector de pantalla; lo que se anuncia
+        // son las cifras del `Semantics` de fuera.
+        if (semanticsLabel == null)
+          child
+        else
+          ExcludeSemantics(child: child),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x4,
+        vertical: AppSpacing.x4,
+      ),
+      child: semanticsLabel == null
+          ? contenido
+          : Semantics(label: semanticsLabel, child: contenido),
+    );
+  }
 }
 
-const List<Color> _pieColors = [
-  Color(0xFF006B5F),
-  Color(0xFFFF735C),
-  Color(0xFF3B82F6),
-  Color(0xFFF59E0B),
-  Color(0xFF8B5CF6),
-  Color(0xFF10B981),
-  Color(0xFFEF4444),
-  Color(0xFFEC4899),
-  Color(0xFF14B8A6),
-  Color(0xFF6366F1),
-];
+/// Cuadrado de color y nombre de una serie.
+class _Leyenda extends StatelessWidget {
+  const _Leyenda({required this.color, required this.texto});
+
+  final Color color;
+  final String texto;
+
+  @override
+  Widget build(final BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: AppSpacing.x2,
+            height: AppSpacing.x2,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x1),
+          Text(
+            texto,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppPalette.textMuted,
+                ),
+          ),
+        ],
+      );
+}
+
+class _MensajeVacio extends StatelessWidget {
+  const _MensajeVacio({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(final BuildContext context) => Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppPalette.textSecondary,
+            ),
+      );
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+/// Estilo de los rótulos de eje. Sale del `TextTheme`, así que hereda
+/// `fontVariations` y la familia; escrito a mano no las heredaría.
+///
+/// `labelSmall` (11 dp) y no `labelMedium`: con 13 dp, "$500 mil" no cabía
+/// en el ancho reservado del eje y se partía en dos líneas, de modo que los
+/// rótulos se pisaban entre sí.
+TextStyle _estiloEje(final BuildContext context) =>
+    Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: AppPalette.textSecondary,
+        ) ??
+    const TextStyle(color: AppPalette.textSecondary);
+
+/// Rótulo de eje vertical: una sola línea, a la derecha y sin partirse.
+Widget _rotuloVertical(final BuildContext context, final String texto) =>
+    Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.x2),
+      child: Text(
+        texto,
+        style: _estiloEje(context),
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        textAlign: TextAlign.right,
+      ),
+    );
+
+/// Ancho reservado para el eje vertical. Cabe "$1.310 mil" a 11 dp con el
+/// hueco de 8 dp hasta la primera barra.
+const double _anchoEjeVertical = 72;

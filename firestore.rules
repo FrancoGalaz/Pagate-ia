@@ -1,61 +1,378 @@
-// Firebase Firestore Security Rules para Pagate-IA
-// Copia esto en: Firebase Console > Firestore Database > Rules
-// Asegura que cada usuario solo lea/escriba sus propios datos
+// Reglas de Firestore para Págate-IA (contrato v1, ver docs/ARQUITECTURA.md)
 //
-// ⚠️ ANTES de desplegar:
-// 1. Reemplazar `YOUR_PROJECT_ID` con el ID real de tu proyecto
-// 2. Habilitar Firebase Authentication en la consola
-// 3. Estos rules bloquean todo acceso no autenticado
+// Principios:
+// - Todo dato de usuario cuelga de users/{uid}; solo el dueño accede.
+// - Los agregados (months), el chat (conversations/messages), la cuota (meta)
+//   y la waitlist los escribe únicamente el backend (Admin SDK, que no pasa
+//   por estas reglas). Desde el cliente son solo lectura o sin acceso.
+// - Denegar por defecto: todo lo que no coincide con un match explícito se rechaza.
+//
+// Endurecimiento S-02 (auditoría 2026-09-29):
+// 1. `createdAt` es inmutable en update: antes el cliente podía reescribirlo y
+//    falsear la antigüedad de cualquier registro.
+// 2. `updatedAt` tiene que valer exactamente `request.time`, o sea venir de un
+//    `FieldValue.serverTimestamp()`. Antes bastaba que fuera un timestamp
+//    cualquiera, así que el reloj del teléfono (o un valor inventado) decidía el
+//    orden de los datos; `conversations` se ordena por ese campo.
+// 3. Topes numéricos SUPERIORES. Sin ellos, `Infinity` pasaba la validación
+//    (`v is number` es cierto para infinito) y contaminaba para siempre los
+//    agregados de `months`, que son sumas.
+// 4. `read` separado en `get` y `list`, con `list` acotado a 200 documentos.
+//    Una colección sin tope se puede pedir entera, y el dueño paga por lectura.
+//    OJO: `request.query.limit` vale `null` en una consulta sin `.limit()`
+//    explícito, y comparar null con un número es un error de ejecución que
+//    deniega la operación. Por eso se comprueba `is int` primero, y por eso el
+//    cliente TIENE que poner `.limit()` en todas sus consultas de colección.
+// 5. `delete` de users/{uid} denegado: borraba el documento y dejaba huérfanas
+//    todas las subcolecciones. Ahora el borrado de cuenta pasa por el callable
+//    `deleteAccount`, que borra el árbol completo y la credencial de Auth.
+//
+// Contrato C-3 (mercado chileno): `transactions` acepta dos campos nuevos,
+// `docType` y `platformFee`, los dos OPCIONALES para no invalidar ni un solo
+// documento ya escrito. El detalle y el por qué están junto a
+// `validTransaction`, más abajo.
+//
+// P-12 (política de IA generativa de Google Play): `users/{uid}/aiReports` es
+// la subcolección donde el cliente deja los reportes de respuestas del
+// asistente. Es la única que el dueño puede crear y después NO puede modificar
+// ni borrar. El detalle está junto a `validAiReport`.
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Función helper: permite acceso solo al dueño del recurso
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+    // ---------- Helpers ----------
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    // Regla por defecto: DENEGAR todo
-    match /{document=**} {
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isStr(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    function isNonEmptyStr(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    function isNullableStr(d, field, max) {
+      return !(field in d) || d[field] == null || isStr(d[field], max);
+    }
+
+    // Topes numéricos. 1e12 para dinero: mil millones de pesos por los pelos no
+    // llega, y cualquier cosa por encima es un error de entrada o un ataque.
+    // 1e9 para unidades de stock. Infinity y NaN quedan fuera por comparación.
+    function isMoney(v) {
+      return v is number && v >= 0 && v <= 1000000000000;
+    }
+
+    function isPositiveMoney(v) {
+      return v is number && v > 0 && v <= 1000000000000;
+    }
+
+    function isCount(v) {
+      return v is int && v >= 0 && v <= 1000000000;
+    }
+
+    function isTs(v) {
+      return v is timestamp;
+    }
+
+    // `updatedAt` solo puede venir del servidor.
+    function updatedAtIsServerTime(d) {
+      return isTs(d.updatedAt) && d.updatedAt == request.time;
+    }
+
+    // En create, `createdAt` también se ata a la hora del servidor: así nadie
+    // antedata un registro.
+    function validTimestampsOnCreate(d) {
+      return isTs(d.createdAt) && d.createdAt == request.time && updatedAtIsServerTime(d);
+    }
+
+    // En update, `createdAt` tiene que seguir siendo el que ya estaba. El caso
+    // `!('createdAt' in prev)` cubre documentos antiguos que no lo tenían.
+    function validTimestampsOnUpdate(d, prev) {
+      return isTs(d.createdAt)
+        && (!('createdAt' in prev) || d.createdAt == prev.createdAt)
+        && updatedAtIsServerTime(d);
+    }
+
+    // Tope de documentos por consulta de colección.
+    function isLimitedList() {
+      return request.query.limit is int && request.query.limit > 0 && request.query.limit <= 200;
+    }
+
+    // ---------- users/{uid} ----------
+
+    function validHourlyRate(r) {
+      return r is map
+        && r.keys().hasOnly(['desiredMonthlySalary', 'availableHoursPerMonth', 'hourlyValue'])
+        && (!('desiredMonthlySalary' in r) || isMoney(r.desiredMonthlySalary))
+        && (!('availableHoursPerMonth' in r) || isMoney(r.availableHoursPerMonth))
+        && (!('hourlyValue' in r) || isMoney(r.hourlyValue));
+    }
+
+    function validProfile(d) {
+      return d.keys().hasOnly([
+          'name', 'businessName', 'businessType', 'currency', 'monthlyGoal',
+          'avatarInitials', 'plan', 'hourlyRate', 'createdAt', 'updatedAt'
+        ])
+        && d.keys().hasAll(['name', 'currency', 'createdAt', 'updatedAt'])
+        && isNonEmptyStr(d.name, 200)
+        && (!('businessName' in d) || isStr(d.businessName, 200))
+        && (!('businessType' in d) || isStr(d.businessType, 200))
+        && d.currency in ['CLP', 'USD']
+        && (!('monthlyGoal' in d) || isMoney(d.monthlyGoal))
+        && (!('avatarInitials' in d) || isStr(d.avatarInitials, 10))
+        && (!('hourlyRate' in d) || d.hourlyRate == null || validHourlyRate(d.hourlyRate))
+        && (!('plan' in d) || d.plan in ['free', 'pro']);
+    }
+
+    // `plan` solo lo escribe el backend: en create no puede venir; en update
+    // puede omitirse o repetir exactamente el valor que ya tenía.
+    function planUntouchedOnCreate(d) {
+      return !('plan' in d);
+    }
+
+    function planUntouchedOnUpdate(d, prev) {
+      return !('plan' in d) || ('plan' in prev && d.plan == prev.plan);
+    }
+
+    match /users/{uid} {
+      // Solo lectura de documento. No se permite consultar la colección /users.
+      allow get: if isOwner(uid);
+      allow list: if false;
+
+      allow create: if isOwner(uid)
+        && validProfile(incoming())
+        && validTimestampsOnCreate(incoming())
+        && planUntouchedOnCreate(incoming());
+      allow update: if isOwner(uid)
+        && validProfile(incoming())
+        && validTimestampsOnUpdate(incoming(), resource.data)
+        && planUntouchedOnUpdate(incoming(), resource.data);
+
+      // El borrado de cuenta pasa por el callable `deleteAccount`: borrar solo
+      // este documento dejaría inventory, transactions, fixedExpenses, months,
+      // conversations y meta colgando sin dueño y sin forma de volver a
+      // alcanzarlos.
+      allow delete: if false;
+
+      // ---------- inventory ----------
+
+      function validInventoryItem(d) {
+        return d.keys().hasOnly([
+            'name', 'type', 'price', 'stock', 'minStock', 'unit', 'supplier', 'code',
+            'createdAt', 'updatedAt'
+          ])
+          && d.keys().hasAll(['name', 'type', 'price', 'stock', 'minStock', 'unit', 'createdAt', 'updatedAt'])
+          && isNonEmptyStr(d.name, 200)
+          && d.type in ['product', 'material']
+          && isMoney(d.price)
+          && isCount(d.stock)
+          && isCount(d.minStock)
+          && isStr(d.unit, 200)
+          && isNullableStr(d, 'supplier', 200)
+          && isNullableStr(d, 'code', 200);
+      }
+
+      match /inventory/{itemId} {
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validInventoryItem(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validInventoryItem(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
+      }
+
+      // ---------- transactions ----------
+
+      // Contrato C-3 (orientacion al mercado chileno). Dos campos OPCIONALES:
+      //
+      // - `docType`: con que documento respaldo el usuario el movimiento. Importa
+      //   porque en Chile una boleta de honorarios y una boleta de venta no son
+      //   lo mismo (la primera no lleva IVA y le retienen un porcentaje; la
+      //   segunda lleva IVA), asi que un "ingreso" a secas no se puede agrupar
+      //   de forma util. Se acepta AUSENTE o exactamente uno de los tres
+      //   valores; `null` NO se acepta a proposito, para que "sin documento"
+      //   tenga una sola representacion: el campo ausente se lee como
+      //   'sin_documento'.
+      // - `platformFee`: la comision que se queda el medio de pago, en la misma
+      //   moneda que `amount`. El tope superior es `amount`: una comision mayor
+      //   que el monto cobrado no existe, y sin ese tope el neto derivado
+      //   (`amount - platformFee`) saldria negativo. Solo se acepta en los
+      //   INGRESOS: la comision es lo que descuenta el medio de pago de una
+      //   venta cobrada, y en un gasto no significa nada. Antes se aceptaba en
+      //   los dos tipos, y eso dejaba un dato que nada podia interpretar: el
+      //   agregado `totalPlatformFees` de `months/*` suma las comisiones de los
+      //   ingresos, asi que una comision en un gasto se guardaba y se ignoraba
+      //   en silencio. El formulario del cliente nunca escribe una (en un gasto
+      //   borra el campo), asi que esto no invalida ningun documento suyo. El
+      //   gasto que SI existe (la liquidacion mensual de un marketplace que
+      //   llega aparte) se registra como gasto normal con la categoria
+      //   'Comision de plataforma'.
+      //
+      // No se guarda ningun neto: se deriva siempre. Un neto guardado se puede
+      // contradecir con sus propios operandos, y aqui no hay forma de validar
+      // esa coherencia sin recalcularla. `months/*` guarda la SUMA de las
+      // comisiones, que es un operando mas, no un neto (ver `MonthTotals` en
+      // `functions/src/months.ts`).
+      function validDocType(v) {
+        return v in ['boleta_venta', 'boleta_honorarios', 'sin_documento'];
+      }
+
+      function validPlatformFee(d) {
+        // El orden importa: `isMoney` primero, porque comparar un valor no
+        // numerico con `d.amount` es un error de ejecucion, no un `false`.
+        return d.type == 'income' && isMoney(d.platformFee) && d.platformFee <= d.amount;
+      }
+
+      function validTransaction(d) {
+        return d.keys().hasOnly([
+            'title', 'description', 'amount', 'type', 'category', 'date', 'monthKey',
+            'docType', 'platformFee', 'createdAt', 'updatedAt'
+          ])
+          && d.keys().hasAll(['title', 'amount', 'type', 'category', 'date', 'monthKey', 'createdAt', 'updatedAt'])
+          && isNonEmptyStr(d.title, 200)
+          && (!('description' in d) || isStr(d.description, 2000))
+          && isPositiveMoney(d.amount)
+          && d.type in ['income', 'expense']
+          && isStr(d.category, 200)
+          && isTs(d.date)
+          && (!('docType' in d) || validDocType(d.docType))
+          && (!('platformFee' in d) || validPlatformFee(d))
+          && d.monthKey is string
+          // El mes acotado a 01-12. El regex anterior (`[0-9]{2}`) aceptaba
+          // meses 00 y 13-99, con los que el cliente podía fabricar hasta
+          // 10.000 documentos distintos en months/ y la app los mostraba como
+          // meses reales.
+          && d.monthKey.matches('^[0-9]{4}-(0[1-9]|1[0-2])$');
+      }
+
+      match /transactions/{txId} {
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validTransaction(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validTransaction(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
+      }
+
+      // ---------- fixedExpenses ----------
+
+      function validFixedExpense(d) {
+        return d.keys().hasOnly(['name', 'amount', 'createdAt', 'updatedAt'])
+          && d.keys().hasAll(['name', 'amount', 'createdAt', 'updatedAt'])
+          && isNonEmptyStr(d.name, 200)
+          && isPositiveMoney(d.amount);
+      }
+
+      match /fixedExpenses/{expenseId} {
+        allow get, delete: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validFixedExpense(incoming()) && validTimestampsOnCreate(incoming());
+        allow update: if isOwner(uid)
+          && validFixedExpense(incoming())
+          && validTimestampsOnUpdate(incoming(), resource.data);
+      }
+
+      // ---------- aiReports (P-12): reportes de respuestas del asistente ----------
+      //
+      // POR QUÉ EXISTE ESTE MATCH. La política de Google Play para apps con IA
+      // generativa exige un mecanismo DENTRO de la app para marcar contenido
+      // ofensivo o dañino. El botón «Reportar respuesta» de la pestaña de IA
+      // escribe aquí (`ai_provider.dart`, `reportMessage`). Sin este match la
+      // ruta caía en el `match /{document=**} { allow read, write: if false; }`
+      // del final y TODO reporte se denegaba: el requisito estaba en la interfaz
+      // y no funcionaba.
+      //
+      // Es la única subcolección que el cliente CREA y después no puede tocar.
+      // `update` y `delete` denegados a propósito: un reporte es la prueba de
+      // que alguien marcó una respuesta, y quien puede editarlo o borrarlo
+      // después puede hacer desaparecer esa prueba. Si la persona se equivocó de
+      // motivo, manda otro reporte. El borrado de cuenta sigue llevándose el
+      // árbol completo: `deleteAccount` usa `recursiveDelete`, que descubre las
+      // subcolecciones en tiempo de ejecución, así que esta queda cubierta sin
+      // tocar `account.ts`.
+      function validAiReport(d) {
+        return d.keys().hasOnly([
+            'messageId', 'conversationId', 'reason', 'comment', 'reportedText',
+            'createdAt', 'updatedAt'
+          ])
+          && d.keys().hasAll(['messageId', 'reason', 'reportedText', 'createdAt', 'updatedAt'])
+          // Id del mensaje reportado. 200 es el mismo tope que el resto del
+          // árbol y sobra para un id de documento de Firestore.
+          && isNonEmptyStr(d.messageId, 200)
+          // Opcional: el mensaje de bienvenida no pertenece a ninguna
+          // conversación guardada, así que el cliente omite el campo. `null` se
+          // rechaza igual que en `docType`: ausente es la única forma de decir
+          // "sin conversación".
+          && (!('conversationId' in d) || isNonEmptyStr(d.conversationId, 200))
+          && d.reason in ['ofensivo', 'incorrecto', 'peligroso', 'otro']
+          // Comentario libre, opcional. 1000 es el tope que aplica el cliente
+          // (`maxReportCommentChars`); se repite aquí porque el cliente no es
+          // quien decide.
+          && (!('comment' in d) || isStr(d.comment, 1000))
+          // Copia del texto reportado, hasta 2000 (`maxReportedTextChars`). Se
+          // guarda el texto y no solo el id porque un reporte tiene que seguir
+          // siendo legible si la conversación desaparece. Se acepta vacío: un
+          // mensaje sin texto también se puede reportar.
+          && isStr(d.reportedText, 2000);
+      }
+
+      match /aiReports/{reportId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow create: if isOwner(uid) && validAiReport(incoming()) && validTimestampsOnCreate(incoming());
+        allow update, delete: if false;
+      }
+
+      // ---------- Solo lectura (escribe el backend) ----------
+
+      match /months/{monthKey} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow write: if false;
+      }
+
+      match /conversations/{convId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow write: if false;
+
+        match /messages/{msgId} {
+          allow get: if isOwner(uid);
+          allow list: if isOwner(uid) && isLimitedList();
+          allow write: if false;
+        }
+      }
+
+      match /meta/{docId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && isLimitedList();
+        allow write: if false;
+      }
+    }
+
+    // ---------- waitlist: sin acceso desde el cliente ----------
+
+    match /waitlist/{id} {
       allow read, write: if false;
     }
 
-    // ---- Colecciones protegidas por userId ----
+    // ---------- Todo lo demás: denegado ----------
+    //
+    // Incluye system/aiConfig y system/aiUsage/days/{dayKey} (configuración y
+    // contador global del asistente): los escribe y los lee solo el backend con
+    // el Admin SDK, que no pasa por estas reglas.
 
-    // Perfiles de usuario (docId = userId)
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // Perfiles de usuario (colección user_profiles, docId = userId)
-    match /user_profiles/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // Items de inventario
-    match /inventory_items/{itemId} {
-      allow read, write: if request.auth != null
-        && resource.data.userId == request.auth.uid;
-    }
-
-    // Datos financieros (subcolecciones por usuario)
-    // Ej: finances/{userId}/summaries/{docId}
-    // Ej: finances/{userId}/transactions/{docId}
-    match /finances/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // ---- Validaciones de escritura extra (opcionales) ----
-    match /inventory_items/{itemId} {
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
-      allow delete: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

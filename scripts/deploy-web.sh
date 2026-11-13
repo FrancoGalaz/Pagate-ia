@@ -1,44 +1,37 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────
-# Págate-IA — Web Deploy Script
+# Págate-IA — Deploy completo: Flutter web + hosting + reglas + functions
 # ──────────────────────────────────────────────────────────────────────
-# Prerequisitos:
-#   1. flutter pub get
-#   2. flutter build web
-#   3. firebase deploy
-#
 # Uso:
 #   ./scripts/deploy-web.sh
+#   APP_CHECK_SITE_KEY=6Lc... ./scripts/deploy-web.sh   # reCAPTCHA v3 (web)
 #
-# Para compilar con API key del chat:
-#   ./scripts/deploy-web.sh --dart-define=OPENROUTER_API_KEY=sk-or-...
+# Requisitos: flutter (beta), node 22, sesión iniciada con
+#   npm --prefix functions exec -- firebase login
+# La clave de OpenRouter NO se compila en el cliente: vive en Secret Manager
+# (npm --prefix functions exec -- firebase functions:secrets:set OPENROUTER_API_KEY).
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-DART_DEFINES="${*}"
-
-echo "🚀 Págate-IA — Deploy Web"
-echo "══════════════════════════"
-echo ""
-
-# 1. Build Flutter Web
-echo "📦 Compilando Flutter Web..."
 cd "$(dirname "$0")/.."
-flutter clean
-flutter pub get
-if [ -n "$DART_DEFINES" ]; then
-  flutter build web --release $DART_DEFINES
+
+DART_DEFINES=(--dart-define=PAGATE_ENV=prod)
+if [ -n "${APP_CHECK_SITE_KEY:-}" ]; then
+  DART_DEFINES+=(--dart-define=APP_CHECK_SITE_KEY="$APP_CHECK_SITE_KEY")
 else
-  flutter build web --release
+  echo "⚠️  APP_CHECK_SITE_KEY no definida: App Check no se activará en web."
 fi
-echo "✅ Build completado en build/web/"
-echo ""
 
-# 2. Deploy to Firebase
-echo "☁️  Deployando a Firebase Hosting..."
-firebase deploy --only hosting
-echo "✅ Deploy completado"
-echo ""
+echo "📦 Compilando Flutter Web..."
+flutter pub get
+flutter build web --release "${DART_DEFINES[@]}"
+echo "✅ build/web listo"
 
-# 3. Show URL
-echo "🌐  https://pagate-17211.web.app"
+echo "📦 Compilando Cloud Functions..."
+npm --prefix functions ci
+npm --prefix functions run build
+
+echo "☁️  Desplegando hosting, firestore y functions..."
+npm --prefix functions exec -- firebase deploy --only hosting,firestore,functions
+
+echo "🌐 https://pagate-17211.web.app"
