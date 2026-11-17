@@ -71,7 +71,7 @@ void main() {
     test('el tope del backend está declarado en el cliente', () {
       // Se recorta aquí para no gastar una llamada que el servidor va a
       // rechazar con `invalid-argument`.
-      expect(ReceiptScanService.maxTextChars, 8000);
+      expect(ReceiptScanService.maxTextChars, 4000);
     });
   });
 }

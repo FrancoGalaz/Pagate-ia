@@ -76,8 +76,8 @@
  *   - 1 invocación de Cloud Functions (`scanReceipt`, 256 MiB, hasta 60 s).
  *   - Firestore: 4 lecturas de documento (perfil, `meta/usage`, `aiConfig`,
  *     contador global) y 2 escrituras. Despreciable.
- *   - OpenRouter: el texto del OCR, con tope de `MAX_SCAN_TEXT_CHARS` = 8.000
- *     caracteres, más el prompt del lector; del orden de 2.400 tokens de
+ *   - OpenRouter: el texto del OCR, con tope de `MAX_SCAN_TEXT_CHARS` = 4.000
+ *     caracteres, más el prompt del lector; del orden de 1.400 tokens de
  *     entrada en el peor caso, y hasta `SCAN_MAX_TOKENS` = 1.500 de salida.
  *   - Y NADA de visión ni de almacenamiento: la imagen no sale del teléfono.
  *     El reconocimiento de texto corre en el dispositivo con ML Kit, gratis y
@@ -104,9 +104,9 @@ export const PRO_DAILY_QUOTA = 300;
  * DE DÓNDE SALE EL 40, CON LA ARITMÉTICA A LA VISTA
  * ---------------------------------------------------------------------------
  * Una lectura manda al modelo el texto del OCR (tope `MAX_SCAN_TEXT_CHARS` =
- * 8.000 caracteres, del orden de 2.400 tokens contando el prompt) y recibe
+ * 4.000 caracteres, del orden de 1.400 tokens contando el prompt) y recibe
  * hasta `SCAN_MAX_TOKENS` = 1.500 tokens de JSON. Es decir que el peor caso de
- * una lectura es del orden de la MITAD de tokens de entrada que el peor caso de
+ * una lectura es MENOS de la mitad de tokens de entrada que el peor caso de
  * un mensaje del asistente (~6.000) y algo más de salida (1.500 contra 1.024).
  *
  * Con eso, 40 lecturas cuestan aproximadamente lo mismo que los 25 mensajes de

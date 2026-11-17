@@ -59,11 +59,11 @@ import { refundScanQuota, reserveScanQuota } from './quota';
  * Tope del texto de entrada.
  *
  * Una boleta chilena de 40 artículos leída con OCR ronda los 2.000 caracteres;
- * una factura larga con cabecera y pie puede llegar a 4.000. 8.000 deja margen
- * de sobra y acota el coste: es lo que el usuario puede meter en los tokens de
- * entrada de cada llamada.
+ * una factura larga con cabecera y pie puede llegar a 4.000. Era 8.000: con
+ * ese margen una boleta podía pedir más JSON del que cabe en
+ * `SCAN_MAX_TOKENS`, y la salida llegaba cortada.
  */
-export const MAX_SCAN_TEXT_CHARS = 8_000;
+export const MAX_SCAN_TEXT_CHARS = 4_000;
 
 /** Artículos como máximo en la respuesta. Por encima se recorta. */
 export const MAX_SCAN_ITEMS = 40;
@@ -262,8 +262,8 @@ export function parseScanInput(data: unknown): { text: string; source?: ScanSour
 /**
  * La salida del modelo no se pudo interpretar en absoluto (no es JSON, no es un
  * objeto, `items` no es una lista). Se distingue de "la lista venía vacía"
- * porque lo primero es un fallo del proveedor —se devuelve la cuota— y lo
- * segundo es una respuesta legítima.
+ * porque lo primero es un error para el usuario y lo segundo es una respuesta
+ * legítima. En ninguno de los dos casos se devuelve la cuota.
  */
 export class ScanOutputError extends Error {
   constructor(message: string) {
@@ -481,17 +481,17 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
   try {
     parsed = parseModelOutput(result.text);
   } catch (err) {
-    // Irrecuperable: ni JSON, ni objeto, ni lista de artículos. Es un fallo del
-    // proveedor (el esquema pedido es estricto), no algo que el usuario pueda
-    // arreglar, así que se le devuelve la lectura. Se registra un recorte del
-    // texto para poder diagnosticarlo sin volcar la respuesta entera al log.
+    // Irrecuperable: ni JSON, ni objeto, ni lista de artículos. NO se devuelve
+    // la lectura: el proveedor respondió y la llamada ya se pagó, y el texto de
+    // entrada lo controla quien llama, así que devolverla dejaba provocar
+    // llamadas al modelo sin límite. Se registra un recorte del texto para
+    // poder diagnosticarlo sin volcar la respuesta entera al log.
     logger.error('scan.salida.irrecuperable', {
       uid,
       model,
       error: String(err),
       muestra: result.text.slice(0, 300),
     });
-    await rollback('salida');
     throw new HttpsError('internal', 'No pude ordenar la boleta.');
   }
 

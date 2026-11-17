@@ -172,6 +172,12 @@ async function contadorGlobal(campo: 'calls' | 'scanCalls', dayKey = DIA): Promi
 }
 
 describe('parseScanInput', () => {
+  // Revisión prelanzamiento 1.1: con 8.000 caracteres una boleta podía pedir
+  // más JSON del que cabe en `SCAN_MAX_TOKENS`.
+  it('el tope del texto de entrada es de 4.000 caracteres', () => {
+    expect(MAX_SCAN_TEXT_CHARS).toBe(4_000);
+  });
+
   it('acepta el texto en el tope y rechaza el de un carácter más', () => {
     const tope = 'x'.repeat(MAX_SCAN_TEXT_CHARS);
     expect(parseScanInput({ text: tope }).text).toHaveLength(MAX_SCAN_TEXT_CHARS);
@@ -637,7 +643,10 @@ describe('handleScanReceipt (callable scanReceipt)', () => {
       expect(res.items).toHaveLength(2);
     });
 
-    it('una salida irrecuperable del modelo devuelve la lectura y responde internal', async () => {
+    // Revisión prelanzamiento 1.1: antes se devolvía la lectura, y como el
+    // texto lo controla quien llama, provocar una salida que no es JSON daba
+    // llamadas pagadas al modelo sin límite.
+    it('una salida irrecuperable del modelo responde internal y SÍ gasta la lectura', async () => {
       await seedPerfil();
       // El modelo ignoró el esquema y contestó en prosa.
       const modelo = modeloQueResponde('Claro, aquí tienes los artículos de la boleta: dos sacos de arcilla.');
@@ -645,8 +654,9 @@ describe('handleScanReceipt (callable scanReceipt)', () => {
       const err = await falla('internal', handleScanReceipt(llamada({ text: BOLETA }), deps(modelo)));
       expect(err.message).toBe('No pude ordenar la boleta.');
 
-      expect(await usage()).toMatchObject({ scanCountDay: 0, scanCountLifetime: 0 });
-      expect(await contadorGlobal('scanCalls')).toBe(0);
+      expect(await usage()).toMatchObject({ scanCountDay: 1, scanCountLifetime: 1 });
+      // Y cuenta en el tope global: es una llamada que OpenRouter cobró.
+      expect(await contadorGlobal('scanCalls')).toBe(1);
     });
 
     it('un fallo del lector no toca los contadores del asistente', async () => {

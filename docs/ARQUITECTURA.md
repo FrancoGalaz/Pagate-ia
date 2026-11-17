@@ -358,7 +358,7 @@ una regla. De ahí tres consecuencias que son contrato:
 
 Flujo:
 1. Verifica `request.auth` y, si `ENFORCE_APP_CHECK`, `request.app`.
-2. Valida la entrada **antes de la cuota**: `text` no vacío y de hasta 8.000
+2. Valida la entrada **antes de la cuota**: `text` no vacío y de hasta 4.000
    caracteres (`MAX_SCAN_TEXT_CHARS`). Un texto inválido no le gasta al usuario
    una de sus lecturas. `source` solo matiza el prompt y el registro, así que un
    valor desconocido se ignora en vez de rechazar la llamada.
@@ -378,12 +378,12 @@ Flujo:
 6. Devuelve `items: []` —que es una respuesta válida— si no quedó ninguno.
 
 **Cuándo se devuelve la cuota, y cuándo no.** Se devuelve
-(`refundScanQuota`) ante un fallo del proveedor: `OpenRouterError`, plazo
-agotado, o una salida irrecuperable (ni JSON, ni objeto, ni lista). **No** se
-devuelve cuando el modelo contestó bien y la lista salió vacía, aunque el
-usuario no reciba nada útil: el texto de entrada lo controla entero quien llama,
-así que devolver la cuota ante una respuesta vacía sería una vía para hacer
-llamadas al modelo sin límite a costa del dueño.
+(`refundScanQuota`) ante un fallo del proveedor: `OpenRouterError` o plazo
+agotado. **No** se devuelve cuando el modelo contestó, ni con la lista vacía ni
+con una salida irrecuperable (ni JSON, ni objeto, ni lista), aunque el usuario
+no reciba nada útil: el texto de entrada lo controla entero quien llama, así
+que devolver la cuota ante una respuesta que él puede provocar sería una vía
+para hacer llamadas al modelo sin límite a costa del dueño.
 
 Errores, con el mensaje del servidor como única fuente de lo que lee el usuario:
 

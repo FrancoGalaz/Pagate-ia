@@ -63,7 +63,7 @@ export const MAX_SCAN_LINE_CHARS = 200;
 export const MAX_SCAN_LINES = 300;
 
 /**
- * Tope del mensaje con los datos. `MAX_SCAN_TEXT_CHARS` (8.000) ya acota la
+ * Tope del mensaje con los datos. `MAX_SCAN_TEXT_CHARS` (4.000) ya acota la
  * entrada en `scan.ts` antes de reservar cuota; este es el cinturón de
  * seguridad para que el saneado nunca pueda crecer por encima de lo previsto.
  */

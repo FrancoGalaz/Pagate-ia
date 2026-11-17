@@ -50,6 +50,12 @@ de la política, los términos de uso, ni la app web.
 
 ### 1.1 Crítica: gasto ilimitado de OpenRouter con `scanReceipt`
 
+> **Resuelto (2026-11-16).** `scanReceipt` ya no devuelve la lectura cuando
+> el modelo respondió algo que no es JSON, así que esa llamada también queda
+> contada en el tope global. `MAX_SCAN_TEXT_CHARS` bajó de 8.000 a 4.000 (y
+> `maxTextChars` en el cliente). Sigue abierta la variante de `chat`: no
+> estaba en el encargo.
+
 - **Dónde:** `functions/src/scan.ts:480-496` (el `rollback('salida')`),
   `functions/src/quota.ts:462-487` (`refund` también descuenta el contador
   global).

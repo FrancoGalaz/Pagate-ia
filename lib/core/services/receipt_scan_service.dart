@@ -135,7 +135,7 @@ class ReceiptScanService {
   /// Tope de caracteres que acepta el backend (`MAX_SCAN_TEXT_CHARS`). Se
   /// recorta aquí para no gastar una llamada que el servidor va a rechazar
   /// con `invalid-argument`.
-  static const int maxTextChars = 8000;
+  static const int maxTextChars = 4000;
 
   final FirebaseFunctions? _inyectado;
   FirebaseFunctions? _cache;
