@@ -176,10 +176,14 @@ _FinanzasFalsas _conDatos() => _FinanzasFalsas(
 
 /// `'2026-11'` → `'2026-10'`, a partir de hoy: los tests del selector no
 /// pueden fijar el mes en curso.
+///
+/// El instante es el día 15 en UTC, no el día 1 a medianoche en hora local:
+/// [monthKeyFromDate] lo lleva a hora de Chile, y la medianoche del día 1 en
+/// UTC (la del CI) todavía es el mes anterior en Chile.
 String _mesAnterior(final String mes) {
   final partes = mes.split('-');
   return monthKeyFromDate(
-    DateTime(int.parse(partes[0]), int.parse(partes[1]) - 1),
+    DateTime.utc(int.parse(partes[0]), int.parse(partes[1]) - 1, 15),
   );
 }
 

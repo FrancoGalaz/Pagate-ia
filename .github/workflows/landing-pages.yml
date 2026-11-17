@@ -37,6 +37,8 @@ jobs:
           cache: npm
           cache-dependency-path: landing/package-lock.json
 
+      # Mismo npm que el PC del dueño; ver el comentario en ci.yml.
+      - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -46,7 +48,21 @@ jobs:
           # Se puede sobreescribir con la variable de repositorio VITE_WAITLIST_URL.
           VITE_WAITLIST_URL: ${{ vars.VITE_WAITLIST_URL || 'https://southamerica-west1-pagate-17211.cloudfunctions.net/waitlist' }}
 
+      # No se publica una política con datos del responsable sin rellenar
+      # (valores entre corchetes en legal-meta.ts). Se omite la publicación
+      # con un aviso, sin poner el workflow en rojo.
+      - name: Revisar marcadores de legal-meta
+        id: marcadores
+        run: |
+          if grep -nE "'\[[^]']+\]'" src/content/legal-meta.ts; then
+            echo "::warning file=landing/src/content/legal-meta.ts::legal-meta.ts tiene marcadores [ ] sin rellenar; no se publica landing-page/."
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Copiar dist a landing-page/
+        if: steps.marcadores.outputs.publicar == 'true'
         working-directory: ${{ github.workspace }}
         run: |
           rm -rf landing-page
@@ -54,6 +70,7 @@ jobs:
           cp -r landing/dist/. landing-page/
 
       - name: Commit y push si hay cambios
+        if: steps.marcadores.outputs.publicar == 'true'
         working-directory: ${{ github.workspace }}
         run: |
           git add -A landing-page
