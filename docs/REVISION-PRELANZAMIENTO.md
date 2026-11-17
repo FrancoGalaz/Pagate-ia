@@ -151,6 +151,15 @@ de la política, los términos de uso, ni la app web.
 
 ### 2.2 Baja: un movimiento puede cambiar de mes según la zona horaria
 
+> **Resuelto (2026-11-16).** `monthKeyFromDate` calcula siempre en hora de
+> America/Santiago, con la regla de horario de verano vigente escrita en el
+> código (Dart no trae base de zonas horarias; si un decreto la cambia hay
+> que actualizarla). Un movimiento guardado conserva su `monthKey` y solo se
+> recalcula si cambia la fecha (`storedMonthKey`). Consecuencia de la
+> decisión: con el teléfono fuera de Chile, un movimiento fechado el día 1
+> puede contar en el mes anterior, porque manda la hora chilena. Las reglas
+> siguen sin atar `monthKey` a `date`.
+
 - **Dónde:** `lib/features/finances/domain/entities/finances_summary_entity.dart:94-95`
   (`monthKeyFromDate` usa la fecha local), `firestore.rules:249-254` (valida la
   forma de `monthKey`, no que coincida con `date`).

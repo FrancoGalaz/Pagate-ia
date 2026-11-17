@@ -73,10 +73,16 @@ class FinancesTransactionEntity extends Equatable {
     required this.category,
     this.docType = TransactionDocType.fallback,
     this.platformFee = 0,
+    this.storedMonthKey,
   });
 
-  /// Clave `yyyy-MM` derivada de [date].
-  String get monthKey => monthKeyFromDate(date);
+  /// El `monthKey` con el que el movimiento está guardado en Firestore, o
+  /// `null` si todavía no se guardó. Mientras la fecha no cambie se conserva
+  /// tal cual: un movimiento no cambia de mes por editarle otro campo.
+  final String? storedMonthKey;
+
+  /// Clave `yyyy-MM`: la guardada si la hay, y si no la derivada de [date].
+  String get monthKey => storedMonthKey ?? monthKeyFromDate(date);
 
   bool get isIncome => type == TransactionType.income;
 
@@ -122,6 +128,9 @@ class FinancesTransactionEntity extends Equatable {
         category: category ?? this.category,
         docType: docType ?? this.docType,
         platformFee: platformFee ?? this.platformFee,
+        // Solo una fecha distinta recalcula el mes.
+        storedMonthKey:
+            date == null || date == this.date ? storedMonthKey : null,
       );
 
   @override
@@ -135,5 +144,6 @@ class FinancesTransactionEntity extends Equatable {
         category,
         docType,
         platformFee,
+        storedMonthKey,
       ];
 }

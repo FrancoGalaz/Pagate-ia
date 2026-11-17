@@ -60,7 +60,9 @@ users/{uid}/transactions/{txId}          (owner: read/write)
   type: 'income' | 'expense'
   category: string
   date: Timestamp
-  monthKey: string 'yyyy-MM'  (derivado de date en el cliente; mes acotado a 01-12)
+  monthKey: string 'yyyy-MM'  (derivado de date en el cliente, siempre en hora de
+                               America/Santiago; al editar solo se recalcula si
+                               cambia date; mes acotado a 01-12)
   docType: 'boleta_venta' | 'boleta_honorarios' | 'sin_documento'   (OPCIONAL, C-3)
   platformFee: number (>= 0 y <= amount; SOLO si type == 'income')  (OPCIONAL, C-3)
   createdAt, updatedAt: Timestamp

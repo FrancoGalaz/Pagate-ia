@@ -17,6 +17,7 @@ class FinancesTransactionModel extends FinancesTransactionEntity {
     required super.category,
     super.docType,
     super.platformFee,
+    super.storedMonthKey,
   });
 
   /// Construye el modelo desde un documento. Nunca lanza por tipos
@@ -51,6 +52,7 @@ class FinancesTransactionModel extends FinancesTransactionEntity {
       category: _string(data['category'], id, 'category'),
       docType: _docType(data['docType'], id),
       platformFee: _platformFee(data['platformFee'], id, amount),
+      storedMonthKey: _monthKey(data['monthKey']),
     );
   }
 
@@ -109,6 +111,7 @@ class FinancesTransactionModel extends FinancesTransactionEntity {
         category: entity.category,
         docType: entity.docType,
         platformFee: entity.platformFee,
+        storedMonthKey: entity.storedMonthKey,
       );
 
   static String _string(
@@ -182,6 +185,13 @@ class FinancesTransactionModel extends FinancesTransactionEntity {
     }
     return fee;
   }
+
+  /// El `monthKey` guardado, solo si es un mes real (`yyyy-MM`, 01 a 12):
+  /// el mismo formato que exigen las reglas.
+  static String? _monthKey(final Object? value) =>
+      value is String && RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(value)
+          ? value
+          : null;
 
   static DateTime _date(final Object? value, final String id) {
     if (value is Timestamp) return value.toDate();

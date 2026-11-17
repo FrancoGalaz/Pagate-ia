@@ -90,9 +90,37 @@ class FinancesSummaryEntity extends Equatable {
       ];
 }
 
-/// Deriva la clave `yyyy-MM` de una fecha.
-String monthKeyFromDate(final DateTime date) =>
-    '${date.year}-${date.month.toString().padLeft(2, '0')}';
+/// Deriva la clave `yyyy-MM` de una fecha, SIEMPRE en hora de Chile
+/// continental (America/Santiago), esté donde esté el teléfono.
+///
+/// Antes usaba la hora local: el mismo instante caía en meses distintos según
+/// la zona horaria del teléfono, y un movimiento podía cambiar de mes al
+/// tocarlo desde otra zona. El backend ya calcula el mes en curso con
+/// America/Santiago (`currentMonthKey` en `functions/src/chat.ts`).
+String monthKeyFromDate(final DateTime date) {
+  final utc = date.toUtc();
+  final chile = utc.subtract(Duration(hours: _esInviernoEnChile(utc) ? 4 : 3));
+  return '${chile.year}-${chile.month.toString().padLeft(2, '0')}';
+}
+
+/// Horario de invierno de Chile continental (UTC-4): desde el domingo que
+/// sigue al primer sábado de abril, a las 03:00 UTC, hasta el domingo que
+/// sigue al primer sábado de septiembre, a las 04:00 UTC. El resto del año
+/// es UTC-3. Es la regla vigente desde 2023; Dart no trae base de zonas
+/// horarias, y si un decreto la cambia hay que actualizarla aquí.
+bool _esInviernoEnChile(final DateTime utc) {
+  final inicio =
+      _domingoTrasElPrimerSabado(utc.year, 4).add(const Duration(hours: 3));
+  final fin =
+      _domingoTrasElPrimerSabado(utc.year, 9).add(const Duration(hours: 4));
+  return !utc.isBefore(inicio) && utc.isBefore(fin);
+}
+
+/// El primer domingo del mes contando desde el día 2.
+DateTime _domingoTrasElPrimerSabado(final int year, final int month) {
+  final dia2 = DateTime.utc(year, month, 2);
+  return dia2.add(Duration(days: (DateTime.sunday - dia2.weekday) % 7));
+}
 
 /// Convierte `yyyy-MM` en "Marzo 2025". Si la clave es inválida la devuelve
 /// tal cual.

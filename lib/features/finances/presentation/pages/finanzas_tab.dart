@@ -78,9 +78,15 @@ class _FinanzasTabState extends State<FinanzasTab> {
   /// conserva debajo y define de qué año se habla.
   bool _anual = false;
 
+  /// El mes anterior al mes en curso de Chile, que es el de
+  /// [FinancesProvider.currentMonthKey].
   static String get _mesPasado {
-    final hoy = DateTime.now();
-    return monthKeyFromDate(DateTime(hoy.year, hoy.month - 1));
+    final partes = FinancesProvider.currentMonthKey.split('-');
+    final anio = int.parse(partes[0]);
+    final mes = int.parse(partes[1]);
+    return mes == 1
+        ? '${anio - 1}-12'
+        : '$anio-${(mes - 1).toString().padLeft(2, '0')}';
   }
 
   _Periodo _periodo(final String mes) {
