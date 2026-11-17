@@ -26,13 +26,36 @@ const Duration kEsperaConfirmacion = Duration(seconds: 4);
 const String kGuardadoEnElTelefono =
     'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.';
 
+/// Quién le avisa al usuario que el servidor rechazó, al sincronizar, algo
+/// que se había guardado sin conexión.
+///
+/// Lo registra `AppShell` mientras la app está montada. La pantalla que
+/// guardó ya avisó «Guardado en el teléfono» y probablemente ya se cerró, así
+/// que el aviso no puede depender de ella.
+abstract final class RechazoAlSincronizar {
+  /// `null` sin app montada (tests, cierre): queda solo el informe de fallos.
+  static void Function(String mensaje)? avisar;
+}
+
 /// Espera [escritura] como mucho [kEsperaConfirmacion].
 ///
 /// Devuelve `true` si el servidor la confirmó y `false` si sigue pendiente.
-/// Si falla dentro del plazo, el error se propaga igual que antes. Si el
-/// servidor la rechaza después, ya no hay pantalla a la que avisar: se
-/// reporta con [CrashReporter], que es la única forma de enterarse.
-Future<bool> confirmadaATiempo(final Future<void> escritura) async {
+/// Si falla dentro del plazo, el error se propaga igual que antes.
+///
+/// Si el servidor la rechaza DESPUÉS del plazo, se le muestra al usuario
+/// [siSeRechaza] por medio de [RechazoAlSincronizar], y el error se reporta
+/// con [CrashReporter]. [siSeRechaza] tiene que decir QUÉ no se guardó
+/// («No se pudo guardar el movimiento «Venta en feria».»): con varios
+/// guardados pendientes, «algo falló» no le sirve a nadie. Ese texto va solo
+/// a la pantalla; al informe de fallos no llega.
+///
+/// Límite que no se puede cubrir: si la app se cierra antes de sincronizar,
+/// Firestore sube la escritura al volver a abrirla, pero ya no queda ningún
+/// `Future` que escuche la respuesta.
+Future<bool> confirmadaATiempo(
+  final Future<void> escritura, {
+  required final String siSeRechaza,
+}) async {
   try {
     await escritura.timeout(kEsperaConfirmacion);
     return true;
@@ -40,6 +63,7 @@ Future<bool> confirmadaATiempo(final Future<void> escritura) async {
     unawaited(
       escritura.catchError((final Object e, final StackTrace traza) {
         debugPrint('El servidor rechazó una escritura hecha sin conexión: $e');
+        RechazoAlSincronizar.avisar?.call(siSeRechaza);
         CrashReporter.reportar(
           e,
           traza,

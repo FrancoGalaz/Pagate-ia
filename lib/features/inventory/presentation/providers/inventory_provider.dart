@@ -136,6 +136,7 @@ class InventoryProvider extends ChangeNotifier {
           code: _opcional(code),
         ),
       ),
+      siSeRechaza: 'No se pudo guardar la ficha «$safeName».',
     );
   }
 
@@ -171,6 +172,7 @@ class InventoryProvider extends ChangeNotifier {
           code: _opcional(item.code),
         ),
       ),
+      siSeRechaza: 'No se pudieron guardar los cambios de «$safeName».',
     );
   }
 
@@ -277,6 +279,7 @@ class InventoryProvider extends ChangeNotifier {
         stocksFinales: stocksFinales,
         preciosNuevos: preciosNuevos,
       ),
+      siSeRechaza: 'No se pudieron guardar los materiales de la boleta.',
     );
   }
 
@@ -285,11 +288,30 @@ class InventoryProvider extends ChangeNotifier {
     required final int newStock,
   }) {
     if (newStock < 0) throw ArgumentError('El stock no puede ser negativo');
-    return confirmadaATiempo(_repository.updateStock(itemId, newStock));
+    final nombre = _nombreDe(itemId);
+    return confirmadaATiempo(
+      _repository.updateStock(itemId, newStock),
+      siSeRechaza: nombre == null
+          ? 'No se pudo guardar un cambio de stock.'
+          : 'No se pudo guardar el stock de «$nombre».',
+    );
   }
 
-  Future<void> deleteItem(final String itemId) =>
-      confirmadaATiempo(_repository.deleteItem(itemId));
+  Future<bool> deleteItem(final String itemId) {
+    final nombre = _nombreDe(itemId);
+    return confirmadaATiempo(
+      _repository.deleteItem(itemId),
+      siSeRechaza: nombre == null
+          ? 'No se pudo eliminar una ficha.'
+          : 'No se pudo eliminar la ficha «$nombre».',
+    );
+  }
+
+  /// Nombre de la ficha [itemId], para decir cuál no se guardó.
+  String? _nombreDe(final String itemId) => _allItems
+      .where((final i) => i.id == itemId)
+      .map((final i) => i.name)
+      .firstOrNull;
 
   // ─── Suscripción y ciclo de vida ──────────────────────────────────
 

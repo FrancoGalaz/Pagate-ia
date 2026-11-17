@@ -228,6 +228,7 @@ class FinancesProvider extends ChangeNotifier {
     );
     final confirmado = await confirmadaATiempo(
       _repository.addTransaction(transaction),
+      siSeRechaza: 'No se pudo guardar el movimiento «$safeTitle».',
     );
     if (_disposed) return confirmado;
     if (transaction.monthKey != selectedMonthKey) {
@@ -243,8 +244,19 @@ class FinancesProvider extends ChangeNotifier {
 
   /// Los borrados tampoco esperan al servidor sin plazo (ver
   /// [confirmadaATiempo]): sin conexión el borrado queda en la cola local.
-  Future<void> deleteTransaction(final String id) =>
-      confirmadaATiempo(_repository.deleteTransaction(id));
+  /// Devuelve `false` en ese caso, igual que [addTransaction].
+  Future<bool> deleteTransaction(final String id) {
+    final titulo = _transactions
+        .where((final t) => t.id == id)
+        .map((final t) => t.title)
+        .firstOrNull;
+    return confirmadaATiempo(
+      _repository.deleteTransaction(id),
+      siSeRechaza: titulo == null
+          ? 'No se pudo eliminar un movimiento.'
+          : 'No se pudo eliminar el movimiento «$titulo».',
+    );
+  }
 
   /// Devuelve `false` si el gasto quedó guardado en el teléfono sin que el
   /// servidor lo confirmara a tiempo, igual que [addTransaction].
@@ -261,11 +273,22 @@ class FinancesProvider extends ChangeNotifier {
     }
     return confirmadaATiempo(
       _repository.addFixedExpense(name: safeName, amount: amount),
+      siSeRechaza: 'No se pudo guardar el gasto fijo «$safeName».',
     );
   }
 
-  Future<void> deleteFixedExpense(final String id) =>
-      confirmadaATiempo(_repository.deleteFixedExpense(id));
+  Future<bool> deleteFixedExpense(final String id) {
+    final nombre = _fixedExpenses
+        .where((final g) => g.id == id)
+        .map((final g) => g.name)
+        .firstOrNull;
+    return confirmadaATiempo(
+      _repository.deleteFixedExpense(id),
+      siSeRechaza: nombre == null
+          ? 'No se pudo eliminar un gasto fijo.'
+          : 'No se pudo eliminar el gasto fijo «$nombre».',
+    );
+  }
 
   // ─── Reintento y ciclo de vida ────────────────────────────────────
 

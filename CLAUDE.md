@@ -84,12 +84,14 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
 - **Revisión prelanzamiento (2026-11-16):** `docs/REVISION-PRELANZAMIENTO.md`.
   Resueltos los siete hallazgos de la primera pasada (gasto sin límite del
   lector, tope global, lista de espera, política del lector, logs, marca de
-  cuenta borrada y `monthKey` en hora de Chile). La segunda pasada dejó
-  abiertos los de «Pendiente».
-- **Tests (2026-11-16, rama `docs/reglas-trabajo`):**
-  `flutter analyze` sin problemas; `flutter test` 614 pasan; functions `lint`
-  y `build` OK y `npm --prefix functions test` 333 pasan (13 archivos, con los
-  de reglas); landing `lint`, 76 tests y `build` OK. El test de integración
+  cuenta borrada y `monthKey` en hora de Chile). El 2026-11-17 se cerraron
+  los de la segunda pasada (1.1 en `chat`, 2.1 en los callables, 4.1, 4.2,
+  5.1 con borrados y rechazos al sincronizar, 5.2 y 5.3). Queda abierto 5.4,
+  visto al cerrar 5.2 (ver «Pendiente»).
+- **Tests (2026-11-17, rama `docs/reglas-trabajo`):**
+  `flutter analyze` sin problemas; `flutter test` 628 pasan; functions `lint`
+  y `build` OK y `npm --prefix functions test` 344 pasan (13 archivos, con los
+  de reglas); landing `lint`, 79 tests y `build` OK. El test de integración
   `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
   verificación de correo. `scripts/smoke-prod.sh` se probó contra los
   emuladores y un build local de la landing; contra producción falla porque
@@ -112,9 +114,11 @@ En este orden:
 De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
 
 - **Antes de la prueba cerrada:** 5.1 quedó resuelto en todas las escrituras
-  (sin conexión la pantalla se cierra y avisa que se sincronizará; ver
-  `lib/core/utils/escritura_pendiente.dart`). Toda escritura nueva de
-  Firestore tiene que pasar por `confirmadaATiempo`. Falta probarlo en modo
+  y los borrados (sin conexión la pantalla se cierra y avisa que se
+  sincronizará; si el servidor rechaza al sincronizar, la app dice qué no se
+  guardó; ver `lib/core/utils/escritura_pendiente.dart`). Toda escritura
+  nueva de Firestore tiene que pasar por `confirmadaATiempo`, con el texto
+  `siSeRechaza` que nombre lo que se guarda. Falta probarlo en modo
   avión en un teléfono real. El reporte de fallos (punto 6) está en el
   código; falta comprobar con un build de release en un teléfono que un
   informe llega al panel.
@@ -125,11 +129,14 @@ De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
   (`docs/CHECKLIST-PUBLICACION.md` §4); sin él, `chat` y `scanReceipt`
   rechazan todo. En los emuladores lo crea `scripts/seed-demo.js`: hay que
   volver a correrlo sobre un `emulator-data/` anterior al 2026-11-16.
-- **Código, menores:** que `chat` y `scanReceipt` consulten
-  `deletedUsers/{uid}` (2.1); la devolución de cuota de `chat` cuando el
-  proveedor ya cobró (1.1); fechas del prompt en hora de Chile (4.1);
-  términos al día con el lector (4.2); plazo del asistente (5.2) y texto de
-  App Check (5.3).
+- **Código (5.4, abierto):** `AccountService` y `ChatHistoryService` no
+  pasan `HttpsCallableOptions`, así que el plugin los corta a los 60 s
+  aunque sus plazos sean de 5 y 2 minutos: borrar una cuenta grande da error
+  mientras el servidor sigue borrando. Arreglo: el mismo de `AiService`
+  (5.2), con test.
+- Toda llamada nueva a un callable pasa `HttpsCallableOptions(timeout: ...)`
+  con un plazo mayor que el `timeoutSeconds` del servidor, salvo que corte
+  antes a propósito (el lector de boletas).
 - `smoke-prod.sh` ahora necesita `TOKEN` (o gcloud con sesión) para
   comprobar `system/aiConfig`.
 

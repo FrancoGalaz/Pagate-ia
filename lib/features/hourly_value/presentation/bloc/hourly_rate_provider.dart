@@ -86,6 +86,7 @@ class HourlyRateProvider extends ChangeNotifier {
       );
       _guardadoSinConexion = !await confirmadaATiempo(
         _repository.saveHourlyRate(rate),
+        siSeRechaza: 'No se pudo guardar tu valor hora.',
       );
       _currentRate = rate;
       return true;

@@ -653,7 +653,12 @@ class _GastosFijos extends StatelessWidget {
     if (!confirmado || !context.mounted) return;
 
     try {
-      await provider.deleteFixedExpense(gasto.id);
+      // Sin conexión el borrado queda en el teléfono: se avisa igual que
+      // un guardado sin conexión.
+      final confirmadoPorServidor = await provider.deleteFixedExpense(gasto.id);
+      if (!confirmadoPorServidor && context.mounted) {
+        AppFeedback.showMessage(context, kGuardadoEnElTelefono);
+      }
     } catch (e) {
       if (!context.mounted) return;
       // Aquí no hay hoja abierta (la de confirmación ya se cerró), pero
@@ -838,7 +843,10 @@ class _Movimientos extends StatelessWidget {
     if (!confirmado) return false;
 
     try {
-      await provider.deleteTransaction(tx.id);
+      final confirmadoPorServidor = await provider.deleteTransaction(tx.id);
+      if (!confirmadoPorServidor && context.mounted) {
+        AppFeedback.showMessage(context, kGuardadoEnElTelefono);
+      }
       return true;
     } catch (e) {
       if (context.mounted) {

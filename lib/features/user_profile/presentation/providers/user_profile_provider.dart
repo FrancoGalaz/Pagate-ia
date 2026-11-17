@@ -68,6 +68,7 @@ class UserProfileProvider extends ChangeNotifier {
     try {
       final confirmado = await confirmadaATiempo(
         _repository.saveProfile(profile),
+        siSeRechaza: 'No se pudieron guardar los datos de tu perfil.',
       );
       // El stream actualizará [_profile]; se refleja ya para evitar parpadeos.
       _profile = profile;

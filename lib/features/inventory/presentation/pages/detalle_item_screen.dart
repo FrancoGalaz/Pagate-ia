@@ -432,8 +432,9 @@ Future<void> _confirmarBorrado(
 
   if (!borrar || !context.mounted) return;
 
+  final bool confirmadoPorServidor;
   try {
-    await provider.deleteItem(item.id);
+    confirmadoPorServidor = await provider.deleteItem(item.id);
   } catch (e) {
     if (!context.mounted) return;
     AppFeedback.showError(
@@ -443,6 +444,11 @@ Future<void> _confirmarBorrado(
     return;
   }
   if (!context.mounted) return;
-  AppFeedback.showMessage(context, 'Ficha eliminada.');
+  // Sin conexión el borrado queda en el teléfono: se avisa igual que un
+  // guardado sin conexión, no como si ya estuviera hecho.
+  AppFeedback.showMessage(
+    context,
+    confirmadoPorServidor ? 'Ficha eliminada.' : kGuardadoEnElTelefono,
+  );
   Navigator.pop(context);
 }

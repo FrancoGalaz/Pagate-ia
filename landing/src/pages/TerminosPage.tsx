@@ -12,6 +12,7 @@ import {
   APP_NAME,
   BUZON,
   CANAL_ALTERNATIVO,
+  FUNCIONES_APP,
   LEGAL_ROUTES,
   RESPONSABLE_IDENTIFICADO,
   RESPONSABLE_SIN_IDENTIFICAR,
@@ -99,8 +100,10 @@ export default function TerminosPage() {
             </>,
             <>
               <strong>No se conecta a tus cuentas bancarias.</strong> No leemos tus
-              movimientos reales ni tenemos acceso a ninguna institución financiera. Todo
-              lo que la app sabe de tu negocio lo escribiste tú.
+              movimientos reales ni tenemos acceso a ninguna institución financiera.{' '}
+              {FUNCIONES_APP.lectorBoletas
+                ? 'Todo lo que la app sabe de tu negocio lo pusiste tú, escribiéndolo o confirmando lo que la app leyó de una boleta.'
+                : 'Todo lo que la app sabe de tu negocio lo escribiste tú.'}
             </>,
             <>
               <strong>No es un sistema de facturación electrónica.</strong> No emite
@@ -118,6 +121,14 @@ export default function TerminosPage() {
             'Las respuestas del asistente las genera un modelo de lenguaje. Pueden contener errores, cifras equivocadas o afirmaciones desactualizadas. Verifica siempre antes de actuar.',
             'El asistente usa como contexto los datos de tu negocio que tengas registrados. Qué datos salen exactamente y hacia dónde está detallado en la política de privacidad.',
             'El asistente tiene un límite de mensajes. En las cuentas gratuitas es un número total, no una cuota diaria: cuando se agota no se renueva al día siguiente. La app te lo dice en ese momento, y el resto de la app sigue funcionando igual.',
+            // Sin cifras, igual que la frase del asistente: los dos topes se
+            // ajustan en `system/aiConfig` sin publicar una versión nueva.
+            ...(FUNCIONES_APP.lectorBoletas
+              ? [
+                  'El lector de boletas también tiene un límite total de lecturas, que no se renueva. Si se agota, la app sigue armando la lista de artículos en el teléfono, solo que sin ordenarla en el servidor.',
+                  'Para usar el asistente y el lector de boletas tienes que haber verificado tu correo. Si no lo has hecho, el asistente te ofrece reenviar el correo de verificación.',
+                ]
+              : []),
             'Puedes reportar cualquier respuesta del asistente con el botón que lleva cada mensaje.',
             'No uses el asistente para obtener instrucciones sobre asuntos legales, médicos o tributarios concretos: no está hecho para eso y puede equivocarse.',
           ]}

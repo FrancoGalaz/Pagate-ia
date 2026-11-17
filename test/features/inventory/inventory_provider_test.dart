@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pagate_ia/core/constants/firestore_limits.dart';
+import 'package:pagate_ia/core/utils/escritura_pendiente.dart';
 import 'package:pagate_ia/features/receipt_scan/data/parsers/local_line_item_parser.dart';
 
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_entity.dart';
@@ -93,6 +94,55 @@ void main() {
         isTrue,
       );
       expect(repository.borrados, ['f1']);
+    });
+
+    testWidgets('si el servidor rechaza al sincronizar, avisa qué ficha', (
+      final tester,
+    ) async {
+      final avisos = <String>[];
+      RechazoAlSincronizar.avisar = avisos.add;
+      addTearDown(() => RechazoAlSincronizar.avisar = null);
+      repository.emitir([_greda]);
+      await tester.pump();
+
+      repository.sinConexion = Completer<void>();
+      unawaited(provider.deleteItem('item-1'));
+      unawaited(provider.updateStock(itemId: 'item-1', newStock: 9));
+      unawaited(
+        provider.addItem(
+          name: 'Esmalte azul',
+          type: InventoryItemType.material,
+          price: 5000,
+          stock: 1,
+          minStock: 0,
+          unit: 'litros',
+        ),
+      );
+      unawaited(provider.updateItem(_greda.copyWith(name: 'Greda roja')));
+      await tester.pump(const Duration(seconds: 15));
+      repository.sinConexion!.completeError(Exception('permission-denied'));
+      await tester.pump();
+
+      expect(avisos, [
+        'No se pudo eliminar la ficha «Greda 25 kg».',
+        'No se pudo guardar el stock de «Greda 25 kg».',
+        'No se pudo guardar la ficha «Esmalte azul».',
+        'No se pudieron guardar los cambios de «Greda roja».',
+      ]);
+    });
+
+    testWidgets('borrar una ficha avisa que quedó sin confirmar', (
+      final tester,
+    ) async {
+      repository.sinConexion = Completer<void>();
+      Object? confirmado;
+      unawaited(
+        provider
+            .deleteItem('f1')
+            .then<void>((final dynamic r) => confirmado = r as Object?),
+      );
+      await tester.pump(const Duration(seconds: 15));
+      expect(confirmado, isFalse);
     });
 
     testWidgets('ajustar el stock avisa que quedó sin confirmar', (

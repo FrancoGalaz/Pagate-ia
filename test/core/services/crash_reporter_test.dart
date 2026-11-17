@@ -106,7 +106,10 @@ void main() {
       final escritura = Completer<void>();
       bool? confirmada;
       unawaited(
-        confirmadaATiempo(escritura.future).then((final r) => confirmada = r),
+        confirmadaATiempo(
+          escritura.future,
+          siSeRechaza: 'No se pudo guardar el movimiento «Venta en feria».',
+        ).then((final r) => confirmada = r),
       );
       await tester.pump(kEsperaConfirmacion + const Duration(seconds: 1));
       expect(confirmada, isFalse);

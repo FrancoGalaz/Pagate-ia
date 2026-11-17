@@ -154,6 +154,26 @@ describe('Términos de servicio', () => {
     const text = textOf(<TerminosPage />);
     expect(text).toContain('no existe ninguna función de pago ni suscripción activa');
   });
+
+  // Revisión prelanzamiento 4.2: los términos se habían quedado atrás del
+  // lector de boletas.
+  it('nombra el límite del lector de boletas', () => {
+    const text = textOf(<TerminosPage />);
+    expect(text).toContain('El lector de boletas también tiene un límite total de lecturas');
+  });
+
+  it('dice que el asistente y el lector exigen el correo verificado', () => {
+    const text = textOf(<TerminosPage />);
+    expect(text).toContain(
+      'Para usar el asistente y el lector de boletas tienes que haber verificado tu correo',
+    );
+  });
+
+  it('matiza, como la política, que los datos también salen de una boleta', () => {
+    const text = textOf(<TerminosPage />);
+    expect(text).toContain('escribiéndolo o confirmando lo que la app leyó de una boleta');
+    expect(text).not.toContain('lo escribiste tú.');
+  });
 });
 
 describe('Eliminar cuenta y datos', () => {

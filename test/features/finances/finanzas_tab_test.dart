@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
 import 'package:pagate_ia/core/utils/currency_formatter.dart';
+import 'package:pagate_ia/core/utils/escritura_pendiente.dart';
 import 'package:pagate_ia/core/utils/month_labels.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_summary_entity.dart';
@@ -50,6 +51,10 @@ class _FinanzasFalsas extends ChangeNotifier implements FinancesProvider {
   final List<String> borrados = [];
   int reintentos = 0;
 
+  /// `false` simula estar sin conexión: el borrado queda en la cola local
+  /// y el servidor no lo confirma a tiempo.
+  bool confirma = true;
+
   @override
   double get totalFixedExpenses =>
       fixedExpenses.fold(0, (final a, final b) => a + b.amount);
@@ -80,7 +85,16 @@ class _FinanzasFalsas extends ChangeNotifier implements FinancesProvider {
   void retry() => reintentos++;
 
   @override
-  Future<void> deleteTransaction(final String id) async => borrados.add(id);
+  Future<bool> deleteTransaction(final String id) async {
+    borrados.add(id);
+    return confirma;
+  }
+
+  @override
+  Future<bool> deleteFixedExpense(final String id) async {
+    borrados.add(id);
+    return confirma;
+  }
 
   @override
   dynamic noSuchMethod(final Invocation invocation) =>
@@ -684,6 +698,46 @@ void main() {
       tester.widget<Text>(find.text('Insumos y materiales')).maxLines,
       isNull,
     );
+  });
+
+  // Un borrado sin conexión tiene que avisar lo mismo que un guardado sin
+  // conexión: sin aviso parece que no pasó nada, aunque la fila se vaya.
+  testWidgets('sin conexión, borrar un movimiento avisa que quedó en el '
+      'teléfono', (final tester) async {
+    final finanzas = _conDatos()..confirma = false;
+    await _montar(tester, finanzas);
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('Greda 25 kg'), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar').last);
+    // Sin `pumpAndSettle`: resolvería también la vida del aviso y ya no se
+    // vería.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(finanzas.borrados, ['tx-Greda 25 kg']);
+    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('sin conexión, borrar un gasto fijo avisa lo mismo', (
+    final tester,
+  ) async {
+    final finanzas = _conDatos()..confirma = false;
+    await _montar(tester, finanzas);
+
+    await _bajarHasta(tester, 'Arriendo');
+    await tester.tap(find.byTooltip('Eliminar Arriendo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(finanzas.borrados, ['fx1']);
+    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('no desborda a 1,3x ni a 2,0x', (final tester) async {

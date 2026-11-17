@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
 import 'package:pagate_ia/core/utils/app_feedback.dart';
+import 'package:pagate_ia/core/utils/escritura_pendiente.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_summary_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_transaction_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/fixed_expense_entity.dart';
@@ -25,7 +26,9 @@ import 'package:pagate_ia/features/finances/presentation/providers/finances_prov
 /// Repositorio sin conexión: anota la escritura y no la confirma hasta que
 /// se complete [conexion].
 class _RepositorioSinConexion implements FinancesRepository {
-  final Completer<void> conexion = Completer<void>();
+  /// Un test que la rechace con `completeError` tiene que crearla dentro del
+  /// propio test: un error no cruza de la zona de `setUp` a la del test.
+  Completer<void> conexion = Completer<void>();
   final List<String> gastosFijos = [];
   final List<String> gastosBorrados = [];
   final List<String> movimientosBorrados = [];
@@ -37,16 +40,29 @@ class _RepositorioSinConexion implements FinancesRepository {
   Stream<List<FinancesTransactionEntity>> watchTransactions(
     final String monthKey,
   ) =>
-      Stream.value(const []);
+      Stream.value([
+        FinancesTransactionEntity(
+          id: 'tx1',
+          title: 'Venta en feria',
+          description: '',
+          amount: 12000,
+          type: TransactionType.income,
+          date: DateTime.now(),
+          category: 'Ventas',
+        ),
+      ]);
 
   @override
-  Stream<List<FixedExpenseEntity>> watchFixedExpenses() =>
-      Stream.value(const []);
+  Stream<List<FixedExpenseEntity>> watchFixedExpenses() => Stream.value(
+        const [FixedExpenseEntity(id: 'g1', name: 'Luz', amount: 30000)],
+      );
 
   @override
   Future<void> addTransaction(
     final FinancesTransactionEntity transaction,
-  ) async {}
+  ) async {
+    await conexion.future;
+  }
 
   @override
   Future<void> updateTransaction(
@@ -147,14 +163,22 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  /// ¿Termina [escritura] sola, sin que el servidor confirme?
+  /// ¿Termina [escritura] sola, sin que el servidor confirme? Y, como los
+  /// guardados, ¿dice que quedó sin confirmar (`false`)?
   Future<bool> terminaSola(
     final WidgetTester tester,
     final Future<void> Function() escritura,
   ) async {
     var termino = false;
-    unawaited(escritura().then((final _) => termino = true));
+    Object? confirmado;
+    unawaited(
+      escritura().then((final dynamic r) {
+        termino = true;
+        confirmado = r as Object?;
+      }),
+    );
     await tester.pump(const Duration(seconds: 15));
+    expect(confirmado, isFalse, reason: 'el borrado no quedó confirmado');
     return termino;
   }
 
@@ -166,6 +190,64 @@ void main() {
       isTrue,
     );
     expect(repository.gastosBorrados, ['g1']);
+  });
+
+  // Lo que el servidor rechaza al sincronizar se avisa nombrando qué fue: con
+  // varios guardados pendientes, «algo no se guardó» no sirve de nada.
+  group('el rechazo al sincronizar dice qué no se guardó', () {
+    late List<String> avisos;
+
+    setUp(() {
+      avisos = [];
+      RechazoAlSincronizar.avisar = avisos.add;
+    });
+
+    /// La conexión se crea dentro del test (ver [_RepositorioSinConexion]).
+    Future<void> sinConexion(final WidgetTester tester) async {
+      repository.conexion = Completer<void>();
+      await tester.pump();
+    }
+
+    tearDown(() => RechazoAlSincronizar.avisar = null);
+
+    Future<void> rechazar(final WidgetTester tester) async {
+      await tester.pump(const Duration(seconds: 15));
+      repository.conexion.completeError(Exception('permission-denied'));
+      await tester.pump();
+    }
+
+    testWidgets('un movimiento nuevo', (final tester) async {
+      await sinConexion(tester);
+      unawaited(
+        provider.addTransaction(
+          title: 'Taller de cerámica',
+          amount: 25000,
+          type: TransactionType.income,
+          category: 'Ventas',
+          date: DateTime.now(),
+        ),
+      );
+      await rechazar(tester);
+      expect(avisos, ['No se pudo guardar el movimiento «Taller de cerámica».']);
+    });
+
+    testWidgets('un movimiento borrado', (final tester) async {
+      await sinConexion(tester);
+      unawaited(provider.deleteTransaction('tx1'));
+      await rechazar(tester);
+      expect(avisos, ['No se pudo eliminar el movimiento «Venta en feria».']);
+    });
+
+    testWidgets('un gasto fijo nuevo y uno borrado', (final tester) async {
+      await sinConexion(tester);
+      unawaited(provider.addFixedExpense(name: 'Arriendo', amount: 250000));
+      unawaited(provider.deleteFixedExpense('g1'));
+      await rechazar(tester);
+      expect(avisos, [
+        'No se pudo guardar el gasto fijo «Arriendo».',
+        'No se pudo eliminar el gasto fijo «Luz».',
+      ]);
+    });
   });
 
   testWidgets('sin conexión borrar un movimiento no deja esperando', (

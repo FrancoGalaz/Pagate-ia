@@ -10,18 +10,19 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 
 | # | Gravedad | Área | Hallazgo | Estado |
 |---|----------|------|----------|--------|
-| 1.1 | Crítica | Costo | `scanReceipt` devuelve la cuota cuando la salida del modelo no es JSON, y eso lo provoca quien llama: llamadas pagadas a OpenRouter sin límite | Resuelto; queda la variante de `chat` |
+| 1.1 | Crítica | Costo | `scanReceipt` devuelve la cuota cuando la salida del modelo no es JSON, y eso lo provoca quien llama: llamadas pagadas a OpenRouter sin límite | Resuelto, también en `chat` |
 | 3.1 | Alta | Legal | La página de eliminación promete borrar la inscripción en la lista de espera; `deleteAccount` no la toca | Resuelto |
 | 3.2 | Alta | Legal | La política dice que el texto de las boletas "hoy no sale" del teléfono, y el backend que se desplegaría con el merge ya lo manda a OpenRouter | Resuelto |
 | 1.2 | Alta | Costo | El tope global de gasto está apagado por defecto y el checklist de publicación no pide encenderlo; App Check tampoco se exige | Resuelto; App Check sigue pendiente de consola |
-| 2.1 | Media | Datos | Un token sigue valiendo hasta 1 hora después de `deleteAccount`: otro dispositivo puede recrear datos huérfanos bajo el `uid` borrado | Resuelto en las reglas; los callables no consultan la marca |
+| 2.1 | Media | Datos | Un token sigue valiendo hasta 1 hora después de `deleteAccount`: otro dispositivo puede recrear datos huérfanos bajo el `uid` borrado | Resuelto en las reglas y en los callables de IA |
 | 3.3 | Media | Legal | Los registros del servidor guardan texto de boletas junto al `uid`; la política dice que solo llevan fecha, función y errores | Resuelto |
 | 2.2 | Baja | Datos | `monthKey` se deriva de la hora local del teléfono y las reglas no lo atan a `date`: editar un movimiento desde otra zona horaria lo cambia de mes | Resuelto |
-| 4.1 | Baja | Asistente | El prompt escribe «Fecha de hoy» y las fechas de los movimientos en UTC: de noche en Chile el asistente va un día adelantado | Abierto |
-| 4.2 | Baja | Legal | Los términos no mencionan el límite de lecturas de boleta ni el correo verificado, y dicen «todo lo escribiste tú» | Abierto |
-| 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Resuelto en todas las escrituras |
-| 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Abierto |
-| 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Abierto |
+| 4.1 | Baja | Asistente | El prompt escribe «Fecha de hoy» y las fechas de los movimientos en UTC: de noche en Chile el asistente va un día adelantado | Resuelto |
+| 4.2 | Baja | Legal | Los términos no mencionan el límite de lecturas de boleta ni el correo verificado, y dicen «todo lo escribiste tú» | Resuelto |
+| 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Resuelto, con borrados y rechazos al sincronizar |
+| 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Resuelto |
+| 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Resuelto |
+| 5.4 | Media | Cliente | El plugin corta todo callable a los 60 s: `deleteAccount` y `deleteChatHistory` dan error mientras el servidor sigue borrando | Abierto (visto al cerrar 5.2) |
 | 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Hecho en el código; falta habilitar Crashlytics en la consola y el formulario de Play |
 
 Los tres tests están en `functions/test/revision-prelanzamiento.test.ts`.
@@ -60,8 +61,17 @@ secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 > **Resuelto (2026-11-16).** `scanReceipt` ya no devuelve la lectura cuando
 > el modelo respondió algo que no es JSON, así que esa llamada también queda
 > contada en el tope global. `MAX_SCAN_TEXT_CHARS` bajó de 8.000 a 4.000 (y
-> `maxTextChars` en el cliente). Sigue abierta la variante de `chat`: no
-> estaba en el encargo.
+> `maxTextChars` en el cliente).
+>
+> **Variante de `chat`, resuelta (2026-11-17).** La cuota se devuelve solo si
+> OpenRouter no pudo cobrar la llamada (`providerCharged` en
+> `functions/src/openrouter.ts`): no se devuelve si respondió 2xx (aunque el
+> texto venga vacío) ni si se cortó por plazo con la generación en marcha; sí
+> si no llegó a responder o respondió 4xx/5xx. Vale para `chat` y para
+> `scanReceipt`. En `chat` la pregunta huérfana se borra igual. Tests en
+> `functions/test/revision-prelanzamiento.test.ts` («cuota: no se devuelve si
+> el proveedor ya cobró»): con 200 vacío y con plazo agotado el contador queda
+> en 1; antes volvía a 0.
 
 - **Dónde:** `functions/src/scan.ts:480-496` (el `rollback('salida')`),
   `functions/src/quota.ts:462-487` (`refund` también descuenta el contador
@@ -135,9 +145,17 @@ secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 > **Resuelto en las reglas (2026-11-16).** `deleteAccount` escribe
 > `deletedUsers/{uid}` antes de borrar y `isOwner` niega todo acceso del
 > cliente a `users/{uid}` si la marca existe (una lectura más por operación).
-> La página de eliminación declara la marca. **Queda abierto:** `chat` y
-> `scanReceipt` no la consultan, así que un token vivo todavía puede recrear
-> `meta/usage` y una conversación durante esa hora; no estaba en el encargo.
+> La página de eliminación declara la marca.
+>
+> **Callables, resuelto (2026-11-17).** `reserve` (`functions/src/quota.ts`)
+> lee la marca dentro de la misma transacción y rechaza con `unauthenticated`
+> antes de escribir nada; `chat` y `scanReceipt` pasan los dos por ahí antes
+> de llamar al modelo. Test: «cuenta borrada: los callables de IA la
+> rechazan» (sin marca de cuenta borrada en el código, `meta/usage` y la
+> conversación se recreaban). **No aplica** a los otros dos callables:
+> `deleteChatHistory` y `deleteAccount` solo borran, así que no pueden
+> recrear nada bajo el `uid`; y el trigger de `months` solo se dispara con
+> una escritura del cliente, que las reglas ya niegan.
 
 - **Dónde:** `functions/src/account.ts:122-156` (borra datos y credencial, no
   deja marca), `firestore.rules` (`isOwner` solo compara `request.auth.uid`),
@@ -190,7 +208,10 @@ secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 > `waitlist/{hash del correo del token}` y comprueba que no quedó, **solo si
 > el correo está verificado** (`waitlistEmailOf`): sin esa condición, alguien
 > podía registrarse con el correo de otra persona y borrar su inscripción. La
-> página de eliminación lo dice así y remite al correo para el otro caso.
+> página de eliminación lo dice así y remite al correo para el otro caso. La
+> condición se aplica dentro de `deleteUserData`, no en quien la llama, y
+> está comprobada por mutación: al quitarla fallan dos tests
+> (`functions/test/account.test.ts`).
 
 - **Dónde:** `landing/src/pages/EliminarCuentaPage.tsx:69` ("Se elimina lo
   mismo que se enumera más abajo, y se elimina entero") y `:132` ("Tu
@@ -282,6 +303,11 @@ inventario no salen.
 
 ### 4.1 Baja: el asistente va en hora UTC
 
+> **Resuelto (2026-11-17).** `formatDate` usa `dayKeyOf`, en hora de
+> America/Santiago. Test en `functions/test/prompt.test.ts` («escribe las
+> fechas en hora de Chile, no en UTC»): el 31 de octubre a las 21:30 el
+> prompt decía 2026-11-01.
+
 - **Dónde:** `functions/src/prompt.ts`, `formatDate`
   (`date.toISOString().slice(0, 10)`), usada para «Fecha de hoy» y para la
   fecha de cada movimiento.
@@ -294,6 +320,15 @@ inventario no salen.
   `dayKeyOf` en `quota.ts`.
 
 ### 4.2 Baja: los términos se quedaron atrás del lector de boletas
+
+> **Resuelto (2026-11-17).** La sección del asistente suma dos frases: el
+> lector también tiene un límite total de lecturas que no se renueva, y el
+> asistente y el lector exigen el correo verificado. «Todo lo que la app sabe
+> de tu negocio» lleva el mismo matiz que la política. Las frases dependen de
+> `FUNCIONES_APP.lectorBoletas`, como en la política. **Sin cifra**, igual
+> que la frase del asistente: los dos topes (25 y 40) se cambian en
+> `system/aiConfig` sin publicar los términos de nuevo. Tests en
+> `landing/src/pages/legal.test.tsx`.
 
 - **Dónde:** `landing/src/pages/TerminosPage.tsx`.
 - **Qué pasa:** dicen «El asistente tiene un límite de mensajes» y no nombran
@@ -320,8 +355,8 @@ Solo lectura del cliente Flutter.
 | Asistente sin cuota | El texto del servidor: el total incluido y que no se renueva | Bien |
 | Asistente con correo sin verificar | El aviso del servidor y el botón «Reenviar correo» (`ai_provider.dart`, `_faltaVerificarCorreo`) | Bien |
 | Lector de boletas con cualquier fallo (red, cuota, correo, App Check, falta `system/aiConfig`) | Se queda con la lista que armó el teléfono y lo dice en una franja (`remote_line_item_parser.dart`) | Bien |
-| App Check rechaza en el asistente | «Se requiere una verificación válida de App Check.» | Ver 5.3 |
-| Guardar un movimiento sin red | El botón queda cargando sin fin | Ver 5.1 |
+| App Check rechaza en el asistente | «Se requiere una verificación válida de App Check.» | Ver 5.3 (resuelto) |
+| Guardar un movimiento sin red | El botón queda cargando sin fin | Ver 5.1 (resuelto) |
 | Cerrar sesión con cambios sin subir | Pregunta antes de perderlos (`cerrarSesion`) | Bien |
 
 ### 5.1 Alta: guardar sin conexión deja la app cargando
@@ -337,10 +372,24 @@ Solo lectura del cliente Flutter.
 > `integration_test/movimiento_sin_conexion_test.dart` y
 > `integration_test/guardar_sin_conexion_test.dart` (Firestore real y reglas
 > reales con la red cortada, en el emulador Android: cada cosa una sola vez
-> al reconectar). **Queda abierto:** si el servidor rechaza al reconectar
-> algo guardado sin conexión, llega a Crashlytics (punto 6) pero el usuario
-> no recibe ningún aviso; y los borrados sin
-> conexión muestran el aviso de siempre, no el de «se sincronizará».
+> al reconectar).
+>
+> **Borrados y rechazos, resueltos (2026-11-17).** Un borrado sin conexión
+> (movimiento, gasto fijo, ficha) avisa lo mismo que un guardado: «Guardado
+> en el teléfono…»; la ficha ya no dice «Ficha eliminada.» antes de que el
+> servidor lo confirme. Si el servidor rechaza al sincronizar algo guardado
+> sin conexión, la app lo avisa en pantalla diciendo qué fue («No se pudo
+> guardar el movimiento «Venta en feria».»), encima de lo que esté abierto:
+> `confirmadaATiempo` exige ese texto (`siSeRechaza`) y `AppShell` registra
+> quién lo pinta (`RechazoAlSincronizar`). Ese texto no va a Crashlytics,
+> que sigue recibiendo solo el tipo de error. Tests:
+> `test/core/utils/escritura_pendiente_test.dart`,
+> `test/features/auth/app_shell_test.dart`, `guardar_sin_conexion_test.dart`,
+> `inventory_provider_test.dart`, `finanzas_tab_test.dart` y
+> `detalle_item_screen_test.dart`. **Límite que no tiene arreglo en el
+> cliente:** si la app se cierra antes de sincronizar, Firestore sube la
+> escritura al volver a abrirla, pero ya no hay nadie escuchando la
+> respuesta; un rechazo en ese caso solo deja rastro en Crashlytics.
 
 - **Dónde:** `lib/features/finances/data/datasources/finances_firebase_datasource.dart:114`
   (`await _transactions.add`), y lo mismo en `:132`, `:146`, en
@@ -371,6 +420,16 @@ Solo lectura del cliente Flutter.
 
 ### 5.2 Baja: plazo del asistente más corto que el del servidor
 
+> **Resuelto (2026-11-17).** `AiService.timeout` pasó de 45 a 75 s, por
+> encima de los 60 s de `chat`, y se le pasa también al plugin
+> (`HttpsCallableOptions`), que por defecto corta a los 60 s y habría
+> cortado antes. Test: `test/core/services/ai_service_plazo_test.dart`, que
+> lee `timeoutSeconds` de `functions/src/chat.ts` para que los dos números
+> no se separen. El lector de boletas (`receipt_scan_service.dart`, 40 s)
+> **no aplica:** corta antes a propósito para mostrar la lista armada en el
+> teléfono, y desde 1.1 una lectura cortada por plazo cuenta igual, así que
+> reintentar no regala nada.
+
 - **Dónde:** `lib/core/services/ai_service.dart` (`timeout` de 45 s) frente a
   `chat` (`timeoutSeconds: 60`, con 30 s para OpenRouter).
 - **Escenario:** con el servidor lento, el cliente corta a los 45 s y muestra
@@ -382,6 +441,15 @@ Solo lectura del cliente Flutter.
 
 ### 5.3 Baja: el rechazo de App Check no le dice nada al usuario
 
+> **Resuelto (2026-11-17).** Los cuatro callables (`chat`, `scanReceipt`,
+> `deleteAccount`, `deleteChatHistory`) rechazan con el mismo texto,
+> `APP_CHECK_REJECTED` en `functions/src/config.ts`: «No pudimos verificar la
+> app. Instálala o actualízala desde Google Play.» Test: «App Check: el
+> rechazo es accionable». **Cliente: no hace falta cambio.**
+> `AiServiceException.from` ya muestra el mensaje del servidor
+> (`ai_service_exception_test.dart`); el lector de boletas cae a la lista
+> local y lo dice en su franja.
+
 - **Dónde:** `functions/src/chat.ts` (el `HttpsError('unauthenticated', ...)`
   de App Check) y `lib/core/services/ai_service.dart`
   (`AiServiceException.from` muestra el mensaje del servidor).
@@ -390,6 +458,24 @@ Solo lectura del cliente Flutter.
   una verificación válida de App Check.» en cada mensaje.
 - **Arreglo:** cambiar el texto del servidor por uno accionable: «No pudimos
   verificar la app. Instálala o actualízala desde Google Play.»
+
+### 5.4 Media: el plugin corta los borrados largos a los 60 s
+
+> **Abierto. Visto al cerrar 5.2, sin arreglar porque no estaba en el
+> encargo.**
+
+- **Dónde:** `lib/core/services/account_service.dart` (`timeout` de 5 min) y
+  `chat_history_service.dart` (2 min). Ninguno pasa `HttpsCallableOptions`,
+  y `cloud_functions` 5.6.2 usa 60 s si no se le pasa
+  (`HttpsCallableOptions()`; en Android lo aplica con `setTimeout`).
+- **Escenario:** una cuenta con mucho historial tarda más de 60 s en
+  borrarse. A los 60 s la app muestra un error, pero `deleteAccount` (300 s
+  en el servidor) sigue y borra la cuenta. Es justo «la peor combinación
+  posible» que el comentario de `AccountService.timeout` dice querer evitar.
+  Lo mismo con `deleteChatHistory` (120 s).
+- **Arreglo:** pasar `HttpsCallableOptions(timeout: timeout)` en los dos
+  servicios, como ya hace `AiService`, con un test como el de 5.2.
+- **Sin comprobar en un teléfono:** sale de leer el código del plugin.
 
 ---
 

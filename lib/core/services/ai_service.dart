@@ -83,7 +83,18 @@ class AiService {
   static const String region = 'southamerica-west1';
 
   /// Tiempo máximo de espera por una respuesta del asistente.
-  static const Duration timeout = Duration(seconds: 45);
+  ///
+  /// Por encima de los 60 s que tiene `chat` en el servidor (revisión
+  /// prelanzamiento 5.2): con 45 s el cliente se rendía mientras la función
+  /// todavía podía terminar, guardar la respuesta y gastar el mensaje, y al
+  /// reenviar se gastaba otro.
+  static const Duration timeout = Duration(seconds: 75);
+
+  /// El plugin tiene su propio plazo, 60 s por defecto, que cortaría antes
+  /// que [timeout]: se le pasa el mismo.
+  static final HttpsCallableOptions opciones = HttpsCallableOptions(
+    timeout: timeout,
+  );
 
   static const String _callableName = 'chat';
 
@@ -105,7 +116,7 @@ class AiService {
     final HttpsCallableResult<dynamic> result;
     try {
       result = await _functions
-          .httpsCallable(_callableName)
+          .httpsCallable(_callableName, options: opciones)
           .call<dynamic>({
             'conversationId': ?conversationId,
             'message': message,

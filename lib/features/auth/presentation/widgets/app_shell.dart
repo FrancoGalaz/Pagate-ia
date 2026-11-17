@@ -3,6 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../../../core/constants/app_brand.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 
 /// `MaterialApp` de la app, con el tema global.
 ///
@@ -31,6 +33,45 @@ class AppShell extends StatelessWidget {
     locale: const Locale('es', 'CL'),
     supportedLocales: const [Locale('es', 'CL')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    home: home,
+    home: _AvisoDeRechazos(child: home),
   );
+}
+
+/// Registra [RechazoAlSincronizar.avisar] mientras la app está montada y pinta
+/// el aviso en el overlay raíz, encima de lo que esté abierto.
+///
+/// Va envolviendo a `home` porque la ruta raíz no se reemplaza nunca: su
+/// `context` sigue vivo con cualquier pantalla apilada encima.
+class _AvisoDeRechazos extends StatefulWidget {
+  const _AvisoDeRechazos({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AvisoDeRechazos> createState() => _AvisoDeRechazosState();
+}
+
+class _AvisoDeRechazosState extends State<_AvisoDeRechazos> {
+  void _avisar(final String mensaje) {
+    if (mounted) AppFeedback.showError(context, mensaje);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    RechazoAlSincronizar.avisar = _avisar;
+  }
+
+  @override
+  void dispose() {
+    // Al cambiar de sesión, el `AppShell` nuevo se registra ANTES de que
+    // este se deseche: solo se borra si sigue siendo el registrado.
+    if (RechazoAlSincronizar.avisar == _avisar) {
+      RechazoAlSincronizar.avisar = null;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) => widget.child;
 }

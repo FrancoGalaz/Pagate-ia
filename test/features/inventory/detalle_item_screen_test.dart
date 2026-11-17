@@ -16,11 +16,15 @@
 //   `items` bastaba con haber buscado algo para que la ficha se quedara con
 //   los valores viejos justo después de confirmar un cambio.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:pagate_ia/core/theme/app_theme.dart';
+import 'package:pagate_ia/core/utils/app_feedback.dart';
+import 'package:pagate_ia/core/utils/escritura_pendiente.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_entity.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_type.dart';
 import 'package:pagate_ia/features/inventory/presentation/pages/detalle_item_screen.dart';
@@ -114,6 +118,53 @@ void main() {
     expect(find.byType(ItemFormSheet), findsOneWidget);
     expect(find.text('Editar material'), findsOneWidget);
     expect(find.text('Guardar cambios'), findsOneWidget);
+  });
+
+  // Un borrado sin conexión avisa lo mismo que un guardado sin conexión, en
+  // vez de «Ficha eliminada.», que da a entender que ya está en el servidor.
+  testWidgets('sin conexión, eliminar la ficha avisa que quedó en el '
+      'teléfono', (final tester) async {
+    // La ficha se abre encima de otra pantalla, como en la app: al borrar
+    // vuelve a ella con `Navigator.pop`.
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: ChangeNotifierProvider<InventoryProvider>.value(
+          value: provider,
+          child: const Scaffold(body: Text('Inventario')),
+        ),
+      ),
+    );
+    unawaited(
+      Navigator.of(tester.element(find.text('Inventario'))).push(
+        MaterialPageRoute<void>(
+          builder: (final _) => ChangeNotifierProvider<InventoryProvider>.value(
+            value: provider,
+            child: const DetalleItemScreen(item: _ficha),
+          ),
+        ),
+      ),
+    );
+    repository.emitir([_ficha]);
+    await tester.pumpAndSettle();
+    repository.sinConexion = Completer<void>();
+
+    await tester.ensureVisible(find.text('Eliminar ficha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar ficha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar').last);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(repository.borrados, ['item-1']);
+    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    expect(find.text('Ficha eliminada.'), findsNothing);
+
+    repository.sinConexion!.complete();
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('la ficha se refresca aunque el buscador esté filtrando', (
