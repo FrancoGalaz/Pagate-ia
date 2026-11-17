@@ -130,7 +130,7 @@ export default function EliminarCuentaPage() {
             'Todas tus conversaciones con el asistente, incluidos tus mensajes y las respuestas que recibiste.',
             'Los reportes de respuestas del asistente que hayas enviado, con su motivo, tu comentario y el texto reportado.',
             'El contador de mensajes del asistente.',
-            'Tu inscripción en la lista de espera de este sitio, si coincide con el correo de la cuenta.',
+            'Tu inscripción en la lista de espera de este sitio, si la hiciste con el correo de la cuenta y ese correo está verificado. Si no lo verificaste, pídenos borrarla por correo.',
           ]}
         />
         {FUNCIONES_APP.lectorBoletas && (

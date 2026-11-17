@@ -158,10 +158,11 @@ secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 
 ### 2.2 Baja: un movimiento puede cambiar de mes según la zona horaria
 
-> **Resuelto (2026-11-16).** `monthKeyFromDate` calcula siempre en hora de
-> America/Santiago, con la regla de horario de verano vigente escrita en el
-> código (Dart no trae base de zonas horarias; si un decreto la cambia hay
-> que actualizarla). Un movimiento guardado conserva su `monthKey` y solo se
+> **Resuelto (2026-11-16, ajustado el 17).** `monthKeyFromDate` calcula
+> siempre en hora de America/Santiago, con las reglas de la base de zonas
+> horarias IANA del paquete `timezone` (ya no hay regla escrita a mano). La
+> base viaja dentro de la app: ante un decreto nuevo hay que subir la versión
+> del paquete y publicar. Un movimiento guardado conserva su `monthKey` y solo se
 > recalcula si cambia la fecha (`storedMonthKey`). Consecuencia de la
 > decisión: con el teléfono fuera de Chile, un movimiento fechado el día 1
 > puede contar en el mes anterior, porque manda la hora chilena. Las reglas
@@ -185,10 +186,11 @@ secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 
 ### 3.1 Alta: la lista de espera no se borra con la cuenta
 
-> **Resuelto (2026-11-16).** `deleteAccount` borra también
-> `waitlist/{hash del correo del token}` y comprueba que no quedó. Se borra
-> aunque el correo no esté verificado, para que la promesa valga para toda
-> cuenta.
+> **Resuelto (2026-11-16, ajustado el 17).** `deleteAccount` borra también
+> `waitlist/{hash del correo del token}` y comprueba que no quedó, **solo si
+> el correo está verificado** (`waitlistEmailOf`): sin esa condición, alguien
+> podía registrarse con el correo de otra persona y borrar su inscripción. La
+> página de eliminación lo dice así y remite al correo para el otro caso.
 
 - **Dónde:** `landing/src/pages/EliminarCuentaPage.tsx:69` ("Se elimina lo
   mismo que se enumera más abajo, y se elimina entero") y `:132` ("Tu

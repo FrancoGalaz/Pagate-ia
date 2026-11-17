@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../../../core/utils/month_labels.dart';
 
@@ -90,6 +92,20 @@ class FinancesSummaryEntity extends Equatable {
       ];
 }
 
+/// La zona horaria de Chile continental, con sus reglas de horario de verano.
+///
+/// Sale de la base de zonas horarias IANA que trae el paquete `timezone`, no
+/// de una regla escrita aquí: Chile cambia su horario por decreto (en 2015 no
+/// hubo horario de invierno, en 2016 empezó en mayo, en 2022 se corrió una
+/// semana) y una regla a mano acierta solo mientras dure el decreto vigente.
+///
+/// La base viaja DENTRO de la app. Cuando un decreto nuevo cambie las fechas,
+/// hay que subir la versión de `timezone` en `pubspec.yaml` y publicar.
+final tz.Location _santiago = () {
+  tzdata.initializeTimeZones();
+  return tz.getLocation('America/Santiago');
+}();
+
 /// Deriva la clave `yyyy-MM` de una fecha, SIEMPRE en hora de Chile
 /// continental (America/Santiago), esté donde esté el teléfono.
 ///
@@ -98,28 +114,8 @@ class FinancesSummaryEntity extends Equatable {
 /// tocarlo desde otra zona. El backend ya calcula el mes en curso con
 /// America/Santiago (`currentMonthKey` en `functions/src/chat.ts`).
 String monthKeyFromDate(final DateTime date) {
-  final utc = date.toUtc();
-  final chile = utc.subtract(Duration(hours: _esInviernoEnChile(utc) ? 4 : 3));
+  final chile = tz.TZDateTime.from(date, _santiago);
   return '${chile.year}-${chile.month.toString().padLeft(2, '0')}';
-}
-
-/// Horario de invierno de Chile continental (UTC-4): desde el domingo que
-/// sigue al primer sábado de abril, a las 03:00 UTC, hasta el domingo que
-/// sigue al primer sábado de septiembre, a las 04:00 UTC. El resto del año
-/// es UTC-3. Es la regla vigente desde 2023; Dart no trae base de zonas
-/// horarias, y si un decreto la cambia hay que actualizarla aquí.
-bool _esInviernoEnChile(final DateTime utc) {
-  final inicio =
-      _domingoTrasElPrimerSabado(utc.year, 4).add(const Duration(hours: 3));
-  final fin =
-      _domingoTrasElPrimerSabado(utc.year, 9).add(const Duration(hours: 4));
-  return !utc.isBefore(inicio) && utc.isBefore(fin);
-}
-
-/// El primer domingo del mes contando desde el día 2.
-DateTime _domingoTrasElPrimerSabado(final int year, final int month) {
-  final dia2 = DateTime.utc(year, month, 2);
-  return dia2.add(Duration(days: (DateTime.sunday - dia2.weekday) % 7));
 }
 
 /// Convierte `yyyy-MM` en "Marzo 2025". Si la clave es inválida la devuelve

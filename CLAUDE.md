@@ -57,6 +57,9 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   cuota. Sin verificar, el lector de boletas se queda con la lista local.
 - **Historial del asistente:** se borra con `deleteChatHistory`; no toca la
   cuota ni `aiReports`.
+- **Zona horaria:** `monthKey` se calcula con America/Santiago desde la base
+  IANA del paquete `timezone`. Si Chile cambia el horario por decreto, subir
+  la versión del paquete y publicar; no escribir reglas a mano.
 - **Informes de fallos:** Firebase Crashlytics, sin Analytics y sin
   identificar al usuario. Todo pasa por `CrashReporter`
   (`lib/core/services/crash_reporter.dart`), que manda el tipo del error y la
@@ -84,8 +87,8 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   cuenta borrada y `monthKey` en hora de Chile). La segunda pasada dejó
   abiertos los de «Pendiente».
 - **Tests (2026-11-16, rama `docs/reglas-trabajo`):**
-  `flutter analyze` sin problemas; `flutter test` 611 pasan; functions `lint`
-  y `build` OK y `npm --prefix functions test` 329 pasan (13 archivos, con los
+  `flutter analyze` sin problemas; `flutter test` 614 pasan; functions `lint`
+  y `build` OK y `npm --prefix functions test` 333 pasan (13 archivos, con los
   de reglas); landing `lint`, 76 tests y `build` OK. El test de integración
   `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
   verificación de correo. `scripts/smoke-prod.sh` se probó contra los

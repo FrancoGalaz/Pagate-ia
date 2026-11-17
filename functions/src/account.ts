@@ -53,7 +53,8 @@ const RECENT_LOGIN_SECONDS = 5 * 60;
  *
  * Con [email] borra también la inscripción de ese correo en la lista de espera
  * de la landing (`waitlist/{hash}`): la página pública de eliminación de cuenta
- * la cuenta entre lo que se borra.
+ * la cuenta entre lo que se borra. Quien llama pasa el correo solo si está
+ * verificado (`waitlistEmailOf`).
  *
  * @returns las rutas que quedaron con documentos (vacío si el borrado fue total).
  */
@@ -79,6 +80,20 @@ export async function deleteUserData(db: Firestore, uid: string, email?: string)
     if (!snap.empty) leftovers.push(col.path);
   }
   return leftovers;
+}
+
+/**
+ * El correo con el que `deleteAccount` puede borrar una inscripción de la
+ * lista de espera: el del token, y SOLO si está verificado.
+ *
+ * Sin esa condición, cualquiera podía registrarse con el correo de otra
+ * persona, sin verificarlo, y borrar la cuenta para llevarse la inscripción
+ * ajena. Una cuenta sin verificar no demostró que el correo sea suyo.
+ */
+export function waitlistEmailOf(
+  token: { email?: string; email_verified?: boolean } | undefined,
+): string | undefined {
+  return token?.email_verified === true && token.email ? token.email : undefined;
 }
 
 /** Lo que `checkDeleteAccountCaller` necesita de la llamada. */
@@ -139,7 +154,7 @@ export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
 
     let leftovers: string[];
     try {
-      leftovers = await deleteUserData(db, uid, request.auth?.token?.email);
+      leftovers = await deleteUserData(db, uid, waitlistEmailOf(request.auth?.token));
     } catch (err) {
       logger.error('deleteAccount.datos.error', { uid, error: String(err) });
       throw new HttpsError('internal', 'No se pudieron borrar tus datos. Intenta de nuevo en unos minutos.');

@@ -9,7 +9,8 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { checkDeleteAccountCaller, deleteUserData } from '../src/account';
+import { checkDeleteAccountCaller, deleteUserData, waitlistEmailOf } from '../src/account';
+import { waitlistDocId } from '../src/waitlist';
 import { adminDb, wipeUser } from './helpers/admin';
 
 const UID = 'borrame';
@@ -129,6 +130,39 @@ describe('deleteUserData', () => {
   it('no falla sobre una cuenta que nunca escribió nada', async () => {
     const db = adminDb();
     expect(await deleteUserData(db, 'cuenta-vacia')).toEqual([]);
+  });
+});
+
+// Sin esta condición, alguien podía registrarse con el correo de otra persona
+// (sin verificarlo), borrar la cuenta y llevarse por delante la inscripción
+// ajena en la lista de espera.
+describe('waitlistEmailOf: solo un correo verificado borra la inscripción', () => {
+  it('devuelve el correo si el token lo trae verificado', () => {
+    expect(waitlistEmailOf({ email: 'artesana@example.com', email_verified: true })).toBe(
+      'artesana@example.com',
+    );
+  });
+
+  it('sin verificar, no devuelve nada', () => {
+    expect(waitlistEmailOf({ email: 'ajena@example.com', email_verified: false })).toBeUndefined();
+    expect(waitlistEmailOf({ email: 'ajena@example.com' })).toBeUndefined();
+  });
+
+  it('sin correo o sin token, no devuelve nada', () => {
+    expect(waitlistEmailOf({ email_verified: true })).toBeUndefined();
+    expect(waitlistEmailOf(undefined)).toBeUndefined();
+  });
+
+  it('una cuenta sin verificar no borra la inscripción de ese correo', async () => {
+    const db = adminDb();
+    const ajena = db.collection('waitlist').doc(waitlistDocId('ajena@example.com'));
+    await ajena.set({ name: 'Otra persona', email: 'ajena@example.com', source: 'landing' });
+
+    await deleteUserData(db, UID, waitlistEmailOf({ email: 'ajena@example.com', email_verified: false }));
+
+    const sigue = (await ajena.get()).exists;
+    await ajena.delete();
+    expect(sigue).toBe(true);
   });
 });
 
