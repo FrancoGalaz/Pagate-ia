@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/config/firebase_errors.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../domain/entities/hourly_rate_entity.dart';
 import '../../domain/repositories/hourly_rate_repository.dart';
 import '../../domain/usecases/calculate_hourly_rate.dart';
@@ -36,6 +37,11 @@ class HourlyRateProvider extends ChangeNotifier {
   bool get isSaving => _isSaving;
   String? get error => _error;
   String? get saveError => _saveError;
+
+  /// `true` si el último guardado quedó en el teléfono sin que el servidor
+  /// lo confirmara a tiempo (sin conexión). Se sincroniza solo.
+  bool get guardadoSinConexion => _guardadoSinConexion;
+  bool _guardadoSinConexion = false;
   bool get hasConfiguration => _currentRate != null;
 
   void _subscribe() {
@@ -78,7 +84,9 @@ class HourlyRateProvider extends ChangeNotifier {
         desiredSalary: desiredSalary,
         availableHoursPerMonth: availableHoursPerMonth,
       );
-      await _repository.saveHourlyRate(rate);
+      _guardadoSinConexion = !await confirmadaATiempo(
+        _repository.saveHourlyRate(rate),
+      );
       _currentRate = rate;
       return true;
     } catch (e) {

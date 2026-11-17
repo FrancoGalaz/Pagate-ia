@@ -7,6 +7,7 @@ import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/firebase_auth_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
@@ -120,15 +121,21 @@ class _SetupInicialScreenState extends State<SetupInicialScreen> {
     if (!formularioValido || !hayRubro) return;
 
     setState(() => _isSaving = true);
+    // El overlay raíz se toma ANTES de guardar: cuando el perfil aparece, el
+    // gate cambia esta pantalla por el dashboard y este `context` ya no sirve
+    // para avisar.
+    final overlay = Overlay.of(context, rootOverlay: true);
     try {
-      await context.read<UserProfileProvider>().updateFromSetup(
-        name: _nameController.text.trim(),
-        businessName: _businessController.text.trim(),
-        businessType: _selectedType.first,
-        currency: _selectedCurrency,
-        monthlyGoal: parseCurrencyInput(_goalController.text)!,
-      );
+      final confirmado =
+          await context.read<UserProfileProvider>().updateFromSetup(
+                name: _nameController.text.trim(),
+                businessName: _businessController.text.trim(),
+                businessType: _selectedType.first,
+                currency: _selectedCurrency,
+                monthlyGoal: parseCurrencyInput(_goalController.text)!,
+              );
       // El gate reacciona al stream del perfil y muestra el dashboard.
+      if (!confirmado) AppFeedback.showMessageOn(overlay, kGuardadoEnElTelefono);
     } catch (e) {
       if (!mounted) return;
       AppFeedback.showError(context, describeFirebaseError(e));

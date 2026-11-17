@@ -12,6 +12,8 @@
 // · Que el buscador encuentre por código, que es el único motivo por el que
 //   un código sirve para algo.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pagate_ia/core/constants/firestore_limits.dart';
@@ -58,6 +60,54 @@ void main() {
   tearDown(() async {
     provider.dispose();
     await repository.cerrar();
+  });
+
+  // Revisión prelanzamiento 5.1: sin red la escritura de Firestore no
+  // confirma nunca. Ninguna de estas puede dejar esperando a la pantalla.
+  group('sin conexión las escrituras no dejan esperando', () {
+    Future<bool> terminaSola(
+      final WidgetTester tester,
+      final Future<void> Function() escritura,
+    ) async {
+      repository.sinConexion = Completer<void>();
+      var termino = false;
+      unawaited(escritura().then((final _) => termino = true));
+      await tester.pump(const Duration(seconds: 15));
+      return termino;
+    }
+
+    testWidgets('ajustar el stock', (final tester) async {
+      expect(
+        await terminaSola(
+          tester,
+          () => provider.updateStock(itemId: 'f1', newStock: 7),
+        ),
+        isTrue,
+      );
+      expect(repository.stocksEscritos, [7]);
+    });
+
+    testWidgets('borrar una ficha', (final tester) async {
+      expect(
+        await terminaSola(tester, () => provider.deleteItem('f1')),
+        isTrue,
+      );
+      expect(repository.borrados, ['f1']);
+    });
+
+    testWidgets('ajustar el stock avisa que quedó sin confirmar', (
+      final tester,
+    ) async {
+      repository.sinConexion = Completer<void>();
+      Object? confirmado;
+      unawaited(
+        provider
+            .updateStock(itemId: 'f1', newStock: 7)
+            .then<void>((final dynamic r) => confirmado = r as Object?),
+      );
+      await tester.pump(const Duration(seconds: 15));
+      expect(confirmado, isFalse);
+    });
   });
 
   group('addItem', () {

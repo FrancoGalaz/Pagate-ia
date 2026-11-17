@@ -71,6 +71,15 @@ class AppFeedback {
   ) =>
       _mostrar(context, message, AppFeedbackTone.neutral);
 
+  /// Igual que [showMessage], para quien ya no tendrá su `context` vivo en el
+  /// momento de avisar: el overlay raíz se captura antes con
+  /// `Overlay.of(context, rootOverlay: true)`.
+  static void showMessageOn(
+    final OverlayState overlay,
+    final String message,
+  ) =>
+      _insertar(overlay, message, AppFeedbackTone.neutral);
+
   /// Muestra un aviso de error. Dura más y va en color de peligro.
   static void showError(
     final BuildContext context,
@@ -98,7 +107,14 @@ class AppFeedback {
       debugPrint('AppFeedback sin Overlay: $message');
       return;
     }
+    _insertar(overlay, message, tone);
+  }
 
+  static void _insertar(
+    final OverlayState overlay,
+    final String message,
+    final AppFeedbackTone tone,
+  ) {
     dismiss();
 
     final activo = _AvisoActivo();

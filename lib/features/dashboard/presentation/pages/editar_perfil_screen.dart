@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/config/firebase_errors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../user_profile/domain/entities/user_profile_entity.dart';
 import '../../../user_profile/presentation/providers/user_profile_provider.dart';
@@ -142,7 +144,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     });
 
     try {
-      await context.read<UserProfileProvider>().updateFromSetup(
+      final confirmado = await context.read<UserProfileProvider>().updateFromSetup(
             name: _nombre.text.trim(),
             businessName: _negocio.text.trim(),
             businessType: _rubro,
@@ -158,6 +160,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       _rubroInicial = _rubro;
       _monedaInicial = _moneda;
       Navigator.pop(context);
+      if (!confirmado) AppFeedback.showMessage(context, kGuardadoEnElTelefono);
     } catch (e) {
       if (!mounted) return;
       setState(() {

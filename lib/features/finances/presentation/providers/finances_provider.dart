@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/error_messages.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../domain/entities/finances_summary_entity.dart';
 import '../../domain/entities/finances_transaction_entity.dart';
 import '../../domain/entities/fixed_expense_entity.dart';
@@ -82,7 +83,7 @@ class FinancesProvider extends ChangeNotifier {
 
   /// Cuánto se espera la confirmación del servidor al guardar un movimiento
   /// antes de darlo por guardado en el teléfono y pendiente de sincronizar.
-  static const Duration esperaConfirmacion = Duration(seconds: 4);
+  static const Duration esperaConfirmacion = kEsperaConfirmacion;
 
   /// Clave `yyyy-MM` del mes en pantalla.
   String get selectedMonthKey =>
@@ -225,21 +226,9 @@ class FinancesProvider extends ChangeNotifier {
       docType: docType,
       platformFee: platformFee,
     );
-    final escritura = _repository.addTransaction(transaction);
-    var confirmado = true;
-    try {
-      await escritura.timeout(esperaConfirmacion);
-    } on TimeoutException {
-      confirmado = false;
-      // La escritura sigue viva en la cola local. Si el servidor la rechaza
-      // al reconectar ya no hay formulario al que avisar: se registra.
-      unawaited(
-        escritura.catchError((final Object e) {
-          debugPrint('FinancesProvider: el servidor rechazó un movimiento '
-              'guardado sin conexión: $e');
-        }),
-      );
-    }
+    final confirmado = await confirmadaATiempo(
+      _repository.addTransaction(transaction),
+    );
     if (_disposed) return confirmado;
     if (transaction.monthKey != selectedMonthKey) {
       selectMonthKey(transaction.monthKey);
@@ -252,10 +241,14 @@ class FinancesProvider extends ChangeNotifier {
   ) =>
       _repository.updateTransaction(transaction);
 
+  /// Los borrados tampoco esperan al servidor sin plazo (ver
+  /// [confirmadaATiempo]): sin conexión el borrado queda en la cola local.
   Future<void> deleteTransaction(final String id) =>
-      _repository.deleteTransaction(id);
+      confirmadaATiempo(_repository.deleteTransaction(id));
 
-  Future<void> addFixedExpense({
+  /// Devuelve `false` si el gasto quedó guardado en el teléfono sin que el
+  /// servidor lo confirmara a tiempo, igual que [addTransaction].
+  Future<bool> addFixedExpense({
     required final String name,
     required final double amount,
   }) async {
@@ -266,11 +259,13 @@ class FinancesProvider extends ChangeNotifier {
     if (!amount.isFinite || amount <= 0) {
       throw ArgumentError('El monto debe ser mayor que cero');
     }
-    await _repository.addFixedExpense(name: safeName, amount: amount);
+    return confirmadaATiempo(
+      _repository.addFixedExpense(name: safeName, amount: amount),
+    );
   }
 
   Future<void> deleteFixedExpense(final String id) =>
-      _repository.deleteFixedExpense(id);
+      confirmadaATiempo(_repository.deleteFixedExpense(id));
 
   // ─── Reintento y ciclo de vida ────────────────────────────────────
 

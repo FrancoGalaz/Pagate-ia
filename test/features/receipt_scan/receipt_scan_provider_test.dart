@@ -6,6 +6,8 @@
 // reconocimiento de texto y un modelo). Hay un test por cada decisión que
 // cambia lo guardado.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_entity.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_type.dart';
@@ -296,6 +298,29 @@ void main() {
   });
 
   group('guardado', () {
+    // Revisión prelanzamiento 5.1: sin red el lote no confirma nunca y la
+    // pantalla quedaba en «guardando» sin fin.
+    testWidgets('sin conexión termina, avisa y manda UN solo lote', (
+      final tester,
+    ) async {
+      lector.lectura = _lectura(_seisArticulos);
+      await provider.procesar(_foto);
+      inventarioFalso.sinConexion = Completer<void>();
+
+      bool? guardado;
+      unawaited(provider.guardar().then((final r) => guardado = r));
+      await tester.pump(const Duration(seconds: 15));
+
+      expect(guardado, isTrue, reason: 'no puede quedarse guardando');
+      expect(provider.phase, ReceiptScanPhase.guardado);
+      expect(provider.guardadoSinConexion, isTrue);
+
+      // Vuelve la red: sigue habiendo un solo lote.
+      inventarioFalso.sinConexion!.complete();
+      await tester.pump();
+      expect(inventarioFalso.lotes, 1);
+    });
+
     test('todo en UN solo lote, no una escritura por artículo', () async {
       lector.lectura = _lectura([
         for (var i = 0; i < 12; i++) '1 UN MATERIAL ${i + 100} 1.990',

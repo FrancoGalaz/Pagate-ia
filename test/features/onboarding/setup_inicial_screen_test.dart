@@ -2,14 +2,19 @@
 //
 // Especificación: docs/DISENO-v2.md, paso 6.3.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
 import 'package:pagate_ia/core/services/firebase_auth_service.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
+import 'package:pagate_ia/core/utils/app_feedback.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
 import 'package:pagate_ia/features/onboarding/presentation/pages/setup_inicial_screen.dart';
+import 'package:pagate_ia/features/user_profile/domain/entities/user_profile_entity.dart';
+import 'package:pagate_ia/features/user_profile/domain/repositories/user_profile_repository.dart';
 import 'package:pagate_ia/features/user_profile/presentation/providers/user_profile_provider.dart';
 
 /// Doble del servicio de Auth. [displayName] es lo único que la pantalla le
@@ -40,7 +45,7 @@ class _PerfilFalso extends ChangeNotifier implements UserProfileProvider {
   final List<Map<String, Object?>> guardados = [];
 
   @override
-  Future<void> updateFromSetup({
+  Future<bool> updateFromSetup({
     required final String name,
     required final String businessName,
     required final String businessType,
@@ -54,11 +59,27 @@ class _PerfilFalso extends ChangeNotifier implements UserProfileProvider {
       'currency': currency,
       'monthlyGoal': monthlyGoal,
     });
+    return true;
   }
 
   @override
   dynamic noSuchMethod(final Invocation invocation) =>
       super.noSuchMethod(invocation);
+}
+
+/// Repositorio cuyo guardado no confirma nunca: Firestore sin conexión.
+class _RepositorioSinConexion implements UserProfileRepository {
+  final List<UserProfileEntity> guardados = [];
+  final Completer<void> conexion = Completer<void>();
+
+  @override
+  Stream<UserProfileEntity?> watchProfile() => Stream.value(null);
+
+  @override
+  Future<void> saveProfile(final UserProfileEntity profile) async {
+    guardados.add(profile);
+    await conexion.future;
+  }
 }
 
 class _Dobles {
@@ -166,6 +187,62 @@ void main() {
         'monthlyGoal': 800000.0,
       },
     ]);
+  });
+
+  // Revisión prelanzamiento 5.1: sin red el perfil no confirma nunca y el
+  // botón quedaba cargando sin fin.
+  testWidgets('sin conexión el perfil se guarda y la pantalla lo dice', (
+    final tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(360, 900)
+      ..devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final repositorio = _RepositorioSinConexion();
+    final perfil = UserProfileProvider(repository: repositorio);
+    addTearDown(perfil.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<FirebaseAuthService>.value(
+            value: _AuthFalso(displayName: 'Valentina Soto'),
+          ),
+          ChangeNotifierProvider<UserProfileProvider>.value(value: perfil),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const SetupInicialScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextFormField).at(1), 'Greda Austral');
+    await tester.tap(find.text('Cerámica'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).at(2), '800.000');
+    await tester.tap(find.text('Guardar y empezar'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(perfil.isSaving, isFalse, reason: 'no puede quedarse guardando');
+    expect(perfil.profile?.businessName, 'Greda Austral');
+    expect(
+      find.text(
+        'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.',
+      ),
+      findsOneWidget,
+    );
+
+    // Vuelve la red: el perfil se guardó una sola vez.
+    repositorio.conexion.complete();
+    await tester.pump();
+    expect(repositorio.guardados, hasLength(1));
+
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('el rubro y la moneda son chips de Material, no pastillas', (

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../bloc/hourly_rate_provider.dart';
 import '../widgets/net_hourly_value_section.dart';
@@ -161,6 +163,9 @@ class _HourlyRateSetupPageState extends State<HourlyRateSetupPage> {
 
     if (!mounted) return;
     if (!guardado) return; // El error lo pinta `_AvisoDeError`.
+    if (provider.guardadoSinConexion) {
+      AppFeedback.showMessage(context, kGuardadoEnElTelefono);
+    }
 
     await showPagateSheet<void>(
       context: context,

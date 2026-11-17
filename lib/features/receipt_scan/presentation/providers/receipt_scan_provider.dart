@@ -80,6 +80,11 @@ class ReceiptScanProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get errorHint => _errorHint;
   String? get saveError => _saveError;
+
+  /// `true` si el último guardado quedó en el teléfono sin que el servidor
+  /// lo confirmara a tiempo (sin conexión). Se sincroniza solo.
+  bool get guardadoSinConexion => _guardadoSinConexion;
+  bool _guardadoSinConexion = false;
   bool get truncated => _truncated;
   bool get confianzaBaja => _confianzaBaja;
 
@@ -352,7 +357,9 @@ class ReceiptScanProvider extends ChangeNotifier {
     }
 
     try {
-      await _inventory.applyScannedItems(
+      // `false` si el lote quedó en el teléfono sin confirmar: la pantalla
+      // no se queda en «guardando» y Firestore lo sube al reconectar.
+      _guardadoSinConexion = !await _inventory.applyScannedItems(
         nuevos: nuevos,
         stocksFinales: stocks,
         preciosNuevos: precios,

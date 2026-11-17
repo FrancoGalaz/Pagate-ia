@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/firestore_limits.dart';
 import '../../../../core/utils/error_messages.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
 import '../../domain/repositories/inventory_repository.dart';
@@ -101,7 +102,9 @@ class InventoryProvider extends ChangeNotifier {
 
   // ─── Escrituras ───────────────────────────────────────────────────
 
-  Future<void> addItem({
+  // Las escrituras devuelven `false` cuando quedaron guardadas en el teléfono
+  // sin que el servidor las confirmara a tiempo (ver [confirmadaATiempo]).
+  Future<bool> addItem({
     required final String name,
     required final InventoryItemType type,
     required final double price,
@@ -119,17 +122,19 @@ class InventoryProvider extends ChangeNotifier {
     if (stock < 0 || minStock < 0) {
       throw ArgumentError('El stock no puede ser negativo');
     }
-    await _repository.addItem(
-      InventoryItemEntity(
-        id: '',
-        name: safeName,
-        type: type,
-        price: price,
-        stock: stock,
-        minStock: minStock,
-        unit: unit.trim().isEmpty ? 'unidades' : unit.trim(),
-        supplier: _opcional(supplier),
-        code: _opcional(code),
+    return confirmadaATiempo(
+      _repository.addItem(
+        InventoryItemEntity(
+          id: '',
+          name: safeName,
+          type: type,
+          price: price,
+          stock: stock,
+          minStock: minStock,
+          unit: unit.trim().isEmpty ? 'unidades' : unit.trim(),
+          supplier: _opcional(supplier),
+          code: _opcional(code),
+        ),
       ),
     );
   }
@@ -140,7 +145,7 @@ class InventoryProvider extends ChangeNotifier {
   /// se pudo editar, este método no tenía ni un llamador en la interfaz, así
   /// que sus datos nunca pasaban por una comprobación. Ahora entra por aquí
   /// todo lo que el usuario corrige a mano.
-  Future<void> updateItem(final InventoryItemEntity item) async {
+  Future<bool> updateItem(final InventoryItemEntity item) async {
     if (item.id.isEmpty) {
       throw ArgumentError('No se puede actualizar una ficha sin id');
     }
@@ -152,17 +157,19 @@ class InventoryProvider extends ChangeNotifier {
     if (item.stock < 0 || item.minStock < 0) {
       throw ArgumentError('El stock no puede ser negativo');
     }
-    await _repository.updateItem(
-      InventoryItemEntity(
-        id: item.id,
-        name: safeName,
-        type: item.type,
-        price: item.price,
-        stock: item.stock,
-        minStock: item.minStock,
-        unit: item.unit.trim().isEmpty ? 'unidades' : item.unit.trim(),
-        supplier: _opcional(item.supplier),
-        code: _opcional(item.code),
+    return confirmadaATiempo(
+      _repository.updateItem(
+        InventoryItemEntity(
+          id: item.id,
+          name: safeName,
+          type: item.type,
+          price: item.price,
+          stock: item.stock,
+          minStock: item.minStock,
+          unit: item.unit.trim().isEmpty ? 'unidades' : item.unit.trim(),
+          supplier: _opcional(item.supplier),
+          code: _opcional(item.code),
+        ),
       ),
     );
   }
@@ -190,7 +197,7 @@ class InventoryProvider extends ChangeNotifier {
   /// Un artículo inválido NO se cuela ni se descarta en silencio: se lanza,
   /// y la pantalla de revisión dice qué pasó. Descartarlo guardaría 14 de
   /// 15 fichas diciendo "15 artículos agregados".
-  Future<void> applyScannedItems({
+  Future<bool> applyScannedItems({
     required final List<InventoryItemEntity> nuevos,
     required final Map<String, int> stocksFinales,
     required final Map<String, double> preciosNuevos,
@@ -264,23 +271,25 @@ class InventoryProvider extends ChangeNotifier {
       );
     }
 
-    await _repository.applyScannedItems(
-      nuevos: limpios,
-      stocksFinales: stocksFinales,
-      preciosNuevos: preciosNuevos,
+    return confirmadaATiempo(
+      _repository.applyScannedItems(
+        nuevos: limpios,
+        stocksFinales: stocksFinales,
+        preciosNuevos: preciosNuevos,
+      ),
     );
   }
 
-  Future<void> updateStock({
+  Future<bool> updateStock({
     required final String itemId,
     required final int newStock,
   }) {
     if (newStock < 0) throw ArgumentError('El stock no puede ser negativo');
-    return _repository.updateStock(itemId, newStock);
+    return confirmadaATiempo(_repository.updateStock(itemId, newStock));
   }
 
   Future<void> deleteItem(final String itemId) =>
-      _repository.deleteItem(itemId);
+      confirmadaATiempo(_repository.deleteItem(itemId));
 
   // ─── Suscripción y ciclo de vida ──────────────────────────────────
 

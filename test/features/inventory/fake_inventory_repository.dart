@@ -26,6 +26,11 @@ class FakeInventoryRepository implements InventoryRepository {
   /// lo que permite probar el camino de error.
   Object? errorAlGuardar;
 
+  /// Si no es nulo, toda escritura se queda esperándolo después de anotarse:
+  /// es lo que hace Firestore sin conexión, donde la escritura queda en la
+  /// cola local y su `Future` no termina hasta que el servidor la confirma.
+  Completer<void>? sinConexion;
+
   /// Hace que el stream reemita, como haría Firestore tras una escritura.
   void emitir(final List<InventoryItemEntity> items) => _items.add(items);
 
@@ -45,6 +50,7 @@ class FakeInventoryRepository implements InventoryRepository {
     final error = errorAlGuardar;
     if (error != null) throw error;
     agregados.add(item);
+    await sinConexion?.future;
   }
 
   @override
@@ -52,14 +58,20 @@ class FakeInventoryRepository implements InventoryRepository {
     final error = errorAlGuardar;
     if (error != null) throw error;
     actualizados.add(item);
+    await sinConexion?.future;
   }
 
   @override
-  Future<void> deleteItem(final String itemId) async => borrados.add(itemId);
+  Future<void> deleteItem(final String itemId) async {
+    borrados.add(itemId);
+    await sinConexion?.future;
+  }
 
   @override
-  Future<void> updateStock(final String itemId, final int newStock) async =>
-      stocksEscritos.add(newStock);
+  Future<void> updateStock(final String itemId, final int newStock) async {
+    stocksEscritos.add(newStock);
+    await sinConexion?.future;
+  }
 
   /// Lo que el lote habría escrito, para que un test pueda comprobar QUÉ
   /// se guarda de una boleta: las fichas nuevas, los stocks sumados y los
@@ -84,5 +96,6 @@ class FakeInventoryRepository implements InventoryRepository {
     loteNuevos.addAll(nuevos);
     loteStocks.add(stocksFinales);
     lotePrecios.add(preciosNuevos);
+    await sinConexion?.future;
   }
 }

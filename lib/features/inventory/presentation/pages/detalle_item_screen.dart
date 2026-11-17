@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/widgets.dart';
@@ -344,13 +345,16 @@ class _HojaDeStockState extends State<_HojaDeStock> {
     final provider = context.read<InventoryProvider>();
     final navigator = Navigator.of(context);
     try {
-      await provider.updateStock(
+      final confirmado = await provider.updateStock(
         itemId: widget.item.id,
         newStock: int.parse(_stock.text.trim()),
       );
       if (!mounted) return;
       navigator.pop();
-      AppFeedback.showMessage(context, 'Stock actualizado.');
+      AppFeedback.showMessage(
+        context,
+        confirmado ? 'Stock actualizado.' : kGuardadoEnElTelefono,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

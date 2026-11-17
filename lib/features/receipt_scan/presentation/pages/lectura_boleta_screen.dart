@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../inventory/presentation/providers/inventory_provider.dart';
 import '../../domain/entities/receipt_document.dart';
@@ -106,7 +107,9 @@ class _LecturaBoletaScreenState extends State<LecturaBoletaScreen> {
     final destino = provider.tipoDeLoGuardado;
     if (destino != null) inventario.setActiveTab(destino);
 
-    final mensaje = provider.mensajeDeLoGuardado;
+    final mensaje = provider.guardadoSinConexion
+        ? kGuardadoEnElTelefono
+        : provider.mensajeDeLoGuardado;
     navigator.pop();
     if (mensaje != null) AppFeedback.showMessage(context, mensaje);
   }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/widgets/widgets.dart';
@@ -236,8 +237,9 @@ class _ItemFormSheetState extends State<ItemFormSheet> {
     final navigator = Navigator.of(context);
     final existente = _existente;
     try {
+      final bool confirmado;
       if (existente == null) {
-        await provider.addItem(
+        confirmado = await provider.addItem(
           name: _nombre.text,
           type: widget.tipo,
           price: precio,
@@ -252,7 +254,7 @@ class _ItemFormSheetState extends State<ItemFormSheet> {
         // significa "déjalo como estaba", así que vaciar el proveedor o el
         // código de una ficha que ya los tenía era imposible por ese camino.
         // El `id` y el `type` son los de la ficha original.
-        await provider.updateItem(
+        confirmado = await provider.updateItem(
           InventoryItemEntity(
             id: existente.id,
             name: _nombre.text,
@@ -268,7 +270,10 @@ class _ItemFormSheetState extends State<ItemFormSheet> {
       }
       if (!mounted) return;
       navigator.pop();
-      AppFeedback.showMessage(context, _mensajeDeExito);
+      AppFeedback.showMessage(
+        context,
+        confirmado ? _mensajeDeExito : kGuardadoEnElTelefono,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

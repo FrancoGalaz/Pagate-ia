@@ -20,11 +20,14 @@
 // widget a pelo: así el test también pasa por el `PopScope` de la hoja, que
 // es quien pregunta antes de descartar.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:pagate_ia/core/theme/app_theme.dart';
+import 'package:pagate_ia/core/utils/app_feedback.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_entity.dart';
 import 'package:pagate_ia/features/inventory/domain/entities/inventory_item_type.dart';
 import 'package:pagate_ia/features/inventory/presentation/providers/inventory_provider.dart';
@@ -147,6 +150,38 @@ void main() {
           'formulario lo ofrecía',
     );
     expect(find.text('Código (opcional)'), findsOneWidget);
+  });
+
+  // Revisión prelanzamiento 5.1: sin red la escritura no confirma nunca y la
+  // hoja quedaba cargando sin fin.
+  testWidgets('sin conexión la hoja se cierra y avisa que quedó guardado', (
+    final tester,
+  ) async {
+    repository.sinConexion = Completer<void>();
+    await abrir(tester);
+    await escribir(tester, 'nombre', 'Taza de greda');
+    await escribir(tester, 'precio', '12.500');
+    await tester.ensureVisible(find.text('Guardar ficha'));
+    await tester.tap(find.text('Guardar ficha'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Guardar ficha'), findsNothing);
+    expect(
+      find.text(
+        'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.',
+      ),
+      findsOneWidget,
+    );
+
+    // Vuelve la red: sigue habiendo una sola ficha.
+    repository.sinConexion!.complete();
+    await tester.pump();
+    expect(repository.agregados, hasLength(1));
+
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('guarda el proveedor y el código escritos', (final tester) async {

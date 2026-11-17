@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/config/firebase_errors.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../domain/entities/user_profile_entity.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 
@@ -59,13 +60,18 @@ class UserProfileProvider extends ChangeNotifier {
   }
 
   /// Guarda el perfil completo. Relanza el error tras registrarlo.
-  Future<void> saveProfile(final UserProfileEntity profile) async {
+  /// Devuelve `false` si el perfil quedó guardado en el teléfono sin que el
+  /// servidor lo confirmara a tiempo (ver [confirmadaATiempo]).
+  Future<bool> saveProfile(final UserProfileEntity profile) async {
     _isSaving = true;
     notifyListeners();
     try {
-      await _repository.saveProfile(profile);
+      final confirmado = await confirmadaATiempo(
+        _repository.saveProfile(profile),
+      );
       // El stream actualizará [_profile]; se refleja ya para evitar parpadeos.
       _profile = profile;
+      return confirmado;
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -74,7 +80,7 @@ class UserProfileProvider extends ChangeNotifier {
 
   /// Crea o actualiza el perfil con los datos del onboarding / Editar perfil.
   /// Lanza [ArgumentError] si nombre o negocio vienen vacíos.
-  Future<void> updateFromSetup({
+  Future<bool> updateFromSetup({
     required String name,
     required String businessName,
     required String businessType,

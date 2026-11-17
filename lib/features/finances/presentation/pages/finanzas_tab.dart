@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/pdf_report_service.dart';
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/utils/escritura_pendiente.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/error_messages.dart';
 import '../../../../core/utils/month_labels.dart';
@@ -628,8 +629,13 @@ class _GastosFijos extends StatelessWidget {
       context: context,
       builder: (final _) => _HojaGastoFijo(provider: provider),
     );
-    if (guardado != true || !context.mounted) return;
-    AppFeedback.showMessage(context, 'Gasto fijo agregado.');
+    // `null`: se cerró sin guardar. `false`: quedó guardado en el teléfono,
+    // sin confirmación del servidor.
+    if (guardado == null || !context.mounted) return;
+    AppFeedback.showMessage(
+      context,
+      guardado ? 'Gasto fijo agregado.' : kGuardadoEnElTelefono,
+    );
   }
 
   Future<void> _eliminar(
@@ -699,13 +705,13 @@ class _HojaGastoFijoState extends State<_HojaGastoFijo> {
       _errorGuardado = null;
     });
     try {
-      await widget.provider.addFixedExpense(
+      final confirmado = await widget.provider.addFixedExpense(
         name: _nombre.text.trim(),
         // `parseCurrencyInput` y no `double.tryParse`: con el segundo,
         // "50.000" se guardaba como CINCUENTA.
         amount: parseCurrencyInput(_monto.text)!,
       );
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(confirmado);
     } catch (e) {
       if (!mounted) return;
       setState(() {

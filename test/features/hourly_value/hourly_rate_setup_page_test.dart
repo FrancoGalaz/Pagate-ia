@@ -35,12 +35,16 @@ class FakeHourlyRateRepository implements HourlyRateRepository {
   final controller = StreamController<HourlyRateEntity?>.broadcast();
   HourlyRateEntity? guardado;
 
+  /// Si no es nulo, el guardado se queda esperándolo: Firestore sin conexión.
+  Completer<void>? sinConexion;
+
   @override
   Stream<HourlyRateEntity?> watchHourlyRate() => controller.stream;
 
   @override
   Future<void> saveHourlyRate(final HourlyRateEntity hourlyRate) async {
     guardado = hourlyRate;
+    await sinConexion?.future;
   }
 
   Future<void> dispose() => controller.close();
@@ -100,6 +104,24 @@ void main() {
     hourly.dispose();
     finances.dispose();
     await hourlyRepository.dispose();
+  });
+
+  // Revisión prelanzamiento 5.1.
+  testWidgets('sin conexión el valor hora no se queda guardando', (
+    final tester,
+  ) async {
+    hourlyRepository.sinConexion = Completer<void>();
+    bool? guardado;
+    unawaited(
+      hourly
+          .saveMonthlyHours(desiredSalary: 800000, availableHoursPerMonth: 160)
+          .then((final r) => guardado = r),
+    );
+    await tester.pump(const Duration(seconds: 15));
+
+    expect(guardado, isTrue);
+    expect(hourly.isSaving, isFalse);
+    expect(hourly.guardadoSinConexion, isTrue);
   });
 
   Future<void> montar(final WidgetTester tester) async {
