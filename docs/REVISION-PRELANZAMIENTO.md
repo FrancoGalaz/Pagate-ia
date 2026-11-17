@@ -8,15 +8,21 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 
 ## Resumen
 
-| # | Gravedad | Área | Hallazgo | Test |
-|---|----------|------|----------|------|
-| 1.1 | Crítica | Costo | `scanReceipt` devuelve la cuota cuando la salida del modelo no es JSON, y eso lo provoca quien llama: llamadas pagadas a OpenRouter sin límite | Sí, falla |
-| 3.1 | Alta | Legal | La página de eliminación promete borrar la inscripción en la lista de espera; `deleteAccount` no la toca | Sí, falla |
-| 3.2 | Alta | Legal | La política dice que el texto de las boletas "hoy no sale" del teléfono, y el backend que se desplegaría con el merge ya lo manda a OpenRouter | Sí, falla |
-| 1.2 | Alta | Costo | El tope global de gasto está apagado por defecto y el checklist de publicación no pide encenderlo; App Check tampoco se exige | No |
-| 2.1 | Media | Datos | Un token sigue valiendo hasta 1 hora después de `deleteAccount`: otro dispositivo puede recrear datos huérfanos bajo el `uid` borrado | No |
-| 3.3 | Media | Legal | Los registros del servidor guardan texto de boletas junto al `uid`; la política dice que solo llevan fecha, función y errores | No |
-| 2.2 | Baja | Datos | `monthKey` se deriva de la hora local del teléfono y las reglas no lo atan a `date`: editar un movimiento desde otra zona horaria lo cambia de mes | No |
+| # | Gravedad | Área | Hallazgo | Estado |
+|---|----------|------|----------|--------|
+| 1.1 | Crítica | Costo | `scanReceipt` devuelve la cuota cuando la salida del modelo no es JSON, y eso lo provoca quien llama: llamadas pagadas a OpenRouter sin límite | Resuelto; queda la variante de `chat` |
+| 3.1 | Alta | Legal | La página de eliminación promete borrar la inscripción en la lista de espera; `deleteAccount` no la toca | Resuelto |
+| 3.2 | Alta | Legal | La política dice que el texto de las boletas "hoy no sale" del teléfono, y el backend que se desplegaría con el merge ya lo manda a OpenRouter | Resuelto |
+| 1.2 | Alta | Costo | El tope global de gasto está apagado por defecto y el checklist de publicación no pide encenderlo; App Check tampoco se exige | Resuelto; App Check sigue pendiente de consola |
+| 2.1 | Media | Datos | Un token sigue valiendo hasta 1 hora después de `deleteAccount`: otro dispositivo puede recrear datos huérfanos bajo el `uid` borrado | Resuelto en las reglas; los callables no consultan la marca |
+| 3.3 | Media | Legal | Los registros del servidor guardan texto de boletas junto al `uid`; la política dice que solo llevan fecha, función y errores | Resuelto |
+| 2.2 | Baja | Datos | `monthKey` se deriva de la hora local del teléfono y las reglas no lo atan a `date`: editar un movimiento desde otra zona horaria lo cambia de mes | Resuelto |
+| 4.1 | Baja | Asistente | El prompt escribe «Fecha de hoy» y las fechas de los movimientos en UTC: de noche en Chile el asistente va un día adelantado | Abierto |
+| 4.2 | Baja | Legal | Los términos no mencionan el límite de lecturas de boleta ni el correo verificado, y dicen «todo lo escribiste tú» | Abierto |
+| 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Abierto |
+| 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Abierto |
+| 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Abierto |
+| 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Propuesta, sin implementar |
 
 Los tres tests están en `functions/test/revision-prelanzamiento.test.ts`.
 Fallaban a propósito hasta el arreglo de 1.1, 3.1 y 3.2; hoy pasan y quedan
@@ -41,8 +47,9 @@ como regresión.
 - **Copias de seguridad de Android:** `allowBackup="false"` coincide con lo
   que promete la política.
 
-No alcancé a revisar: `prompt.ts` contra la lista "qué viaja en cada mensaje"
-de la política, los términos de uso, ni la app web.
+La segunda pasada (2026-11-16) cubrió `prompt.ts` y `chat.ts` contra la
+política, los términos de uso y los caminos de error del cliente: están en las
+secciones 4 a 6. Sigue sin revisar la app web, que está fuera de alcance.
 
 ---
 
@@ -248,3 +255,165 @@ de la política, los términos de uso, ni la app web.
 - **Arreglo:** registrar el largo y el tipo de error en vez de la muestra, o
   declarar en la política y en la página de eliminación que los registros
   pueden incluir un fragmento de la lectura fallida.
+
+---
+
+## 4. Segunda pasada: el asistente y los términos frente a la política
+
+Solo lectura. **Sin hallazgos en lo principal:** lo que `buildSystemPrompt`
+(`functions/src/prompt.ts`) y `handleChat` (`functions/src/chat.ts`) mandan a
+OpenRouter coincide punto por punto con la lista «esto es lo que viaja en cada
+mensaje» de la política (§5.2):
+
+| La política dice | El código hace |
+|---|---|
+| Nombre, negocio, rubro, moneda, meta mensual y plan | `profileSection`: esos seis campos y ninguno más |
+| Sueldo deseado, horas disponibles y valor hora | `hourlyRateSection`, solo si hay valor hora calculado |
+| Totales del último mes con movimientos | `monthSection`, con el mes de `latestMonthDoc` |
+| Últimas 10 transacciones: fecha, tipo, categoría, título, monto, documento y comisión | `transactionsSection`; `RECENT_TRANSACTIONS_LIMIT = 10`. La descripción no viaja |
+| Cuántos productos y cuántos materiales | `inventorySection`: dos `count()`, sin nombres ni precios |
+| Últimos 6 mensajes de la conversación | `HISTORY_LIMIT = 6` |
+| Dos cabeceras técnicas | `HTTP-Referer` y `X-Title` en `openrouter.ts` |
+
+El `uid`, el correo, la descripción de los movimientos y el detalle del
+inventario no salen.
+
+### 4.1 Baja: el asistente va en hora UTC
+
+- **Dónde:** `functions/src/prompt.ts`, `formatDate`
+  (`date.toISOString().slice(0, 10)`), usada para «Fecha de hoy» y para la
+  fecha de cada movimiento.
+- **Escenario:** el 31 de octubre a las 21:30 en Chile ya es 1 de noviembre en
+  UTC. El prompt le dice al modelo «Fecha de hoy: 2026-11-01» mientras el
+  resumen que le manda es el de octubre (`currentMonthKey` sí usa
+  America/Santiago), y una venta anotada esa noche aparece fechada el día 1.
+  El asistente puede decir «este mes todavía no tienes ventas».
+- **Arreglo:** que `formatDate` formatee en America/Santiago, igual que
+  `dayKeyOf` en `quota.ts`.
+
+### 4.2 Baja: los términos se quedaron atrás del lector de boletas
+
+- **Dónde:** `landing/src/pages/TerminosPage.tsx`.
+- **Qué pasa:** dicen «El asistente tiene un límite de mensajes» y no nombran
+  el límite de 40 lecturas de boleta ni que el asistente y el lector exigen el
+  correo verificado. También dicen «Todo lo que la app sabe de tu negocio lo
+  escribiste tú»; la política ya lo matiza con el lector («escribiéndolo o
+  confirmando lo que la app leyó de una boleta») y los términos no.
+- **Arreglo:** dos frases en la sección del asistente y el mismo matiz que usa
+  la política.
+
+Lo demás de los términos coincide con el código: no hay cobros ni plan de pago
+que comprar, el límite gratuito es un total y no una cuota diaria, y el botón
+de reportar existe en cada respuesta.
+
+---
+
+## 5. Segunda pasada: qué ve el usuario cuando algo falla
+
+Solo lectura del cliente Flutter.
+
+| Situación | Qué ve hoy | Veredicto |
+|---|---|---|
+| Asistente sin red | «El asistente no responde. Intenta de nuevo.» El mensaje no se gasta | Bien |
+| Asistente sin cuota | El texto del servidor: el total incluido y que no se renueva | Bien |
+| Asistente con correo sin verificar | El aviso del servidor y el botón «Reenviar correo» (`ai_provider.dart`, `_faltaVerificarCorreo`) | Bien |
+| Lector de boletas con cualquier fallo (red, cuota, correo, App Check, falta `system/aiConfig`) | Se queda con la lista que armó el teléfono y lo dice en una franja (`remote_line_item_parser.dart`) | Bien |
+| App Check rechaza en el asistente | «Se requiere una verificación válida de App Check.» | Ver 5.3 |
+| Guardar un movimiento sin red | El botón queda cargando sin fin | Ver 5.1 |
+| Cerrar sesión con cambios sin subir | Pregunta antes de perderlos (`cerrarSesion`) | Bien |
+
+### 5.1 Alta: guardar sin conexión deja la app cargando
+
+- **Dónde:** `lib/features/finances/data/datasources/finances_firebase_datasource.dart:114`
+  (`await _transactions.add`), y lo mismo en `:132`, `:146`, en
+  `inventory_firebase_datasource.dart:76-151` y en `saveProfile`
+  (`user_profile_firebase_datasource.dart:33`). Ninguna escritura de Firestore
+  tiene plazo.
+- **Qué pasa:** con la caché activa (`persistenceEnabled: true`), el `Future`
+  de una escritura solo termina cuando el servidor la confirma. Sin red no
+  termina nunca.
+- **Escenario:** una artesana anota una venta en una feria sin señal. El
+  botón Guardar queda girando y el formulario no se cierra ni dice nada
+  (`transaction_form_sheet.dart`, `_saving`). **El movimiento no se pierde:**
+  quedó en la cola local y sube solo cuando vuelve la red. Pero ella no lo
+  sabe: lo razonable es cerrar la app y anotarlo de nuevo, y entonces queda
+  duplicado. Lo mismo al confirmar los materiales de una boleta, al ajustar el
+  stock y al guardar el perfil en el onboarding.
+- **¿Se pierde un movimiento?** No encontré ningún camino donde se pierda sin
+  aviso: la cola local sobrevive a cerrar la app, y cerrar sesión con
+  escrituras pendientes pregunta antes. El único descarte sin pregunta es al
+  eliminar la cuenta, que es intencional.
+- **Arreglo mínimo:** no esperar la confirmación del servidor para cerrar el
+  formulario. Lanzar la escritura, registrar el error si llega, y cerrar con
+  «Guardado. Se subirá cuando vuelva la conexión» si a los pocos segundos no
+  hay confirmación. Las listas ya muestran el movimiento desde la caché.
+- **Sin comprobar en un teléfono:** esto sale de leer el código y del
+  comportamiento documentado de Firestore con caché; conviene confirmarlo en
+  modo avión durante la prueba del dueño.
+
+### 5.2 Baja: plazo del asistente más corto que el del servidor
+
+- **Dónde:** `lib/core/services/ai_service.dart` (`timeout` de 45 s) frente a
+  `chat` (`timeoutSeconds: 60`, con 30 s para OpenRouter).
+- **Escenario:** con el servidor lento, el cliente corta a los 45 s y muestra
+  «El asistente no responde», pero la función termina, guarda la respuesta y
+  gasta el mensaje. Si la persona reenvía, gasta otro de sus 25 y la pregunta
+  queda dos veces en el historial.
+- **Arreglo:** al dar el plazo, recargar la conversación antes de ofrecer el
+  reintento, o subir el plazo del cliente por encima de 60 s.
+
+### 5.3 Baja: el rechazo de App Check no le dice nada al usuario
+
+- **Dónde:** `functions/src/chat.ts` (el `HttpsError('unauthenticated', ...)`
+  de App Check) y `lib/core/services/ai_service.dart`
+  (`AiServiceException.from` muestra el mensaje del servidor).
+- **Escenario:** cuando se active `ENFORCE_APP_CHECK`, un teléfono que no pase
+  Play Integrity (APK instalado a mano, teléfono modificado) verá «Se requiere
+  una verificación válida de App Check.» en cada mensaje.
+- **Arreglo:** cambiar el texto del servidor por uno accionable: «No pudimos
+  verificar la app. Instálala o actualízala desde Google Play.»
+
+---
+
+## 6. Qué hace falta para saber qué les falla a los probadores
+
+**Hoy no hay nada.** `lib/main.dart` no registra `FlutterError.onError` ni
+`PlatformDispatcher.instance.onError`, no hay Crashlytics ni equivalente en
+`pubspec.yaml`, y los `debugPrint` de `lib/` no dejan rastro que alguien pueda
+leer desde fuera del teléfono. Un error de Dart no cierra la app (queda una
+pantalla gris o un botón que no hace nada), así que tampoco aparece en Android
+vitals de Play Console, que solo ve cierres nativos y bloqueos. Del lado del
+servidor sí hay registros (Cloud Logging, con `uid` y tipo de error desde 3.3).
+
+**Cambio mínimo propuesto (no implementado): Firebase Crashlytics, sin
+Analytics.**
+
+1. `pubspec.yaml`: agregar `firebase_crashlytics`. No agregar
+   `firebase_analytics`: Crashlytics funciona sin él.
+2. `android/settings.gradle.kts` y `android/app/build.gradle.kts`: el plugin
+   `com.google.firebase.crashlytics` (sube los símbolos para leer las trazas).
+3. `lib/main.dart`, tres líneas después de inicializar Firebase:
+   `FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError`,
+   `PlatformDispatcher.instance.onError` con `recordError(..., fatal: true)`,
+   y `setCrashlyticsCollectionEnabled(!kDebugMode)`.
+4. Sin `setUserIdentifier`: los informes no llevan `uid` ni correo. Con 12
+   probadores alcanza con el modelo de teléfono y la versión.
+5. Opcional y barato: `recordError` en los dos `catch (_)` de
+   `ai_provider.dart` que hoy se tragan el error.
+
+**Lo que obliga a cambiar fuera del código**, y por eso no se hizo sin
+preguntar:
+
+- Política de privacidad: §2.7 («Qué NO recogemos») y §5.1 pasan a declarar
+  informes de fallos (traza del error, modelo de teléfono, versión de Android
+  y de la app, un identificador de instalación de Crashlytics). La frase «No
+  hay SDK de analítica ni de seguimiento de uso» hay que reescribirla.
+- `docs/SEGURIDAD-DATOS-PLAY.md` y el formulario de Play: marcar *Registros de
+  fallos* y *Diagnóstico* como recopilados, con fines de análisis.
+- Consola de Firebase: habilitar Crashlytics en el proyecto.
+
+**Alternativa sin SDK**, si se prefiere no tocar la política antes de la
+prueba cerrada: Android vitals y el informe previo al lanzamiento de Play
+Console (solo cierres nativos), más los registros de Cloud Functions y un
+canal directo con los 12 probadores. Cubre los fallos del servidor; los del
+cliente quedan a lo que cuenten los probadores.
