@@ -16,16 +16,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Misma versión que el PC del dueño (`flutter --version`). Sin fijarla,
+      # la beta nueva rompe `flutter analyze` sin que cambie el código.
       - uses: subosito/flutter-action@v2
         with:
           channel: beta
+          flutter-version: 3.42.0-0.0.pre
           cache: true
 
       - run: flutter --version
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # La web está fuera de alcance: se sigue construyendo para ver si se
+      # rompe, pero no hace fallar el CI.
       - run: flutter build web --release
+        continue-on-error: true
 
   functions:
     name: Cloud Functions (build, test con emulador)
@@ -76,6 +82,9 @@ jobs:
           cache: npm
           cache-dependency-path: landing/package-lock.json
 
+      # El lock lo genera npm 11.6.2 (el del PC del dueño). El npm 10 que trae
+      # Node 22 lo rechaza en `npm ci` («Missing: @emnapi/core»).
+      - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm run lint
       - run: npm test
