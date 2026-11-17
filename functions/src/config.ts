@@ -40,6 +40,13 @@ export const ENFORCE_APP_CHECK = defineBoolean('ENFORCE_APP_CHECK', {
 });
 
 /**
+ * Lo que lee el usuario cuando App Check rechaza la llamada. Antes era «Se
+ * requiere una verificación válida de App Check», que no le dice qué hacer a
+ * quien instaló la app fuera de Google Play o tiene el teléfono modificado.
+ */
+export const APP_CHECK_REJECTED = 'No pudimos verificar la app. Instálala o actualízala desde Google Play.';
+
+/**
  * `true` cuando el código corre dentro del emulador de Functions. La variable la
  * pone el propio emulador; en producción no existe.
  */

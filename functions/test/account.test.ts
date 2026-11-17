@@ -158,18 +158,32 @@ describe('waitlistEmailOf: solo un correo verificado borra la inscripción', () 
     const ajena = db.collection('waitlist').doc(waitlistDocId('ajena@example.com'));
     await ajena.set({ name: 'Otra persona', email: 'ajena@example.com', source: 'landing' });
 
-    await deleteUserData(db, UID, waitlistEmailOf({ email: 'ajena@example.com', email_verified: false }));
+    // El token entra tal cual: la condición vive dentro del borrado, así que
+    // este test falla si alguien la quita o deja de pasar por ella.
+    await deleteUserData(db, UID, { email: 'ajena@example.com', email_verified: false });
 
     const sigue = (await ajena.get()).exists;
     await ajena.delete();
     expect(sigue).toBe(true);
+  });
+
+  it('y la misma cuenta, ya verificada, sí la borra', async () => {
+    const db = adminDb();
+    const propia = db.collection('waitlist').doc(waitlistDocId('propia@example.com'));
+    await propia.set({ name: 'Yo', email: 'propia@example.com', source: 'landing' });
+
+    await deleteUserData(db, UID, { email: 'propia@example.com', email_verified: true });
+
+    const sigue = (await propia.get()).exists;
+    await propia.delete();
+    expect(sigue).toBe(false);
   });
 });
 
 describe('checkDeleteAccountCaller (sesión y App Check)', () => {
   it('con App Check exigido, una llamada sin token se rechaza', () => {
     expect(() => checkDeleteAccountCaller({ auth: { uid: UID }, app: undefined }, true)).toThrow(
-      expect.objectContaining({ code: 'unauthenticated', message: expect.stringContaining('App Check') }),
+      expect.objectContaining({ code: 'unauthenticated', message: expect.stringContaining('No pudimos verificar la app') }),
     );
   });
 

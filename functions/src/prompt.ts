@@ -181,9 +181,26 @@ function effectiveFee(tx: TransactionContext): number {
   return fee > amount ? amount : fee;
 }
 
+/**
+ * 'en-CA' formatea como yyyy-MM-dd. La zona es la misma que usa la cuota
+ * (`QUOTA_TIME_ZONE` en `quota.ts`); se repite aquí para que este módulo siga
+ * sin importar nada.
+ */
+const CHILE_DATE = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Santiago',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * Fecha `yyyy-MM-dd` en hora de Chile, no en UTC: de noche en Chile ya es el
+ * día siguiente en UTC, y el asistente iba un día adelantado justo en el
+ * cambio de mes.
+ */
 function formatDate(date: Date | null): string {
   if (!date || Number.isNaN(date.getTime())) return 'sin fecha';
-  return date.toISOString().slice(0, 10);
+  return CHILE_DATE.format(date);
 }
 
 function num(value: unknown): number {

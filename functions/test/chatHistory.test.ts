@@ -94,7 +94,7 @@ describe('checkDeleteChatHistoryCaller (sesión y App Check)', () => {
 
   it('con App Check exigido, una llamada sin token se rechaza', () => {
     expect(() => checkDeleteChatHistoryCaller({ auth: { uid: UID }, app: undefined }, true)).toThrow(
-      expect.objectContaining({ code: 'unauthenticated', message: expect.stringContaining('App Check') }),
+      expect.objectContaining({ code: 'unauthenticated', message: expect.stringContaining('No pudimos verificar la app') }),
     );
   });
 

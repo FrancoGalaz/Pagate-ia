@@ -381,14 +381,25 @@ async function reserve(
   const usageRef = db.doc(`users/${uid}/meta/usage`);
   const configRef = db.doc(AI_CONFIG_DOC);
   const globalRef = db.doc(AI_USAGE_DOC).collection(AI_USAGE_DAYS).doc(dayKey);
+  const deletedRef = db.doc(`deletedUsers/${uid}`);
 
   return db.runTransaction(async (tx) => {
-    const [userSnap, usageSnap, configSnap, globalSnap] = await Promise.all([
+    const [userSnap, usageSnap, configSnap, globalSnap, deletedSnap] = await Promise.all([
       tx.get(userRef),
       tx.get(usageRef),
       tx.get(configRef),
       tx.get(globalRef),
+      tx.get(deletedRef),
     ]);
+
+    // La cuenta se borró (`deleteAccount` deja esta marca) pero el token de
+    // otro dispositivo sigue vivo hasta una hora. Las reglas ya le niegan
+    // Firestore; aquí se le niega la IA, que si no recrearía `meta/usage` y
+    // una conversación bajo un uid sin cuenta. Toda llamada de IA pasa por
+    // esta reserva antes de escribir nada.
+    if (deletedSnap.exists) {
+      throw new HttpsError('unauthenticated', 'Esta cuenta fue eliminada.');
+    }
 
     // Sin `system/aiConfig` no hay freno de gasto configurado, así que no se
     // gasta: se rechaza todo hasta que el dueño cree el documento (ver

@@ -434,7 +434,7 @@ describe('handleChat (callable chat)', () => {
         'unauthenticated',
         handleChat(llamada({ message: 'Hola' }, UID, null), deps(modelo, { enforceAppCheck: true })),
       );
-      expect(err.message).toContain('App Check');
+      expect(err.message).toContain('No pudimos verificar la app');
       expect(modelo.llamadas).toHaveLength(0);
       expect(await usage()).toBeUndefined();
 

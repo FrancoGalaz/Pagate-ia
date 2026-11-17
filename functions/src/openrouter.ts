@@ -58,6 +58,8 @@ export class OpenRouterError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
+    /** `true` si se cortó por plazo, con la generación quizá ya en marcha. */
+    public readonly timedOut = false,
   ) {
     super(message);
     this.name = 'OpenRouterError';
@@ -75,6 +77,20 @@ export function errorType(err: unknown): { tipo: string; status: number | null }
     tipo: err instanceof Error ? err.name : 'desconocido',
     status: err instanceof OpenRouterError ? (err.status ?? null) : null,
   };
+}
+
+/**
+ * ¿Pudo OpenRouter haber cobrado esta llamada fallida?
+ *
+ * Sí cuando respondió 2xx (la generación se hizo, aunque el texto llegara
+ * vacío o ilegible) y cuando se cortó por plazo (la generación pudo estar en
+ * marcha). No cuando no llegó a responder (error de red) o respondió con un
+ * error (4xx, 5xx). De esto depende que se devuelva la cuota: devolverla con
+ * la llamada ya cobrada dejaba provocar gasto sin límite.
+ */
+export function providerCharged(err: unknown): boolean {
+  if (!(err instanceof OpenRouterError)) return false;
+  return err.timedOut || (err.status !== undefined && err.status >= 200 && err.status < 300);
 }
 
 interface OpenRouterResponse {
@@ -129,7 +145,7 @@ export async function askOpenRouter(opts: OpenRouterOptions): Promise<OpenRouter
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new OpenRouterError(`Tiempo de espera agotado (${timeoutMs} ms)`);
+        throw new OpenRouterError(`Tiempo de espera agotado (${timeoutMs} ms)`, undefined, true);
       }
       throw new OpenRouterError(`Error de red: ${err instanceof Error ? err.message : String(err)}`);
     }

@@ -75,6 +75,25 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain(formatMoney(450000, 'CLP'));
   });
 
+  // Revisión prelanzamiento 4.1: las fechas salían en UTC. El 31 de octubre a
+  // las 21:30 en Chile ya es 1 de noviembre en UTC, y el asistente iba un día
+  // adelantado justo en el cambio de mes.
+  it('escribe las fechas en hora de Chile, no en UTC', () => {
+    const noche = new Date('2026-11-01T00:30:00Z');
+    const texto = buildSystemPrompt({
+      profile: null,
+      latestMonth: null,
+      recentTransactions: [
+        { title: 'Venta en feria', amount: 12000, type: 'income', category: 'Ventas', date: noche },
+      ],
+      inventory: { products: 0, materials: 0 },
+      today: noche,
+    });
+    expect(texto).toContain('Fecha de hoy: 2026-10-31');
+    expect(texto).toContain('- 2026-10-31 · Ingreso');
+    expect(texto).not.toContain('2026-11-01');
+  });
+
   it('incluye instrucciones de concisión y de no inventar datos', () => {
     const prompt = buildSystemPrompt(fullContext);
     expect(prompt).toMatch(/máximo 3 párrafos/i);
@@ -481,8 +500,9 @@ describe('inyección de prompt', () => {
   it('el intento de inyección sigue visible como dato, aplanado en una línea', () => {
     const prompt = buildSystemPrompt(contextoAtacado);
     // No se censura el contenido: se aplana. La línea de la transacción no tiene
-    // saltos dentro y empieza por el texto que escribió el usuario.
-    const txLine = prompt.split('\n').find((line) => line.includes('2026-09-01'));
+    // saltos dentro y empieza por el texto que escribió el usuario. La fecha es
+    // la de Chile: las 00:00 UTC del 1 de septiembre son el 31 de agosto allá.
+    const txLine = prompt.split('\n').find((line) => line.includes('2026-08-31'));
     expect(txLine).toBeDefined();
     expect(txLine).toContain('Pan');
     expect(txLine).not.toContain('\n');

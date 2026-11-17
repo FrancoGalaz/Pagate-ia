@@ -29,8 +29,21 @@ import {
   type Firestore,
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
-import { ENFORCE_APP_CHECK, OPENROUTER_API_KEY, OPENROUTER_MODEL, REGION, callableCors } from './config';
-import { askOpenRouter, errorType, type ChatMessage, type OpenRouterResult } from './openrouter';
+import {
+  APP_CHECK_REJECTED,
+  ENFORCE_APP_CHECK,
+  OPENROUTER_API_KEY,
+  OPENROUTER_MODEL,
+  REGION,
+  callableCors,
+} from './config';
+import {
+  askOpenRouter,
+  errorType,
+  providerCharged,
+  type ChatMessage,
+  type OpenRouterResult,
+} from './openrouter';
 import {
   buildSystemPrompt,
   type DocType,
@@ -328,7 +341,7 @@ export async function handleChat(request: ChatCall, deps: ChatDeps): Promise<Cha
     throw new HttpsError('unauthenticated', 'Debes iniciar sesión para usar el asistente.');
   }
   if (deps.enforceAppCheck && !request.app) {
-    throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+    throw new HttpsError('unauthenticated', APP_CHECK_REJECTED);
   }
   // Correo verificado, ANTES de la cuota: una cuenta sin verificar no gasta
   // mensajes. Sin esto, cada cuenta falsa traería 25 mensajes gratis.
@@ -379,13 +392,16 @@ export async function handleChat(request: ChatCall, deps: ChatDeps): Promise<Cha
   // Deshace lo escrito en este turno. Se usa cuando el fallo no es imputable
   // al usuario: la conversación queda como estaba y la cuota se devuelve, así
   // que reintentar no le cuesta un mensaje.
-  const rollback = async (reason: string) => {
+  //
+  // `refund: false` limpia la conversación pero NO devuelve la cuota: es para
+  // cuando el proveedor ya cobró la llamada (ver `providerCharged`).
+  const rollback = async (reason: string, refund = true) => {
     try {
       const batch = db.batch();
       batch.delete(userMsgRef);
       if (createdConversation) batch.delete(convRef);
       await batch.commit();
-      await refundChatQuota(db, uid, reservation.dayKey);
+      if (refund) await refundChatQuota(db, uid, reservation.dayKey);
     } catch (err) {
       logger.error('chat.rollback.error', { uid, reason, error: String(err) });
     }
@@ -471,7 +487,7 @@ export async function handleChat(request: ChatCall, deps: ChatDeps): Promise<Cha
     });
   } catch (err) {
     logger.error('chat.openrouter.error', { uid, ...errorType(err) });
-    await rollback('openrouter');
+    await rollback('openrouter', !providerCharged(err));
     throw new HttpsError('internal', 'No se pudo obtener una respuesta del asistente. Intenta de nuevo.');
   }
 

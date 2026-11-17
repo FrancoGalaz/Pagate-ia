@@ -45,13 +45,20 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
+  APP_CHECK_REJECTED,
   ENFORCE_APP_CHECK,
   OPENROUTER_API_KEY,
   OPENROUTER_SCAN_MODEL,
   REGION,
   callableCors,
 } from './config';
-import { OpenRouterError, askOpenRouter, errorType, type OpenRouterResult } from './openrouter';
+import {
+  OpenRouterError,
+  askOpenRouter,
+  errorType,
+  providerCharged,
+  type OpenRouterResult,
+} from './openrouter';
 import { buildScanMessages, type ScanSource } from './scanPrompt';
 import { refundScanQuota, reserveScanQuota } from './quota';
 
@@ -420,7 +427,7 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
     throw new HttpsError('unauthenticated', 'Inicia sesión para leer boletas.');
   }
   if (deps.enforceAppCheck && !request.app) {
-    throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+    throw new HttpsError('unauthenticated', APP_CHECK_REJECTED);
   }
   // Correo verificado, antes de la cuota. El cliente trata el rechazo como
   // cualquier fallo: se queda con la lista local.
@@ -465,11 +472,12 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
     });
   } catch (err) {
     logger.error('scan.openrouter.error', { uid, ...errorType(err) });
-    await rollback('openrouter');
+    // La lectura se devuelve solo si el proveedor no llegó a cobrar la llamada.
+    if (!providerCharged(err)) await rollback('openrouter');
     // El plazo agotado se distingue del resto para que el cliente pueda decir
     // "tardó demasiado" en vez de "no responde"; los dos son recuperables
-    // reintentando, y ninguno le ha costado una lectura.
-    const timeout = err instanceof OpenRouterError && /tiempo de espera/i.test(err.message);
+    // reintentando. El plazo agotado sí gasta la lectura (pudo cobrarse).
+    const timeout = err instanceof OpenRouterError && err.timedOut;
     throw new HttpsError(
       timeout ? 'deadline-exceeded' : 'unavailable',
       'El lector no responde. Intenta de nuevo.',

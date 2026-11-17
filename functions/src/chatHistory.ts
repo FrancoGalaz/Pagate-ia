@@ -15,7 +15,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
-import { ENFORCE_APP_CHECK, REGION, callableCors } from './config';
+import { APP_CHECK_REJECTED, ENFORCE_APP_CHECK, REGION, callableCors } from './config';
 
 export interface DeleteChatHistoryResponse {
   ok: true;
@@ -59,7 +59,7 @@ export function checkDeleteChatHistoryCaller(
     throw new HttpsError('unauthenticated', 'Debes iniciar sesión para borrar tu historial.');
   }
   if (enforceAppCheck && !request.app) {
-    throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+    throw new HttpsError('unauthenticated', APP_CHECK_REJECTED);
   }
   return request.auth.uid;
 }

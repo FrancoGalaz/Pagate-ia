@@ -18,7 +18,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
-import { ENFORCE_APP_CHECK, REGION, callableCors } from './config';
+import { APP_CHECK_REJECTED, ENFORCE_APP_CHECK, REGION, callableCors } from './config';
 import { waitlistDocId } from './waitlist';
 
 export interface DeleteAccountResponse {
@@ -51,14 +51,20 @@ const RECENT_LOGIN_SECONDS = 5 * 60;
  * sin lanzar aunque algún lote quede atrás, así que sin comprobarlo no se puede
  * afirmar que el borrado fue completo.
  *
- * Con [email] borra también la inscripción de ese correo en la lista de espera
- * de la landing (`waitlist/{hash}`): la página pública de eliminación de cuenta
- * la cuenta entre lo que se borra. Quien llama pasa el correo solo si está
- * verificado (`waitlistEmailOf`).
+ * Con el [token] de la sesión borra también la inscripción de su correo en la
+ * lista de espera de la landing (`waitlist/{hash}`), que la página pública de
+ * eliminación cuenta entre lo que se borra. SOLO si el correo está verificado:
+ * la condición (`waitlistEmailOf`) se aplica aquí dentro, no en quien llama,
+ * para que no haya camino que la esquive.
  *
  * @returns las rutas que quedaron con documentos (vacío si el borrado fue total).
  */
-export async function deleteUserData(db: Firestore, uid: string, email?: string): Promise<string[]> {
+export async function deleteUserData(
+  db: Firestore,
+  uid: string,
+  token?: { email?: string; email_verified?: boolean },
+): Promise<string[]> {
+  const email = waitlistEmailOf(token);
   // Primero la marca: desde aquí `firestore.rules` niega todo acceso del
   // cliente a `users/{uid}`, así que un token que siga vivo en otro dispositivo
   // no puede recrear documentos mientras se borra ni después.
@@ -121,7 +127,7 @@ export function checkDeleteAccountCaller(request: DeleteAccountCaller, enforceAp
   // porque el parámetro `ENFORCE_APP_CHECK` se resuelve en despliegue y así
   // los callables comparten exactamente el mismo interruptor.
   if (enforceAppCheck && !request.app) {
-    throw new HttpsError('unauthenticated', 'Se requiere una verificación válida de App Check.');
+    throw new HttpsError('unauthenticated', APP_CHECK_REJECTED);
   }
   return request.auth.uid;
 }
@@ -154,7 +160,7 @@ export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
 
     let leftovers: string[];
     try {
-      leftovers = await deleteUserData(db, uid, waitlistEmailOf(request.auth?.token));
+      leftovers = await deleteUserData(db, uid, request.auth?.token);
     } catch (err) {
       logger.error('deleteAccount.datos.error', { uid, error: String(err) });
       throw new HttpsError('internal', 'No se pudieron borrar tus datos. Intenta de nuevo en unos minutos.');

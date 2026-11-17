@@ -625,12 +625,17 @@ describe('handleScanReceipt (callable scanReceipt)', () => {
       expect(await contadorGlobal('scanCalls')).toBe(0);
     });
 
-    it('el plazo agotado se distingue, y tampoco gasta', async () => {
+    // Revisión prelanzamiento 1.1: el plazo agotado SÍ gasta la lectura. La
+    // generación pudo estar en marcha y cobrarse; devolverla dejaba provocar
+    // llamadas pagadas sin límite.
+    it('el plazo agotado se distingue, y gasta la lectura', async () => {
       await seedPerfil();
-      const modelo = modeloQueFalla(new OpenRouterError('Tiempo de espera agotado (40000 ms)'));
+      const modelo = modeloQueFalla(
+        new OpenRouterError('Tiempo de espera agotado (40000 ms)', undefined, true),
+      );
 
       await falla('deadline-exceeded', handleScanReceipt(llamada({ text: BOLETA }), deps(modelo)));
-      expect(await usage()).toMatchObject({ scanCountLifetime: 0 });
+      expect(await usage()).toMatchObject({ scanCountLifetime: 1 });
     });
 
     it('con una sola lectura restante, un fallo no deja al usuario sin poder reintentar', async () => {
