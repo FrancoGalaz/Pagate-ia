@@ -391,11 +391,11 @@ Y dos correcciones que no tienen que ver con el lector:
   verdad importa: la foto no sale del teléfono.
 - **Y dice «puede enviarse», no «se envía», porque son dos hechos distintos.** El
   lector existe en la app; el envío del texto a un tercero solo ocurre con el
-  callable `scanReceipt` desplegado, y hoy no lo está. Mientras no lo esté, la
-  lista la ordena el propio teléfono y no sale nada. «Puede enviarse» es cierto
-  en los dos estados; «se envía» solo lo sería en uno, y hoy es el otro. El
-  estado lo lleva `FUNCIONES_APP.ordenadoDeBoletasEnServidor` en
-  `landing/src/content/legal-meta.ts`.
+  callable `scanReceipt` desplegado, que es el estado decidido el 2026-11-16
+  (`FUNCIONES_APP.ordenadoDeBoletasEnServidor` en `true`, en
+  `landing/src/content/legal-meta.ts`). «Puede enviarse» sigue siendo exacto:
+  cuando la llamada falla o se agota la cuota, la lista la ordena el propio
+  teléfono y no sale nada.
 
 > **El lector ya está en la app, así que este párrafo se pega tal cual.**
 > `FUNCIONES_APP.lectorBoletas` está en `true` desde que el carril del lector

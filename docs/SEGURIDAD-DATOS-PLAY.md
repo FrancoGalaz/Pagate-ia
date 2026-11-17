@@ -226,21 +226,19 @@ puede salir por la misma ruta —nuestro servidor, OpenRouter, el proveedor del
 modelo— para convertir líneas sueltas en artículos con cantidad, nombre y precio.
 Sale el texto; la **imagen no sale nunca** (§1.7).
 
-**«Puede», y hoy no lo hace.** Ese paso lo ejecuta el callable `scanReceipt`, que
-**no está desplegado** en producción. Mientras no lo esté, el texto no sale del
-teléfono en ningún momento: `remote_line_item_parser.dart` trata cualquier fallo
-del callable —y «no está desplegado» es uno— como degradación, conserva la lista
-que armó el propio teléfono y la pantalla de revisión lo dice en palabras. El
-estado lo lleva `FUNCIONES_APP.ordenadoDeBoletasEnServidor` en
-`landing/src/content/legal-meta.ts`, que es la bandera que decide si la política
-de privacidad redacta el envío en presente o en condicional.
+**Se envía.** Decisión del dueño del 2026-11-16: el ordenado en el servidor se
+queda. Ese paso lo ejecuta el callable `scanReceipt`, que se despliega con el
+resto del backend: en cada lectura, el **texto** de la boleta, **sin la
+imagen**, sale hacia nuestro servidor y de ahí a OpenRouter y al proveedor del
+modelo. Solo deja de salir cuando la llamada falla o se agota la cuota:
+`remote_line_item_parser.dart` lo trata como degradación, conserva la lista que
+armó el propio teléfono y la pantalla de revisión lo dice en palabras. El estado
+lo lleva `FUNCIONES_APP.ordenadoDeBoletasEnServidor` en
+`landing/src/content/legal-meta.ts`, en `true`, y la política de privacidad
+redacta el envío en presente.
 
-Para el formulario eso **no cambia nada, y conviene entender por qué**: las
-casillas se marcan por lo que la app hace, no por lo que hace esta semana, y el
-camino del asistente ya las tiene marcadas de todos modos. Declarar el envío del
-lector mientras el callable no está es declarar de más, y declarar de más no
-infringe ninguna política. Lo que no se puede hacer es lo contrario: desplegar el
-callable con el formulario diciendo que no sale nada. Ese texto es contenido libre que puede llevar el nombre y el RUT
+En el formulario se declara como compartido, y las casillas ya lo cubren: el
+camino del asistente las tiene marcadas de todos modos. Ese texto es contenido libre que puede llevar el nombre y el RUT
 de quien emitió la boleta, igual que el título de una transacción puede llevar el
 de un cliente, y la política de privacidad lo advierte en su punto 2.6 con las
 mismas palabras. En el formulario **no abre ninguna casilla nueva**: lo que viaja

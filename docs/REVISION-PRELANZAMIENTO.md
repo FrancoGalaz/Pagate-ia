@@ -18,9 +18,9 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 | 3.3 | Media | Legal | Los registros del servidor guardan texto de boletas junto al `uid`; la política dice que solo llevan fecha, función y errores | No |
 | 2.2 | Baja | Datos | `monthKey` se deriva de la hora local del teléfono y las reglas no lo atan a `date`: editar un movimiento desde otra zona horaria lo cambia de mes | No |
 
-Los tres tests están en `functions/test/revision-prelanzamiento.test.ts` y
-**fallan hoy a propósito**: `npm --prefix functions test` queda en rojo por ese
-archivo hasta que se arreglen los hallazgos 1.1, 3.1 y 3.2.
+Los tres tests están en `functions/test/revision-prelanzamiento.test.ts`.
+Fallaban a propósito hasta el arreglo de 1.1, 3.1 y 3.2; hoy pasan y quedan
+como regresión.
 
 ## Qué se revisó y no dio hallazgos
 
@@ -184,6 +184,12 @@ de la política, los términos de uso, ni la app web.
 - **Test:** "deleteAccount: borra la inscripción en la lista de espera".
 
 ### 3.2 Alta: la política niega un envío que el merge activa
+
+> **Resuelto (2026-11-16).** Decisión del dueño: el ordenado en el servidor se
+> queda. `ordenadoDeBoletasEnServidor` pasó a `true`, así que la política
+> redacta en presente que el texto de la boleta, sin la imagen, se envía a
+> OpenRouter; `SEGURIDAD-DATOS-PLAY.md` y `FICHA-PLAY.md` dicen lo mismo.
+> `landing-page/` se regenera sola cuando el cambio llegue a `main`.
 
 - **Dónde:** `landing/src/content/legal-meta.ts:254`
   (`ordenadoDeBoletasEnServidor: false`), `functions/src/index.ts`

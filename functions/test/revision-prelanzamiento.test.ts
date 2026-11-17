@@ -1,9 +1,8 @@
 /**
  * Tests de la revisión prelanzamiento (docs/REVISION-PRELANZAMIENTO.md).
  *
- * LOS TRES FALLAN HOY A PROPÓSITO: cada uno demuestra un hallazgo de la
- * revisión y no arregla nada. Pasan a verde cuando se corrija el código que
- * señalan; hasta entonces `npm test` queda en rojo por este archivo.
+ * Cada uno demostró un hallazgo de la revisión fallando antes del arreglo, y
+ * se queda como regresión.
  */
 
 import { readFileSync } from 'node:fs';

@@ -226,30 +226,20 @@ export const FUNCIONES_APP = {
   lectorBoletas: true,
 
   /**
-   * ¿Está desplegado el paso que SACA EL TEXTO DEL TELÉFONO?
+   * ¿Sale el TEXTO de la boleta del teléfono?
    *
    * Es una bandera aparte de [lectorBoletas] porque son dos hechos distintos y
-   * el documento legal necesita los dos. Que el lector exista (arriba) no
-   * implica que salga texto hacia un tercero: eso solo pasa cuando el callable
-   * `scanReceipt` está desplegado en producción, y hoy no lo está.
+   * el documento legal necesita los dos: que el lector exista (arriba) y que
+   * el texto reconocido salga hacia un tercero para ordenarlo.
    *
-   * Mientras siga en `false`, el texto reconocido NO sale del teléfono en
-   * ningún momento. `remote_line_item_parser.dart` trata cualquier fallo del
-   * callable —y «no está desplegado» es uno— como degradación: conserva la
-   * lista que armó el propio teléfono y la pantalla de revisión lo dice en
-   * palabras («Ordené la lista yo sola, sin el asistente»). La función no se
-   * cae; baja de calidad y lo admite.
+   * Está en `true` por decisión del dueño (2026-11-16): el ordenado en el
+   * servidor se queda. `functions/src/index.ts` exporta `scanReceipt`, que se
+   * despliega con el resto del backend, y el cliente lo llama en cada lectura:
+   * el texto de la boleta, sin la imagen, se envía a OpenRouter.
    *
-   * POR QUÉ ESTA NO LA VIGILA `FUNCIONES_DECLARADAS` de honestidad.test.ts.
-   * Las otras dos se comprueban leyendo `lib/`, porque son hechos del código.
-   * Esta no es un hecho del código: el cliente llama al callable igual, esté
-   * desplegado o no, así que no hay señal en el repositorio que un test pueda
-   * leer. Es un hecho del despliegue, y vive en la consola de Firebase.
-   *
-   * QUIÉN LA PONE EN `true`: quien despliegue `functions`. Un documento que
-   * dice «el texto no sale» con el callable ya sirviendo es exactamente la
-   * clase de mentira que este archivo existe para evitar, solo en la otra
-   * dirección: por defecto.
+   * Señal en el código: `export { scanReceipt }` en `functions/src/index.ts`.
+   * La vigila `functions/test/revision-prelanzamiento.test.ts`: si el backend
+   * exporta el callable, esta bandera tiene que estar en `true`.
    */
-  ordenadoDeBoletasEnServidor: false,
+  ordenadoDeBoletasEnServidor: true,
 } as const;
