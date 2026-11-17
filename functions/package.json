@@ -1,0 +1,35 @@
+{
+  "name": "pagate-functions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend de Págate-IA (Cloud Functions 2ª gen)",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "lint": "eslint src test",
+    "serve": "npm run build && npx firebase-tools emulators:start --only functions,firestore,auth",
+    "deploy": "npx firebase-tools deploy --only functions",
+    "logs": "npx firebase-tools functions:log",
+    "test": "npx firebase-tools emulators:exec --config ../firebase.test.json --only firestore --project demo-pagate \"vitest run\"",
+    "test:unit": "vitest run test/prompt.test.ts test/waitlist.test.ts"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.4.0",
+    "firebase-functions": "^7.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.30.0",
+    "firebase": "^12.0.0",
+    "firebase-tools": "^15.0.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.0"
+  }
+}

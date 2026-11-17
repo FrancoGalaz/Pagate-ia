@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Capa de primer plano del icono adaptativo: monograma «P» de Págate.
+
+  Por qué un monograma y no un pictograma: el icono tiene que leerse a 48 dp en
+  un cajón de aplicaciones. Cualquier metáfora de «asistente financiero»
+  (billetera, gráfico, moneda con un rayo) se convierte a ese tamaño en una
+  mancha indistinguible de las otras cuarenta apps de finanzas. La inicial de la
+  marca es lo único que a 48 dp sigue identificando el producto.
+
+  Geometría (lienzo 108x108 dp, el que exige el formato adaptativo):
+  - El lanzador solo garantiza la visibilidad del círculo central de 66 dp
+    (centro 54,54 · radio 33). Todo el trazo cabe dentro: el punto más alejado
+    son las esquinas del asta, a 32,65 dp del centro.
+  - Caja del glifo: x 33..75, y 29..79. Centro (54,54), igual que el lienzo.
+  - Grosor uniforme de 11 dp. A 48 dp de icono final equivale a ~7 px, que es el
+    mínimo por debajo del cual el contraforma se cierra visualmente.
+  - El ojo de la «P» mide 12 dp de alto (~8 px a 48 dp), suficiente para que la
+    letra no se lea como una «D» ni como una mancha.
+  - El cuenco es un estadio: semicírculo exacto de radio 17 (su altura, 34, es
+    justo 2r), así que el arco no necesita curvas de Bézier y el vector y los
+    PNG rasterizados coinciden píxel a píxel.
+
+  `fillType="evenOdd"` resta el ojo del contorno exterior sin tener que invertir
+  el sentido de giro del subtrazo. Requiere API 24, y este drawable solo se
+  referencia desde mipmap-anydpi-v26 (API 26+), así que está cubierto de sobra.
+
+  El color es blanco fijo y no un token: esta capa siempre va sobre
+  @color/ic_launcher_background, y el lanzador no la tematiza (de eso se encarga
+  la capa monochrome).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M33,29 L58,29 A17,17 0 0 1 58,63 L44,63 L44,79 L33,79 Z M44,40 L58,40 A6,6 0 0 1 58,52 L44,52 Z" />
+</vector>

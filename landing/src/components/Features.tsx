@@ -1,7 +1,29 @@
+// Sección de funcionalidades, con pestañas y una maqueta por pestaña.
+//
+// Dos cosas corregidas y que no deben volver:
+//  1. El titular de la cuarta pestaña era «+24 % de productividad». Es una
+//     cifra inventada presentada como resultado medido.
+//  2. La maqueta de la primera pestaña mostraba «Promedio mercado: $35.000» y
+//     «+22 % arriba». La app no tiene ningún dato de mercado con el que
+//     comparar: eso no era una cifra falsa, era una funcionalidad falsa.
+//
+//  3. Había seis pestañas y tres anunciaban funciones que NO EXISTEN en la app:
+//     «Tiempo · Seguimiento de horas» («calcula horas facturables»), «Ahorro ·
+//     Metas de ahorro» y «Productividad». Verificado: `lib/features/` solo
+//     contiene auth, dashboard, finances, hourly_value, inventory, onboarding y
+//     user_profile; no hay registro de horas, ni metas de ahorro, ni analítica
+//     de productividad en ninguna parte del código. Anunciar una función que no
+//     existe es la misma política de Tergiversación que las cifras inventadas.
+//     Quedan las cuatro reales, y la cuarta es el asistente
+//     (`lib/features/dashboard/presentation/pages/tabs/ia_tab.dart`).
+//
+// Las cifras que quedan en las maquetas son una ilustración de la interfaz y
+// van rotuladas como tal al pie del bloque.
+
 import { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { TrendingUp, Wallet, Package, BarChart3, Clock, Zap } from 'lucide-react';
+import { TrendingUp, Package, BarChart3, Sparkles } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -9,9 +31,10 @@ const features = [
   {
     id: 'valor-hora',
     icon: TrendingUp,
-    label: 'Valor Hora',
-    title: 'Calcula tu valor real',
-    description: 'Descubre cuánto debes cobrar por tu tiempo considerando gastos fijos, variables y tus metas de ingreso.',
+    label: 'Valor hora',
+    title: 'Cuánto tiene que valer tu hora',
+    description:
+      'Le dices cuánto quieres ganar al mes y cuántas horas puedes trabajar de verdad. La app calcula lo que tiene que valer tu hora para que eso pase. Con ese número, poner precio deja de ser una corazonada.',
     color: 'bg-brand',
     lightColor: 'bg-brand-light',
     textColor: 'text-brand',
@@ -20,8 +43,9 @@ const features = [
     id: 'inventario',
     icon: Package,
     label: 'Inventario',
-    title: 'Control total de stock',
-    description: 'Registra productos, monitorea stock en tiempo real y recibe alertas antes de quedarte sin unidades.',
+    title: 'Qué tienes y qué te falta',
+    description:
+      'Productos y materiales en un mismo lugar, con precio, stock y stock mínimo. Así sabes qué reponer antes de quedarte sin material a mitad de un pedido.',
     color: 'bg-accent',
     lightColor: 'bg-accent-light',
     textColor: 'text-accent',
@@ -29,42 +53,24 @@ const features = [
   {
     id: 'finanzas',
     icon: BarChart3,
-    label: 'Finanzas',
-    title: 'Gestión financiera clara',
-    description: 'Visualiza ingresos, egresos y rentabilidad en dashboards claros que te ayudan a tomar mejores decisiones.',
+    label: 'Ingresos y gastos',
+    title: 'Todo lo que entró y lo que salió',
+    description:
+      'Anotas una venta o un gasto en segundos: cuánto, de qué y cuándo. La app arma sola el resumen del mes, y tus gastos fijos quedan guardados para que no se te olviden.',
     color: 'bg-blue-500',
     lightColor: 'bg-blue-50',
     textColor: 'text-blue-600',
   },
   {
-    id: 'tiempo',
-    icon: Clock,
-    label: 'Tiempo',
-    title: 'Seguimiento de horas',
-    description: 'Registra tu tiempo de trabajo, calcula horas facturables y mejora tu productividad diaria.',
+    id: 'asistente',
+    icon: Sparkles,
+    label: 'Asistente',
+    title: 'Pregúntale sobre tu negocio',
+    description:
+      'Conversas en lenguaje normal sobre tus propios números: por qué te cuadró o no el mes, en qué se te está yendo la plata. Las respuestas las genera un modelo de inteligencia artificial: pueden equivocarse y no son asesoría contable ni tributaria.',
     color: 'bg-purple-500',
     lightColor: 'bg-purple-50',
     textColor: 'text-purple-600',
-  },
-  {
-    id: 'ahorro',
-    icon: Wallet,
-    label: 'Ahorro',
-    title: 'Metas de ahorro',
-    description: 'Define objetivos de ahorro, haz seguimiento de tu progreso y alcanza tus metas financieras.',
-    color: 'bg-orange-500',
-    lightColor: 'bg-orange-50',
-    textColor: 'text-orange-600',
-  },
-  {
-    id: 'productividad',
-    icon: Zap,
-    label: 'Productividad',
-    title: '+24% de productividad',
-    description: 'Analiza tu rendimiento, identifica patrones y optimiza tu tiempo para maximizar resultados.',
-    color: 'bg-green-500',
-    lightColor: 'bg-green-50',
-    textColor: 'text-green-600',
   },
 ];
 
@@ -128,11 +134,13 @@ export default function Features() {
             Funcionalidades
           </span>
           <h2 className="font-display text-4xl lg:text-6xl font-bold tracking-tight text-text-primary leading-[1.1]">
-            Todo lo que necesitas para{' '}
-            <span className="text-brand">crecer</span>
+            Lo que hace{' '}
+            <span className="text-brand">Págate-IA</span>
           </h2>
           <p className="mt-6 text-lg text-text-secondary">
-            Herramientas pensadas para freelancers y pymes que quieren dejar de adivinar y empezar a medir.
+            Cuatro cosas, las cuatro que la app hace hoy. Pensadas para artesanas,
+            artesanos y talleres chicos que quieren dejar de adivinar y empezar a
+            medir.
           </p>
         </div>
 
@@ -174,7 +182,7 @@ export default function Features() {
               href="#cta"
               className="inline-flex items-center gap-2 text-brand font-semibold hover:gap-3 transition-all"
             >
-              Explorar funcionalidad
+              Unirme a la lista de espera
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
@@ -207,8 +215,8 @@ export default function Features() {
                       <div className="h-full w-[75%] bg-brand rounded-full" />
                     </div>
                     <div className="flex justify-between text-xs text-text-muted">
-                      <span>Promedio mercado: $35.000</span>
-                      <span className="text-success font-semibold">+22% arriba</span>
+                      <span>Meta mensual</span>
+                      <span className="font-semibold">75% alcanzado</span>
                     </div>
                   </div>
                 )}
@@ -230,7 +238,7 @@ export default function Features() {
                     </div>
                   </div>
                 )}
-                {activeTab >= 2 && (
+                {activeTab === 2 && (
                   <div className="space-y-3">
                     <div className="flex items-end justify-between gap-2 h-20">
                       {[65, 40, 80, 55, 90, 70, 85].map((h, i) => (
@@ -241,12 +249,32 @@ export default function Features() {
                         />
                       ))}
                     </div>
+                    {/* Meses, no días de la semana: la app agrega por mes
+                        (`months/{yyyy-MM}`) y no tiene ninguna vista semanal. */}
                     <div className="flex justify-between text-[10px] text-text-muted">
-                      <span>Lun</span><span>Mar</span><span>Mie</span><span>Jue</span><span>Vie</span><span>Sab</span><span>Dom</span>
+                      <span>Abr</span><span>May</span><span>Jun</span><span>Jul</span>
+                      <span>Ago</span><span>Sep</span><span>Oct</span>
                     </div>
                   </div>
                 )}
+                {activeTab === 3 && (
+                  <div className="space-y-2">
+                    <p className="ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-white px-3 py-2 text-xs text-text-primary">
+                      ¿Me conviene el pedido de 12 tazas a $7.000?
+                    </p>
+                    <p className="mr-auto max-w-[85%] rounded-2xl rounded-bl-sm bg-purple-500/10 px-3 py-2 text-xs text-text-secondary">
+                      Con tu valor hora y lo que anotaste de materiales, ese
+                      precio te deja por debajo de tu hora. Te lo desgloso.
+                    </p>
+                    <p className="pt-1 text-[10px] text-text-muted">
+                      Respuesta generada por IA. Puede equivocarse.
+                    </p>
+                  </div>
+                )}
               </div>
+              <p className="mt-4 text-xs text-text-muted text-center">
+                Ejemplo ilustrativo de la interfaz
+              </p>
             </div>
 
             {/* Floating accent */}

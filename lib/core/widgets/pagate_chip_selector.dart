@@ -1,15 +1,52 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 
-/// Chip selector for multi/single selection flows.
+// ═══════════════════════════════════════════════════════════════════════
+// CHIP DE FILTRO Y DE SELECCIÓN
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, componente 10.
+//
+// TRES COSAS QUE CAMBIAN Y POR QUÉ:
+//
+// 1. SE VA LA OPACIDAD. La versión anterior pintaba `brand` al 15% y un
+//    borde al 40%. Un color con alfa no tiene ratio de contraste
+//    comprobable: depende de lo que haya debajo. Ahora son dos colores
+//    planos del sistema, `brandSurface` #E6F2F0 con `brand` encima, que da
+//    5,61:1 verificado.
+//
+// 2. SE VA LA ANIMACIÓN. El `AnimatedContainer` de 200 ms hacía que un
+//    cambio de selección se sintiera lento. Una selección tiene que ser
+//    instantánea; las únicas animaciones del sistema son la pulsación de
+//    fila, la hoja modal y el pulso del esqueleto.
+//
+// 3. SE VA EL `GestureDetector`. Era uno de los diecinueve que la app usaba
+//    como botón: TalkBack no sabía que era un control, ni que estaba
+//    seleccionado, ni que pertenecía a un grupo. Ahora es `ChoiceChip`, que
+//    trae el rol, el estado y la exclusividad mutua de fábrica.
+//
+// ALTO 32 CON CAJA TÁCTIL 48: `materialTapTargetSize: padded` añade el
+// relleno invisible. El píxel visible mide 32, el área que responde al dedo
+// mide 48, que es lo que marca el informe previo al lanzamiento de Google
+// Play.
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Grupo de chips seleccionables, en `Wrap` con 8 dp de separación.
 ///
-/// Used for category selection (workshop step) and similar patterns.
-/// Supports single and multi-select modes.
+/// Soporta selección única y múltiple. La API pública no cambia respecto de
+/// la versión anterior, así que las cuatro pantallas que ya lo usan mejoran
+/// sin editarse.
 class PagateChipSelector extends StatelessWidget {
   final List<String> options;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+
+  /// Solo cambia la semántica que se expone al lector de pantalla: con
+  /// selección única los chips se anuncian como grupo mutuamente excluyente.
   final bool allowMultiple;
+
+  /// Opciones que se dibujan apagadas y no responden. Útil cuando una
+  /// categoría no aplica al tipo de movimiento elegido.
+  final Set<String> disabled;
 
   const PagateChipSelector({
     super.key,
@@ -17,68 +54,158 @@ class PagateChipSelector extends StatelessWidget {
     required this.selected,
     required this.onToggle,
     this.allowMultiple = false,
+    this.disabled = const {},
   });
 
   @override
   Widget build(final BuildContext context) => Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
-        children: options.map((final option) {
-          final isSelected = selected.contains(option);
-          return _PagateChip(
-            label: option,
-            isSelected: isSelected,
-            onTap: () => onToggle(option),
-          );
-        }).toList(),
+        spacing: AppSpacing.x2,
+        runSpacing: AppSpacing.x2,
+        children: [
+          for (final option in options)
+            PagateChip(
+              label: option,
+              isSelected: selected.contains(option),
+              isEnabled: !disabled.contains(option),
+              exclusive: !allowMultiple,
+              onSelected: () => onToggle(option),
+            ),
+        ],
       );
 }
 
-class _PagateChip extends StatelessWidget {
+/// Un chip suelto. Se expone porque el selector de periodo y los filtros de
+/// inventario necesitan el mismo píxel sin el `Wrap` alrededor.
+class PagateChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final VoidCallback onTap;
+  final bool isEnabled;
 
-  const _PagateChip({
+  /// `true` dibuja un [ChoiceChip] (elegir uno de varios) y `false` un
+  /// [FilterChip] (marcar varios).
+  ///
+  /// NO es cosmético: los dos se ven exactamente igual porque reciben los
+  /// mismos colores, pero anuncian cosas distintas. `ChoiceChip` se lee como
+  /// una opción de un grupo excluyente y `FilterChip` como una casilla
+  /// marcable. Dejar el rol en manos de Material es lo que permite borrar el
+  /// `GestureDetector` anterior, que no anunciaba ninguno de los dos.
+  final bool exclusive;
+
+  /// `true` dibuja la variante de PERIODO: relleno sólido de marca con
+  /// texto blanco (6,43:1) cuando está activo y fondo transparente SIN
+  /// BORDE cuando no.
+  ///
+  /// Es un píxel distinto a propósito. El selector de mes es una fila de
+  /// cinco o seis chips donde solo uno importa; con el borde del chip de
+  /// filtro en cada no seleccionado, la fila se convertía en una reja y el
+  /// activo no destacaba.
+  final bool isPeriod;
+
+  final VoidCallback onSelected;
+
+  const PagateChip({
+    super.key,
     required this.label,
     required this.isSelected,
-    required this.onTap,
-  });
+    required this.onSelected,
+    this.isEnabled = true,
+    this.exclusive = true,
+  }) : isPeriod = false;
+
+  /// Ítem del selector de periodo. Ver [isPeriod].
+  const PagateChip.period({
+    super.key,
+    required this.label,
+    required this.isSelected,
+    required this.onSelected,
+  })  : isPeriod = true,
+        isEnabled = true,
+        exclusive = true;
 
   @override
-  Widget build(final BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppDurations.fast,
-          curve: AppCurves.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.brand.withValues(alpha: 0.15)
-                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: AppRadius.lgBorder,
-            border: isSelected
-                ? Border.all(
-                    color: AppColors.brand.withValues(alpha: 0.4),
-                    width: AppSizes.borderThin,
-                  )
-                : Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    width: AppSizes.borderThin,
-                  ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: isSelected
-                      ? AppColors.brand
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      );
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    final Color foreground;
+    final Color background;
+    final Color borderColor;
+    if (isPeriod) {
+      foreground =
+          isSelected ? AppPalette.textOnBrand : AppPalette.textSecondary;
+      background = isSelected ? AppPalette.ink : Colors.transparent;
+      borderColor = Colors.transparent;
+    } else if (!isEnabled) {
+      foreground = AppPalette.textDisabled;
+      background = AppPalette.sunken;
+      borderColor = AppPalette.border;
+    } else if (isSelected) {
+      // Seleccionado en el oscuro: la greda queda para la acción principal.
+      foreground = AppPalette.ink;
+      background = AppPalette.sunken;
+      borderColor = AppPalette.ink;
+    } else {
+      foreground = AppPalette.textSecondary;
+      background = AppPalette.surface;
+      borderColor = AppPalette.border;
+    }
+
+    final etiqueta = Text(label);
+    final estilo = theme.textTheme.labelMedium?.copyWith(color: foreground);
+    final onSelectedCallback =
+        isEnabled ? (final bool _) => onSelected() : null;
+    final borde = BorderSide(color: borderColor, width: AppSizes.borderHairline);
+    const forma = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadius.r8)),
+    );
+    const relleno = EdgeInsets.symmetric(horizontal: AppSpacing.x3);
+
+    // Lo que convierte 32 dp visibles en 48 dp táctiles. La onda de Material
+    // no hace falta apagarla aquí: el tema ya fija `splashFactory: NoSplash`
+    // para toda la app.
+    const areaTactil = MaterialTapTargetSize.padded;
+
+    // `showCheckmark: false` porque el chip ya se distingue por color y por
+    // borde, y el check desplaza la etiqueta al seleccionar.
+    return exclusive
+        ? ChoiceChip(
+            label: etiqueta,
+            selected: isSelected,
+            onSelected: onSelectedCallback,
+            labelStyle: estilo,
+            labelPadding: EdgeInsets.zero,
+            padding: relleno,
+            showCheckmark: false,
+            backgroundColor: background,
+            selectedColor: background,
+            disabledColor: background,
+            side: borde,
+            shape: forma,
+            shadowColor: Colors.transparent,
+            selectedShadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            pressElevation: 0,
+            materialTapTargetSize: areaTactil,
+          )
+        : FilterChip(
+            label: etiqueta,
+            selected: isSelected,
+            onSelected: onSelectedCallback,
+            labelStyle: estilo,
+            labelPadding: EdgeInsets.zero,
+            padding: relleno,
+            showCheckmark: false,
+            backgroundColor: background,
+            selectedColor: background,
+            disabledColor: background,
+            side: borde,
+            shape: forma,
+            shadowColor: Colors.transparent,
+            selectedShadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            pressElevation: 0,
+            materialTapTargetSize: areaTactil,
+          );
+  }
 }

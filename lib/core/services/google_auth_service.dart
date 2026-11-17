@@ -1,46 +1,39 @@
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
-/// Service for Google Sign-In across platforms.
+/// Inicio de sesión con Google.
 ///
-/// - **Web**: Uses `signInWithPopup(GoogleAuthProvider())`
-/// - **Mobile**: Would use the `google_sign_in` package (not yet implemented)
+/// - **Web**: `signInWithPopup(GoogleAuthProvider())`, funcional.
+/// - **Móvil/escritorio**: requiere el paquete `google_sign_in`, todavía no
+///   integrado. Las pantallas deben ocultar el botón cuando [isAvailable] es
+///   `false`; [signIn] lanza [UnsupportedError] en ese caso.
 class GoogleAuthService {
-  final FirebaseAuth _auth;
+  final FirebaseAuth? _authOverride;
 
-  GoogleAuthService({FirebaseAuth? auth})
-      : _auth = auth ?? FirebaseAuth.instance;
+  GoogleAuthService({FirebaseAuth? auth}) : _authOverride = auth;
 
-  /// Returns true if Google Sign-In is available on this platform.
+  /// Se resuelve de forma perezosa para que consultar [isAvailable] no
+  /// requiera Firebase inicializado (widget tests, pantallas previas al login).
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
+
+  /// `true` solo en web por ahora.
   bool get isAvailable => kIsWeb;
 
-  /// Signs in with Google using the platform-appropriate method.
-  ///
-  /// On web, opens a popup for Google account selection.
-  /// On mobile, this requires the `google_sign_in` package.
   Future<UserCredential> signIn() async {
-    if (kIsWeb) {
-      // Web: use Firebase Auth popup
-      final provider = GoogleAuthProvider();
-      provider.setCustomParameters({'prompt': 'select_account'});
-      return await _auth.signInWithPopup(provider);
+    if (!isAvailable) {
+      throw UnsupportedError(
+        'Google Sign-In en móvil requiere el paquete google_sign_in.',
+      );
     }
-
-    // Mobile: would need google_sign_in package
-    // For now, throw a helpful error
-    throw UnsupportedError(
-      'Google Sign-In in mobile requires the google_sign_in package. '
-      'Add it to pubspec.yaml and use GoogleSignIn().signIn() instead.',
-    );
+    final provider = GoogleAuthProvider()
+      ..setCustomParameters({'prompt': 'select_account'});
+    return _auth.signInWithPopup(provider);
   }
 
-  /// Returns true if the current user was authenticated via Google.
+  /// `true` si el usuario actual inició sesión con Google.
   bool get isGoogleUser {
     final user = _auth.currentUser;
     if (user == null) return false;
-    for (final info in user.providerData) {
-      if (info.providerId == 'google.com') return true;
-    }
-    return false;
+    return user.providerData.any((info) => info.providerId == 'google.com');
   }
 }

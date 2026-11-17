@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
+import '../theme/app_text.dart';
 
 /// Unified step header for onboarding flows.
 ///
@@ -75,10 +76,10 @@ class PagateStepHeader extends StatelessWidget {
                 ),
                 child: Text(
                   'Paso $currentStep de $totalSteps',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.brand,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppText.weight(
+                    theme.textTheme.labelSmall!,
+                    700,
+                  ).copyWith(color: AppColors.brand),
                 ),
               ),
             ],

@@ -1,0 +1,67 @@
+name: Landing Pages
+
+# Reconstruye landing/ y publica el resultado en landing-page/ (servido por
+# GitHub Pages). El trigger filtra por landing/** y el commit resultante solo
+# toca landing-page/, así que no se dispara a sí mismo; [skip ci] evita además
+# que ci.yml corra por ese commit.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/landing-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: landing-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build landing y publicar en landing-page/
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: landing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          # URL pública de la Cloud Function waitlist (no es un secreto).
+          # Se puede sobreescribir con la variable de repositorio VITE_WAITLIST_URL.
+          VITE_WAITLIST_URL: ${{ vars.VITE_WAITLIST_URL || 'https://southamerica-west1-pagate-17211.cloudfunctions.net/waitlist' }}
+
+      - name: Copiar dist a landing-page/
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -rf landing-page
+          mkdir landing-page
+          cp -r landing/dist/. landing-page/
+
+      - name: Commit y push si hay cambios
+        working-directory: ${{ github.workspace }}
+        run: |
+          git add -A landing-page
+          if git diff --cached --quiet; then
+            echo "landing-page/ sin cambios; nada que publicar."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(landing-page): build automático de landing/ [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cadenas de recursos de Android. Hoy solo el nombre visible de la app.
+
+  Por qué existe este archivo y el nombre no está escrito en el manifiesto:
+  `android:label` es el texto que el lanzador pinta bajo el icono, y es además
+  el que sale en Ajustes -> Aplicaciones y en el diálogo de permisos. Como
+  recurso tiene dos ventajas sobre el literal: queda en un único sitio
+  declarado (el manifiesto pasa a referenciarlo) y es el lugar donde Android
+  espera encontrarlo si algún día hay que traducirlo con values-xx/.
+
+  Nombre elegido: «Págate-IA», CON tilde.
+
+  Es el que ya usa todo el resto del proyecto, así que el manifiesto era el
+  único sitio incoherente:
+  - pubspec.yaml -> description: "Págate-IA — Asistente financiero…"
+  - functions/package.json -> "Backend de Págate-IA (Cloud Functions 2ª gen)"
+  - landing/privacidad, landing/terminos y landing/eliminar-cuenta -> los tres
+    <title> dicen «Págate-IA», y son documentos legales publicados: el nombre
+    de la app instalada tiene que coincidir con el que figura en ellos.
+  El nombre de la ficha en Play Console también debe escribirse así; cabe de
+  sobra en el límite de 30 caracteres (son 9).
+
+  La tilde no da problemas: el manifiesto y este archivo son UTF-8 y aapt2 los
+  compila a UTF-8 en resources.arsc. Comprobado sobre el APK de release con
+  `aapt2 dump badging`, que devuelve application-label:'Págate-IA'.
+-->
+<resources>
+    <string name="app_name">Págate-IA</string>
+</resources>

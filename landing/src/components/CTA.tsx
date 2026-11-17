@@ -1,3 +1,10 @@
+// Cierre de la landing: el formulario de la lista de espera.
+//
+// Copy retirado a propósito: «Versión beta gratuita» (no hay beta publicada),
+// «Configuración en 2 minutos» (no medido) y «Cancela cuando quieras» (no hay
+// nada que cancelar: no existe suscripción ni cobro en ninguna parte del
+// código). Las cifras de la maqueta del teléfono van rotuladas.
+
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -57,7 +64,7 @@ export default function CTA() {
           <div className="cta-content">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-brand-light text-sm font-semibold mb-6">
               <Download className="w-4 h-4" />
-              Versión beta gratuita
+              Gratis mientras la construimos
             </div>
 
             <h2 className="font-display text-4xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1]">
@@ -66,8 +73,8 @@ export default function CTA() {
             </h2>
 
             <p className="mt-6 text-lg lg:text-xl text-text-muted max-w-xl leading-relaxed">
-              Únete a la lista de espera. Sé de los primeros en usar Pagate 
-              y descubre cuánto vale realmente tu trabajo.
+              Déjanos tu correo y te escribimos cuando Págate-IA esté lista. Vas
+              a saber cuánto tiene que valer tu hora y cómo cerró tu mes.
             </p>
 
             <div className="mt-10">
@@ -75,7 +82,8 @@ export default function CTA() {
             </div>
 
             <p className="mt-6 text-sm text-text-muted">
-              Configuración en 2 minutos · Cancela cuando quieras
+              No hay suscripción ni cobro. Guardamos tu nombre y tu correo solo
+              para avisarte del lanzamiento.
             </p>
           </div>
 
@@ -90,7 +98,7 @@ export default function CTA() {
                   <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center mb-4 shadow-lg shadow-brand/40">
                     <span className="text-white text-2xl font-bold">P</span>
                   </div>
-                  <p className="text-lg font-bold text-text-primary mb-1">Pagate</p>
+                  <p className="text-lg font-bold text-text-primary mb-1">Págate-IA</p>
                   <p className="text-sm text-text-muted mb-6">Tu negocio, en control</p>
                   
                   <div className="w-full space-y-3">
@@ -111,6 +119,9 @@ export default function CTA() {
                 </div>
               </div>
             </div>
+            <p className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-text-muted whitespace-nowrap">
+              Ejemplo ilustrativo de la interfaz
+            </p>
 
             {/* Floating elements */}
             <div className="absolute top-8 right-0 lg:right-8 bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/10 hidden lg:block">

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Color del fondo del icono adaptativo.
+
+  Vive en su propio archivo (y no en values/styles.xml) porque el empaquetador
+  de iconos adaptativos exige que `@color/ic_launcher_background` exista como
+  recurso de color propio: Android 8+ lo usa como capa de fondo a sangre, y los
+  lanzadores la desplazan en los efectos de paralaje, así que tiene que ser un
+  color plano y no un drawable.
+
+  #006B5F es el token `brand` del sistema visual (docs/DISENO-v2.md): el único
+  de la paleta que mantiene AA tanto como texto como como relleno. Blanco encima
+  da 6,43:1. Sin degradado, por decisión de dirección visual.
+-->
+<resources>
+    <color name="ic_launcher_background">#006B5F</color>
+</resources>

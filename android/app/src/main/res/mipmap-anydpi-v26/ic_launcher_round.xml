@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Variante redonda, idéntica a ic_launcher.xml.
+
+  No es redundante: los lanzadores que piden `android:roundIcon` resuelven este
+  recurso, y si no existe caen al PNG legacy de mipmap-*dpi perdiendo el icono
+  adaptativo. Como el formato adaptativo ya aplica la máscara que decide el
+  lanzador, el contenido de las dos declaraciones tiene que ser el mismo.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

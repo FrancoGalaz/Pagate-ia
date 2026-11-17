@@ -1,375 +1,318 @@
-import 'dart:ui';
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../core/constants/app_brand.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/constants/app_links.dart';
+import '../../../../core/utils/url_opener.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../onboarding/presentation/pages/identity_step_screen.dart';
 import 'login_screen.dart';
-import 'post_login_welcome_screen.dart';
-import 'phone_input_screen.dart';
+
+// ═══════════════════════════════════════════════════════════════════════
+// PANTALLA DE BIENVENIDA
+// ═══════════════════════════════════════════════════════════════════════
+// Especificación: docs/DISENO-v2.md, "Pantalla de bienvenida".
+//
+// Es la primera pantalla que ve un revisor de Google Play y un usuario
+// nuevo: tiene que contar qué hace la app en cinco segundos y no prometer
+// nada que la app no haga.
+//
+// QUÉ SE BORRÓ Y POR QUÉ, una a una:
+//
+// · EL ORBE DE FONDO. Un `Positioned(top: -100, left: -50)` con un círculo
+//   de 400×400 en marca al 8% envuelto en un filtro de desenfoque de 80 de
+//   blur cuyo hijo era un `SizedBox.shrink()`: el filtro se aplicaba sobre
+//   un área de 0×0, no producía ningún efecto visible y solo costaba un
+//   `saveLayer`. Con él se va el `import 'dart:ui'`.
+//
+// · LA ILUSTRACIÓN ENTERA (340×340): un círculo de 280 con degradado
+//   decorativo, un borde blanco al 50% sobre fondo claro (invisible), una
+//   sombra de 40 de blur y un `Icons.handyman_outlined` de 80 dp al 30% de
+//   opacidad sin función. Son ~380 dp que empujaban el mensaje real fuera
+//   de la primera pantalla en dispositivos de 640 dp.
+//
+// · LAS DOS TARJETAS FLOTANTES con "GANANCIA +24%" y "STOCK Optimizado".
+//   Cifras fabricadas presentadas con el lenguaje visual de un dato real
+//   del usuario, en la pantalla donde todavía no hay usuario. Y un lector
+//   de pantalla las leía literalmente como si fueran suyas.
+//
+// · "La primera herramienta financiera diseñada por y para artesanos":
+//   afirmación de primacía no verificable. En la ficha de Play, material
+//   para rechazo por afirmaciones engañosas.
+//
+// · EL BOTÓN DE APPLE, que solo mostraba "todavía no está disponible", y el
+//   de Google, cuyo `isAvailable` es `kIsWeb`: en el APK que va a Play el
+//   usuario veía dos opciones de arranque y la única visible era un botón
+//   muerto. Queda un único botón primario.
+//
+// · El "(Gratis)" del botón: el precio va en la ficha de Play, no dentro de
+//   un botón, y comprometerlo ahí ata el modelo de precios.
+//
+// · "¿Ya eres parte de la comunidad?" y el `TextDecoration.underline` sobre
+//   media frase del titular: subrayar para dar énfasis es decoración, no
+//   jerarquía.
+//
+// TODO ALINEADO A LA IZQUIERDA. Antes no quedaba un solo elemento alineado
+// a la izquierda en toda la pantalla.
+// ═══════════════════════════════════════════════════════════════════════
+
+// Las direcciones de los textos legales viven en
+// `core/constants/app_links.dart`: ahora las usan dos pantallas.
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
+  Widget build(final BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (final context, final constraints) => SingleChildScrollView(
+              child: ConstrainedBox(
+                // El `Spacer` de la especificación necesita alto conocido;
+                // con un mínimo igual al viewport, el bloque de acciones cae
+                // al pie en una pantalla alta y la pantalla se desplaza en
+                // una baja o con la fuente del sistema muy grande.
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: const IntrinsicHeight(child: _Contenido()),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _Contenido extends StatelessWidget {
+  const _Contenido();
+
+  @override
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Background glow effect
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.brand.withValues(alpha: 0.08),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: const SizedBox.shrink(),
-              ),
+          const SizedBox(height: AppSpacing.x10),
+          const PagateWordmark(),
+          const SizedBox(height: AppSpacing.x10),
+
+          // Dice literalmente lo que la app calcula, con las palabras que el
+          // usuario usaría. Sustituye a "Tu talento crea, nosotros
+          // calculamos", que es una promesa vaga.
+          Text(
+            'Saber cuánto ganas cada mes\ny cuánto vale tu hora.',
+            style: theme.textTheme.headlineLarge,
+          ),
+          const SizedBox(height: AppSpacing.x4),
+          Text(
+            'Registra tus ventas y tus gastos en segundos. $kAppName '
+            'calcula tu resultado del mes y el precio mínimo de tu trabajo.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: AppPalette.textSecondary,
             ),
           ),
 
-          SafeArea(
-            child: Column(
-              children: [
-                // 1. Logo Header
-                Padding(
-                  padding: const EdgeInsets.only(
-                    top: AppSpacing.xl,
-                    bottom: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: AppSizes.avatarSmall,
-                        height: AppSizes.avatarSmall,
-                        decoration: BoxDecoration(
-                          color: AppColors.brand,
-                          shape: BoxShape.circle,
-                          boxShadow: AppShadows.brand,
-                        ),
-                        child: const Icon(
-                          Icons.paid_outlined,
-                          color: AppColors.textOnBrand,
-                          size: AppIconSize.sm - 2,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Págate-IA',
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          const SizedBox(height: AppSpacing.x8),
 
-                // 2. Scrollable content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: AppSpacing.screenPadding,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: AppSpacing.lg),
+          // Tres afirmaciones comprobables, cada una con su feature en el
+          // repo: FinancesProvider + months/, la feature hourly_value y
+          // core/services/pdf_report_service.dart. Sin tarjeta, sin iconos
+          // de colores y sin cifras.
+          const _Prueba(
+            icon: Icons.receipt_long_outlined,
+            texto: 'Ingresos y gastos del mes, al día',
+          ),
+          const SizedBox(height: AppSpacing.x3),
+          const _Prueba(
+            icon: Icons.schedule_outlined,
+            texto: 'Valor de tu hora según tus horas reales',
+          ),
+          const SizedBox(height: AppSpacing.x3),
+          const _Prueba(
+            icon: Icons.picture_as_pdf_outlined,
+            texto: 'Reporte en PDF para tu contador',
+          ),
 
-                        // Hero illustration area
-                        SizedBox(
-                          height: 340,
-                          width: 340,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Center circle
-                              Container(
-                                width: 280,
-                                height: 280,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      AppColors.surface,
-                                      AppColors.brand.withValues(alpha: 0.05),
-                                    ],
-                                  ),
-                                  border: Border.all(
-                                    color: AppColors.surface
-                                        .withValues(alpha: 0.5),
-                                    width: AppSizes.borderThin,
-                                  ),
-                                  boxShadow: AppShadows.xl,
-                                ),
-                                child: Icon(
-                                  Icons.handyman_outlined,
-                                  size: 80,
-                                  color: AppColors.textTertiary
-                                      .withValues(alpha: 0.3),
-                                ),
-                              ),
+          const Spacer(),
+          const SizedBox(height: AppSpacing.x8),
 
-                              // Floating card: Ganancia
-                              const Positioned(
-                                right: 10,
-                                top: 100,
-                                child: _FloatingStatsCard(
-                                  icon: Icons.trending_up,
-                                  iconColor: AppColors.textOnBrand,
-                                  iconBackground: AppColors.brand,
-                                  label: 'GANANCIA',
-                                  value: '+24%',
-                                ),
-                              ),
-
-                              // Floating card: Stock
-                              const Positioned(
-                                left: 0,
-                                bottom: 80,
-                                child: _FloatingStatsCard(
-                                  icon: Icons.inventory_2_outlined,
-                                  iconColor: AppColors.accent,
-                                  iconBackground: AppColors.accentLight,
-                                  label: 'STOCK',
-                                  value: 'Optimizado',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // Hero text
-                        RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: textTheme.displaySmall?.copyWith(
-                              color: AppColors.textPrimary,
-                            ),
-                            children: const [
-                              TextSpan(text: 'Tu talento crea,\n'),
-                              TextSpan(
-                                text: 'nosotros calculamos.',
-                                style: TextStyle(
-                                  color: AppColors.brand,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: AppColors.brand,
-                                  decorationStyle: TextDecorationStyle.solid,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // Subtitle
-                        Text(
-                          'La primera herramienta financiera\ndiseñada por y para artesanos.',
-                          style: textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // 3. Footer actions
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenHorizontal,
-                    0,
-                    AppSpacing.screenHorizontal,
-                    AppSpacing.xl,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PagatePrimaryButton(
-                        label: 'Empezar ahora (Gratis)',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final context) =>
-                                  const PhoneInputScreen(),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      PagateSocialButton(
-                        label: 'Continuar con Google',
-                        icon: Icons.g_mobiledata,
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final _) =>
-                                  const PostLoginWelcomeScreen(
-                                userName: 'Artesano',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      PagateSocialButton(
-                        label: 'Continuar con Apple',
-                        icon: Icons.apple,
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final _) =>
-                                  const PostLoginWelcomeScreen(
-                                userName: 'Artesano',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // Login link
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (final _) => const LoginScreen(),
-                            ),
-                          );
-                        },
-                        child: RichText(
-                          text: TextSpan(
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textTertiary,
-                            ),
-                            children: [
-                              const TextSpan(
-                                text: '¿Ya eres parte de la comunidad? ',
-                              ),
-                              TextSpan(
-                                text: 'Inicia Sesión',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.brand,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // Terms
-                      Text(
-                        'Al continuar, aceptas nuestros Términos y Privacidad.',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                          fontSize: 10,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      TextButton(
-                        onPressed: () => AppFeedback.showMessage(
-                          context,
-                          'Puedes revisar los términos desde configuración.',
-                        ),
-                        child: const Text('Ver términos'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          PagatePrimaryButton(
+            label: 'Crear cuenta',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (final _) => const IdentityStepScreen(),
+              ),
             ),
           ),
+          const SizedBox(height: AppSpacing.x4),
+          const _EnlaceSesion(),
+          const SizedBox(height: AppSpacing.x4),
+          const _LineaLegal(),
+          const SizedBox(height: AppSpacing.x6),
         ],
       ),
     );
   }
 }
 
-/// Internal stat card for the welcome hero illustration.
-class _FloatingStatsCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-  final String label;
-  final String value;
+/// Una de las tres pruebas: icono de contorno 20 dp y una línea de texto.
+class _Prueba extends StatelessWidget {
+  const _Prueba({required this.icon, required this.texto});
 
-  const _FloatingStatsCard({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-    required this.label,
-    required this.value,
-  });
+  final IconData icon;
+  final String texto;
 
   @override
-  Widget build(final BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.mdBorder,
-          boxShadow: AppShadows.md,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.xxs + 2),
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: AppRadius.xsBorder,
-              ),
-              child: Icon(icon, color: iconColor, size: AppIconSize.xs),
+  Widget build(final BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // El icono es decorativo: el texto que va al lado lo dice todo. En
+          // toda la app no había un solo `ExcludeSemantics`, y por eso el
+          // lector de pantalla anunciaba adornos como si fueran contenido.
+          ExcludeSemantics(
+            child: Icon(icon, size: AppIconSize.sm, color: AppPalette.textMuted),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          Expanded(
+            child: Text(
+              texto,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppPalette.textPrimary,
+                  ),
             ),
-            const SizedBox(width: AppSpacing.xs),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                ),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       );
+}
+
+/// "¿Ya tienes cuenta? Inicia sesión", a la izquierda, dentro de un control
+/// real de 48 dp de alto.
+class _EnlaceSesion extends StatelessWidget {
+  const _EnlaceSesion();
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(builder: (final _) => const LoginScreen()),
+        ),
+        borderRadius: AppRadius.r8Border,
+        highlightColor: AppPalette.sunken,
+        splashFactory: NoSplash.splashFactory,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: AppSizes.minTouchTarget,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x2,
+              vertical: AppSpacing.x3,
+            ),
+            // Un solo `Text.rich` y no un `Row` de dos `Text`: una fila con
+            // dos hijos de ancho intrínseco y sin `Flexible` es exactamente
+            // la causa de los desbordes que hay que arreglar para publicar.
+            // Como texto corrido, la frase se parte sola si no cabe.
+            child: Text.rich(
+              TextSpan(
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppPalette.textSecondary,
+                ),
+                children: [
+                  const TextSpan(text: '¿Ya tienes cuenta? '),
+                  TextSpan(
+                    text: 'Inicia sesión',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppPalette.brand,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Línea legal con los dos enlaces reales.
+///
+/// LOS ENLACES ABREN DE VERDAD. Antes solo copiaban la dirección al
+/// portapapeles porque `url_launcher` no estaba en `pubspec.yaml`: la línea
+/// afirmaba que el usuario aceptaba unos términos y no había forma de
+/// leerlos desde el teléfono. Si la landing todavía no está publicada,
+/// `abrirEnlaceExterno` lo dice y copia el enlace, en lugar de expulsar al
+/// usuario a un 404.
+///
+/// Antes de eso la línea respondía "puedes revisarlos desde configuración",
+/// donde no existía ninguna sección de términos; ahora existe. Y en el
+/// registro los dos enlaces estaban pintados en color de marca pero eran
+/// `TextSpan` SIN `recognizer`: no respondían al toque.
+class _LineaLegal extends StatefulWidget {
+  const _LineaLegal();
+
+  @override
+  State<_LineaLegal> createState() => _LineaLegalState();
+}
+
+class _LineaLegalState extends State<_LineaLegal> {
+  final TapGestureRecognizer _terminos = TapGestureRecognizer();
+  final TapGestureRecognizer _privacidad = TapGestureRecognizer();
+
+  @override
+  void initState() {
+    super.initState();
+    _terminos.onTap = () => unawaited(_abrir(kUrlTerminos));
+    _privacidad.onTap = () => unawaited(_abrir(kUrlPrivacidad));
+  }
+
+  @override
+  void dispose() {
+    _terminos.dispose();
+    _privacidad.dispose();
+    super.dispose();
+  }
+
+  Future<void> _abrir(final String url) async {
+    if (!mounted) return;
+    await abrirEnlaceExterno(context, url);
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    final base = theme.textTheme.bodySmall?.copyWith(
+      color: AppPalette.textMuted,
+    );
+    final enlace = theme.textTheme.bodySmall?.copyWith(
+      color: AppPalette.brand,
+    );
+
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          const TextSpan(text: 'Al continuar aceptas los '),
+          TextSpan(text: 'Términos', style: enlace, recognizer: _terminos),
+          const TextSpan(text: ' y la '),
+          TextSpan(
+            text: 'Política de privacidad',
+            style: enlace,
+            recognizer: _privacidad,
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+    );
+  }
 }

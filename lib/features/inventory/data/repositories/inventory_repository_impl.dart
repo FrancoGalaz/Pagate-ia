@@ -1,9 +1,9 @@
-import '../../domain/repositories/inventory_repository.dart';
 import '../../domain/entities/inventory_item_entity.dart';
 import '../../domain/entities/inventory_item_type.dart';
+import '../../domain/repositories/inventory_repository.dart';
 import '../datasources/inventory_firebase_datasource.dart';
 
-/// Implementation of InventoryRepository using Firestore.
+/// Implementación de [InventoryRepository] sobre Firestore.
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryFirebaseDataSource _dataSource;
 
@@ -11,33 +11,37 @@ class InventoryRepositoryImpl implements InventoryRepository {
       : _dataSource = dataSource;
 
   @override
-  Future<List<InventoryItemEntity>> getItems(InventoryItemType type) async {
-    return await _dataSource.getItems(type);
-  }
+  Stream<List<InventoryItemEntity>> watchItems(final InventoryItemType type) =>
+      _dataSource.watchItems(type);
 
   @override
-  Future<List<InventoryItemEntity>> searchItems(
-      InventoryItemType type, String query) async {
-    return await _dataSource.searchItems(type, query);
-  }
+  Stream<List<InventoryItemEntity>> watchAllItems() =>
+      _dataSource.watchAllItems();
 
   @override
-  Future<void> saveItem(InventoryItemEntity item) async {
-    return await _dataSource.saveItem(item);
-  }
+  Future<void> addItem(final InventoryItemEntity item) =>
+      _dataSource.addItem(item);
 
   @override
-  Future<void> updateItem(InventoryItemEntity item) async {
-    return await _dataSource.updateItem(item);
-  }
+  Future<void> updateItem(final InventoryItemEntity item) =>
+      _dataSource.updateItem(item);
 
   @override
-  Future<void> deleteItem(String itemId) async {
-    return await _dataSource.deleteItem(itemId);
-  }
+  Future<void> deleteItem(final String itemId) => _dataSource.deleteItem(itemId);
 
   @override
-  Future<void> updateStock(String itemId, int newStock) async {
-    return await _dataSource.updateStock(itemId, newStock);
-  }
+  Future<void> updateStock(final String itemId, final int newStock) =>
+      _dataSource.updateStock(itemId, newStock);
+
+  @override
+  Future<void> applyScannedItems({
+    required final List<InventoryItemEntity> nuevos,
+    required final Map<String, int> stocksFinales,
+    required final Map<String, double> preciosNuevos,
+  }) =>
+      _dataSource.applyScannedItems(
+        nuevos: nuevos,
+        stocksFinales: stocksFinales,
+        preciosNuevos: preciosNuevos,
+      );
 }

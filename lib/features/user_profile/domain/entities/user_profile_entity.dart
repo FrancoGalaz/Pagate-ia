@@ -1,5 +1,45 @@
 import 'package:equatable/equatable.dart';
 
+/// Moneda por defecto: el mercado inicial es Chile.
+const String kDefaultCurrency = 'CLP';
+
+/// Monedas que el usuario puede elegir en onboarding y en Editar perfil.
+/// Por ahora solo Chile (CLP) y dólar (USD); las reglas de Firestore
+/// rechazan cualquier otro valor.
+const List<String> kSupportedCurrencies = ['CLP', 'USD'];
+
+/// Rubros ofrecidos en onboarding y en Editar perfil.
+///
+/// Los seis primeros son los oficios del artesano chileno, que es el usuario
+/// al que apunta la app y que antes no tenía dónde elegir: la lista empezaba
+/// en "Taller Mecánico" y no incluía cerámica, telar ni joyería.
+///
+/// Los valores existentes NO se renombran (ni para corregirles las
+/// mayúsculas): `businessType` se guarda como texto libre, así que cambiarle
+/// el nombre dejaría huérfano el rubro de los perfiles ya creados.
+const List<String> kBusinessTypes = [
+  // 'Cerámica' tal cual, sin adornos: es el rubro con el que ya está
+  // sembrada la cuenta de demostración (scripts/seed-demo.js), y el selector
+  // de Editar perfil marca por igualdad exacta.
+  'Cerámica',
+  'Tejido y telar',
+  'Joyería',
+  'Cuero',
+  'Velas y cosmética',
+  'Alimentos y conservas',
+  'Carpintería',
+  'Herrería',
+  'Costura / Moda',
+  'Electrónica',
+  'Taller Mecánico',
+  'Construcción',
+  'Otro',
+];
+
+/// Perfil del usuario (`users/{uid}`).
+///
+/// [id] es el uid del documento; no se persiste como campo. [isPro] se deriva
+/// de `plan == 'pro'`, que solo escribe el backend.
 class UserProfileEntity extends Equatable {
   final String id;
   final String name;
@@ -20,6 +60,20 @@ class UserProfileEntity extends Equatable {
     required this.isPro,
     required this.avatarInitials,
   });
+
+  /// Iniciales a partir del nombre ("María González" → "MG").
+  ///
+  /// Sin nombre devuelve cadena vacía, no "IA": esas dos letras se pintaban
+  /// en el avatar como si fueran las iniciales del usuario.
+  static String initialsFor(final String name) {
+    final parts = name
+        .split(' ')
+        .where((final part) => part.trim().isNotEmpty)
+        .take(2)
+        .map((final part) => part.trim()[0].toUpperCase())
+        .toList();
+    return parts.join();
+  }
 
   UserProfileEntity copyWith({
     final String? id,

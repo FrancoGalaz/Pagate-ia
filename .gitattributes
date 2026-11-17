@@ -1,0 +1,63 @@
+# Tratamiento de los saltos de línea
+# ══════════════════════════════════════════════════════════════════════════
+# Este archivo existe por un falso verde concreto, el quinto de este
+# repositorio. El repo se clona en Windows con `core.autocrlf=true` y no tenía
+# `.gitattributes`, así que todo lo que Git considera texto salía del índice
+# con CRLF. `landing/src/honestidad.test.ts` lee `docs/FICHA-PLAY.md` buscando
+# el bloque delimitado por comillas invertidas que se pega en Play Console, y
+# su expresión regular lleva saltos de línea fijos: con CRLF no casaba nunca.
+# Resultado, cuatro tests rojos en cualquier clon nuevo en la máquina del
+# dueño —entre ellos los dos que vigilan que la descripción no pase de los
+# 4.000 caracteres que admite Play— y verde en CI, que corre sobre Linux.
+#
+# El test ya normaliza lo que lee, pero eso arregla un lector. Esto arregla la
+# fuente: los archivos llegan al árbol de trabajo con los mismos saltos de
+# línea en Windows, Linux y macOS, así que un test, un script o un build que
+# compare texto da el mismo resultado en los tres.
+#
+# Dejar que Git detecte el tipo y normalice a LF en el índice.
+* text=auto
+
+# ─── Texto que se lee buscando saltos de línea concretos: LF siempre ───
+# `eol=lf` manda sobre `core.autocrlf`, que es justo el punto.
+*.md        text eol=lf
+*.dart      text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.sh        text eol=lf
+*.rules     text eol=lf
+*.gitignore text eol=lf
+pubspec.lock text eol=lf
+# Sin extension, asi que `* text=auto` los dejaria a merced de
+# core.autocrlf: se fijan uno a uno.
+.gitattributes text eol=lf
+.gitignore   text eol=lf
+.firebaserc  text eol=lf
+.metadata    text eol=lf
+
+# ─── Scripts de Windows: CRLF, que es lo que espera su intérprete ───
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# ─── Binarios: Git no los toca ni los diffea como texto ───
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.webp      binary
+*.ico       binary
+*.ttf       binary
+*.otf       binary
+*.woff      binary
+*.woff2     binary
+*.jar       binary
+*.keystore  binary
+*.jks       binary

@@ -1,18 +1,18 @@
 import 'package:equatable/equatable.dart';
 
+/// Gasto fijo recurrente (`users/{uid}/fixedExpenses/{id}`).
 class FixedExpenseEntity extends Equatable {
+  /// Id del documento en Firestore.
   final String id;
   final String name;
   final double amount;
-  final String category;
 
   const FixedExpenseEntity({
     required this.id,
     required this.name,
     required this.amount,
-    required this.category,
   });
 
   @override
-  List<Object?> get props => [id, name, amount, category];
+  List<Object?> get props => [id, name, amount];
 }

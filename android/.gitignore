@@ -12,3 +12,11 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Artefactos de publicación: nunca se versionan.
+# (El keystore y key.properties ya están arriba; se repiten las extensiones sin
+#  comodín de ruta para que también apliquen en la raíz de android/.)
+*.jks
+*.keystore
+*.aab
+*.apk

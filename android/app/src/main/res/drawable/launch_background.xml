@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+<!--
+  Fondo de la ventana de arranque.
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+  Es un color plano del sistema visual, NO `?android:colorBackground`. Ese
+  atributo lo resuelve el tema de la plataforma, así que cambiaba de blanco a
+  negro según el modo del sistema; como Págate-IA es de tema claro único, en
+  modo oscuro producía un arranque en negro que saltaba a claro al aparecer
+  Flutter.
+
+  Este archivo sustituye también al que había en drawable-v21/, que existía
+  únicamente para usar ese atributo en API 21+. Al ser un color fijo ya no hace
+  falta la variante por versión, y queda una sola definición que no puede
+  divergir.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/launch_background" />
 </layer-list>

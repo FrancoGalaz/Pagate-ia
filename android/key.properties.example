@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+#  PLANTILLA de android/key.properties  —  este archivo SÍ se versiona.
+#
+#  Cópialo a android/key.properties (sin «.example») y rellena los cuatro
+#  valores. El archivo real NO se versiona: android/.gitignore excluye
+#  `key.properties`, `*.jks` y `*.keystore`. Por eso, en un clon limpio del
+#  repositorio, key.properties NO EXISTE.
+#
+#  ===================== POR QUÉ ESTO IMPORTA =====================
+#  Sin key.properties, `flutter build apk --release` SIGUE FUNCIONANDO, pero
+#  firma con el keystore de DEPURACIÓN que Android Studio genera solo. Ese
+#  artefacto parece correcto, se instala, se ejecuta... y Google Play lo
+#  rechaza al subirlo:
+#
+#      «You uploaded an APK or Android App Bundle that was signed in
+#       debug mode. You need to sign your APK or Android App Bundle in
+#       release mode.»
+#
+#  Para que nadie se entere tarde, android/app/build.gradle.kts hace dos
+#  cosas cuando este archivo falta:
+#    1. `flutter build apk --release` imprime un aviso en recuadro.
+#    2. `flutter build appbundle` (el AAB, que es lo que se sube a Play)
+#       FALLA de entrada, antes de compilar nada, con el mismo mensaje.
+#  Un APK firmado en depuración sirve para probar en un teléfono; un AAB
+#  firmado en depuración no sirve para nada, así que no se deja generar.
+#  ================================================================
+#
+#  --- Cómo generar tu keystore de subida ---
+#
+#    keytool -genkeypair -v \
+#      -keystore C:/Users/<tu-usuario>/claves/pagate-upload.jks \
+#      -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+#      -alias upload \
+#      -dname "CN=Pagate, OU=Desarrollo, O=Pagate, L=Santiago, ST=RM, C=CL"
+#
+#  Guárdalo FUERA del repositorio y RESPÁLDALO. Si se pierde la clave de
+#  subida, Play permite reiniciarla, pero solo si la app usa Play App Signing.
+#
+#  La huella SHA-256 que hay que registrar en App Check / Play Integrity es la
+#  de Play Console -> Probar y publicar -> Integridad de la app -> certificado
+#  de la clave de firma de la app. NO es la de este keystore de subida.
+# ---------------------------------------------------------------------------
+
+# Ruta al keystore. OJO: se resuelve relativa a android/app/, que es el
+# directorio del módulo que llama a file(). Una ruta absoluta fuera del
+# repositorio es lo recomendable, y es lo que se muestra aquí.
+storeFile=C:/Users/<tu-usuario>/claves/pagate-upload.jks
+
+# Contraseña del almacén (la que pediste al ejecutar keytool).
+storePassword=<contraseña-del-almacen>
+
+# Alias de la clave dentro del almacén: el `-alias` del comando de arriba.
+keyAlias=upload
+
+# Contraseña de la clave. Con el comando de arriba keytool la iguala a la del
+# almacén, así que normalmente es el mismo valor que storePassword.
+keyPassword=<contraseña-de-la-clave>

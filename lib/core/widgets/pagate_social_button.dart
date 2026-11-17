@@ -18,22 +18,24 @@ class PagateSocialButton extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => SizedBox(
-        width: double.infinity,
-        height: AppSizes.buttonHeight - 2,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: Theme.of(context).colorScheme.onSurface,
-                size: AppIconSize.sm,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(label),
-            ],
+    width: double.infinity,
+    height: AppSizes.buttonHeight - 2,
+    child: OutlinedButton(
+      onPressed: onPressed,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: AppIconSize.sm,
           ),
-        ),
-      );
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -46,3 +46,40 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
+
+# Secretos y configuración local
+.mcp.json
+*.env
+.env.*
+!*.env.example
+# landing/.env.production solo contiene la URL pública de la función waitlist
+# (no es un secreto); se versiona para que el build de landing-page/ la incluya.
+!landing/.env.production
+landing/.env
+landing/.env.local
+landing/.npmrc
+functions/.npmrc
+
+# Cloud Functions (los parámetros no secretos de functions/.env sí se versionan;
+# los secretos van a Secret Manager o a functions/.secret.local)
+functions/node_modules/
+functions/lib/
+functions/.secret.local
+!functions/.env
+!functions/.env.local.example
+
+# Firebase CLI / emuladores
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+# Datos de los emuladores que guarda scripts/dev.sh al cerrar
+emulator-data/
+
+# Capturas de pantalla generadas por scripts/capturas.sh
+capturas/
+
+# Capturas de una app ajena (Cabal), solo como referencia local: muestran
+# el correo y el teléfono del dueño.
+docs/referencias/cabal/

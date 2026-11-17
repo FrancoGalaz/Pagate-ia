@@ -1,41 +1,38 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/user_profile_model.dart';
-import '../../domain/entities/user_profile_entity.dart';
 
-/// Firebase data source for user profiles.
-/// userId is injected at construction time for consistent scoping.
+/// Acceso a `users/{uid}`.
+///
+/// Es el mismo documento que usa `hourly_value`, por eso toda escritura usa
+/// `SetOptions(merge: true)`: nunca se pisan `hourlyRate` ni `plan`.
 class UserProfileFirebaseDatasource {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   final String _userId;
-  static const String _collection = 'user_profiles';
 
-  UserProfileFirebaseDatasource({required String userId}) : _userId = userId;
+  /// Si el último snapshot observado tenía `createdAt`. Permite escribirlo
+  /// solo en la creación sin una lectura extra antes de cada guardado.
+  bool _hasCreatedAt = false;
 
-  Future<UserProfileEntity> getProfile() async {
-    final docSnapshot = await _firestore
-        .collection(_collection)
-        .doc(_userId)
-        .get();
+  UserProfileFirebaseDatasource({
+    required final FirebaseFirestore firestore,
+    required final String userId,
+  }) : _firestore = firestore,
+       _userId = userId;
 
-    if (!docSnapshot.exists) {
-      throw Exception('Profile not found for user: $_userId');
-    }
+  DocumentReference<Map<String, dynamic>> get _doc =>
+      _firestore.collection('users').doc(_userId);
 
-    final data = docSnapshot.data() as Map<String, dynamic>;
-    return UserProfileModel.fromJson(data);
-  }
+  /// Emite `null` mientras no exista perfil. Los errores (permisos, red) se
+  /// propagan por el stream; nunca se convierten en `null`.
+  Stream<UserProfileModel?> watchProfile() => _doc.snapshots().map((snapshot) {
+    _hasCreatedAt = snapshot.data()?['createdAt'] != null;
+    return UserProfileModel.fromSnapshot(snapshot);
+  });
 
-  Future<void> saveProfile(UserProfileModel profile) async {
-    await _firestore
-        .collection(_collection)
-        .doc(_userId)
-        .set(profile.toJson());
-  }
-
-  Future<void> updateProfile(UserProfileModel profile) async {
-    await _firestore
-        .collection(_collection)
-        .doc(_userId)
-        .update(profile.toJson());
-  }
+  Future<void> saveProfile(final UserProfileModel profile) => _doc.set({
+    ...profile.toFirestore(),
+    if (!_hasCreatedAt) 'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
 }

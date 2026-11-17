@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Color de la ventana durante el arranque, antes de que Flutter pinte.
+
+  Vive en su propio archivo y no en values/styles.xml porque lo consumen dos
+  sitios distintos: el drawable del splash y las dos variantes del tema. Tener
+  un único recurso evita que se desincronicen, que es exactamente el defecto
+  que había antes (ver el comentario de values/styles.xml).
+
+  #F6F7F8 no es un color elegido aquí: es `AppPalette.canvas` de
+  lib/core/constants/app_constants.dart, el mismo valor que
+  `AppTheme.lightTheme.scaffoldBackgroundColor` y el fondo de SplashScreen.
+  Al coincidir exactamente, el relevo entre la ventana nativa y el primer
+  fotograma de Flutter no se ve: no hay cambio de color.
+
+  Si algún día cambia `AppPalette.canvas` hay que cambiar también este valor;
+  nada los sincroniza automáticamente, porque los recursos de Android se
+  compilan antes de que exista código Dart.
+-->
+<resources>
+    <color name="launch_background">#F6F7F8</color>
+</resources>

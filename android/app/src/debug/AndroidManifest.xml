@@ -4,4 +4,17 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Solo en depuración: habilita HTTP sin TLS contra los emuladores de
+         Firebase (ver res/xml/network_security_config.xml, que restringe la
+         excepción a 10.0.2.2, localhost y 127.0.0.1).
+
+         El atributo se declara aquí y no en src/main/ a propósito: así el
+         manifiesto fusionado de release no lo incluye y el APK publicado
+         mantiene el bloqueo de texto claro que Android aplica por defecto.
+         Se puede comprobar con:
+           grep networkSecurityConfig build/app/intermediates/merged_manifests/release/.../AndroidManifest.xml
+         que no devuelve nada. -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>
