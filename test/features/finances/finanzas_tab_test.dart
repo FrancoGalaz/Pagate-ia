@@ -700,9 +700,10 @@ void main() {
     );
   });
 
-  // Un borrado sin conexión tiene que avisar lo mismo que un guardado sin
-  // conexión: sin aviso parece que no pasó nada, aunque la fila se vaya.
-  testWidgets('sin conexión, borrar un movimiento avisa que quedó en el '
+  // Un borrado sin conexión avisa, como un guardado, que se sincronizará;
+  // sin aviso parece que no pasó nada, aunque la fila se vaya. Pero dice
+  // «Eliminado», no «Guardado».
+  testWidgets('sin conexión, borrar un movimiento avisa que se eliminó en el '
       'teléfono', (final tester) async {
     final finanzas = _conDatos()..confirma = false;
     await _montar(tester, finanzas);
@@ -718,7 +719,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(finanzas.borrados, ['tx-Greda 25 kg']);
-    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    // Dice que se ELIMINÓ, no que se guardó, y que se sincronizará.
+    expect(
+      find.text(
+        'Eliminado en el teléfono. Se sincronizará cuando vuelva la '
+        'conexión.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(kGuardadoEnElTelefono), findsNothing);
     await tester.pumpAndSettle();
   });
 
@@ -736,7 +745,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(finanzas.borrados, ['fx1']);
-    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    // Dice que se ELIMINÓ, no que se guardó, y que se sincronizará.
+    expect(
+      find.text(
+        'Eliminado en el teléfono. Se sincronizará cuando vuelva la '
+        'conexión.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(kGuardadoEnElTelefono), findsNothing);
     await tester.pumpAndSettle();
   });
 

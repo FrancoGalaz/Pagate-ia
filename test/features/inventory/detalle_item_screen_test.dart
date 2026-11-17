@@ -120,9 +120,10 @@ void main() {
     expect(find.text('Guardar cambios'), findsOneWidget);
   });
 
-  // Un borrado sin conexión avisa lo mismo que un guardado sin conexión, en
-  // vez de «Ficha eliminada.», que da a entender que ya está en el servidor.
-  testWidgets('sin conexión, eliminar la ficha avisa que quedó en el '
+  // Un borrado sin conexión avisa que se eliminó en el teléfono y que se
+  // sincronizará, en vez de «Ficha eliminada.», que da a entender que ya está
+  // en el servidor.
+  testWidgets('sin conexión, eliminar la ficha avisa que se eliminó en el '
       'teléfono', (final tester) async {
     // La ficha se abre encima de otra pantalla, como en la app: al borrar
     // vuelve a ella con `Navigator.pop`.
@@ -159,7 +160,15 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(repository.borrados, ['item-1']);
-    expect(find.text(kGuardadoEnElTelefono), findsOneWidget);
+    // Dice que se ELIMINÓ, no que se guardó, y que se sincronizará.
+    expect(
+      find.text(
+        'Eliminado en el teléfono. Se sincronizará cuando vuelva la '
+        'conexión.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(kGuardadoEnElTelefono), findsNothing);
     expect(find.text('Ficha eliminada.'), findsNothing);
 
     repository.sinConexion!.complete();

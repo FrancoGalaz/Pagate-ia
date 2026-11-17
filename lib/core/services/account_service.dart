@@ -83,8 +83,16 @@ class AccountService {
   /// `timeoutSeconds: 300` porque el borrado recursivo de una cuenta con
   /// mucho historial tarda. Cortar antes que el servidor dejaría a la persona
   /// viendo un error mientras su cuenta se borra igualmente, que es la peor
-  /// combinación posible.
-  static const Duration timeout = Duration(minutes: 5);
+  /// combinación posible. Por eso va 15 s por ENCIMA del servidor y no igual:
+  /// con el mismo número, el cliente podía rendirse justo cuando el servidor
+  /// terminaba.
+  static const Duration timeout = Duration(seconds: 315);
+
+  /// El plugin tiene su propio plazo, 60 s por defecto, que cortaba mucho
+  /// antes que [timeout] (revisión prelanzamiento 5.4): se le pasa el mismo.
+  static final HttpsCallableOptions opciones = HttpsCallableOptions(
+    timeout: timeout,
+  );
 
   static const String _callableName = 'deleteAccount';
 
@@ -111,7 +119,7 @@ class AccountService {
     final HttpsCallableResult<dynamic> result;
     try {
       result = await _functions
-          .httpsCallable(_callableName)
+          .httpsCallable(_callableName, options: opciones)
           .call<dynamic>()
           .timeout(timeout);
     } on FirebaseFunctionsException catch (e) {

@@ -444,11 +444,11 @@ Future<void> _confirmarBorrado(
     return;
   }
   if (!context.mounted) return;
-  // Sin conexión el borrado queda en el teléfono: se avisa igual que un
-  // guardado sin conexión, no como si ya estuviera hecho.
+  // Sin conexión el borrado queda en el teléfono: se avisa que se eliminó
+  // ahí y que se sincronizará, no como si ya estuviera hecho.
   AppFeedback.showMessage(
     context,
-    confirmadoPorServidor ? 'Ficha eliminada.' : kGuardadoEnElTelefono,
+    confirmadoPorServidor ? 'Ficha eliminada.' : kEliminadoEnElTelefono,
   );
   Navigator.pop(context);
 }

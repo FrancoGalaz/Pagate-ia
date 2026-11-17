@@ -86,14 +86,15 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   lector, tope global, lista de espera, política del lector, logs, marca de
   cuenta borrada y `monthKey` en hora de Chile). El 2026-11-17 se cerraron
   los de la segunda pasada (1.1 en `chat`, 2.1 en los callables, 4.1, 4.2,
-  5.1 con borrados y rechazos al sincronizar, 5.2 y 5.3). Queda abierto 5.4,
-  visto al cerrar 5.2 (ver «Pendiente»).
+  5.1 con borrados y rechazos al sincronizar, 5.2, 5.3 y 5.4, visto al cerrar
+  5.2). La revisión no tiene puntos abiertos en el código; lo que falta es
+  de consola y de teléfono real (ver «Pendiente»).
 - **Tests (2026-11-17, rama `docs/reglas-trabajo`):**
-  `flutter analyze` sin problemas; `flutter test` 628 pasan; functions `lint`
+  `flutter analyze` sin problemas; `flutter test` 632 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 344 pasan (13 archivos, con los
-  de reglas); landing `lint`, 79 tests y `build` OK. El test de integración
-  `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
-  verificación de correo. `scripts/smoke-prod.sh` se probó contra los
+  de reglas); landing `lint`, 79 tests y `build` OK. Los tres tests de integración (`cierre_sesion_test`,
+  `movimiento_sin_conexion_test` y `guardar_sin_conexion_test`) pasan en el
+  emulador Android contra los emuladores de Firebase (2026-11-17). `scripts/smoke-prod.sh` se probó contra los
   emuladores y un build local de la landing; contra producción falla porque
   no hay nada desplegado.
 
@@ -129,11 +130,6 @@ De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
   (`docs/CHECKLIST-PUBLICACION.md` §4); sin él, `chat` y `scanReceipt`
   rechazan todo. En los emuladores lo crea `scripts/seed-demo.js`: hay que
   volver a correrlo sobre un `emulator-data/` anterior al 2026-11-16.
-- **Código (5.4, abierto):** `AccountService` y `ChatHistoryService` no
-  pasan `HttpsCallableOptions`, así que el plugin los corta a los 60 s
-  aunque sus plazos sean de 5 y 2 minutos: borrar una cuenta grande da error
-  mientras el servidor sigue borrando. Arreglo: el mismo de `AiService`
-  (5.2), con test.
 - Toda llamada nueva a un callable pasa `HttpsCallableOptions(timeout: ...)`
   con un plazo mayor que el `timeoutSeconds` del servidor, salvo que corte
   antes a propósito (el lector de boletas).

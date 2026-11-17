@@ -22,7 +22,7 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 | 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Resuelto, con borrados y rechazos al sincronizar |
 | 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Resuelto |
 | 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Resuelto |
-| 5.4 | Media | Cliente | El plugin corta todo callable a los 60 s: `deleteAccount` y `deleteChatHistory` dan error mientras el servidor sigue borrando | Abierto (visto al cerrar 5.2) |
+| 5.4 | Media | Cliente | El plugin corta todo callable a los 60 s: `deleteAccount` y `deleteChatHistory` dan error mientras el servidor sigue borrando | Resuelto |
 | 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Hecho en el código; falta habilitar Crashlytics en la consola y el formulario de Play |
 
 Los tres tests están en `functions/test/revision-prelanzamiento.test.ts`.
@@ -375,9 +375,9 @@ Solo lectura del cliente Flutter.
 > al reconectar).
 >
 > **Borrados y rechazos, resueltos (2026-11-17).** Un borrado sin conexión
-> (movimiento, gasto fijo, ficha) avisa lo mismo que un guardado: «Guardado
-> en el teléfono…»; la ficha ya no dice «Ficha eliminada.» antes de que el
-> servidor lo confirme. Si el servidor rechaza al sincronizar algo guardado
+> (movimiento, gasto fijo, ficha) avisa «Eliminado en el teléfono. Se
+> sincronizará cuando vuelva la conexión.» (`kEliminadoEnElTelefono`); la
+> ficha ya no dice «Ficha eliminada.» antes de que el servidor lo confirme. Si el servidor rechaza al sincronizar algo guardado
 > sin conexión, la app lo avisa en pantalla diciendo qué fue («No se pudo
 > guardar el movimiento «Venta en feria».»), encima de lo que esté abierto:
 > `confirmadaATiempo` exige ese texto (`siSeRechaza`) y `AppShell` registra
@@ -461,8 +461,15 @@ Solo lectura del cliente Flutter.
 
 ### 5.4 Media: el plugin corta los borrados largos a los 60 s
 
-> **Abierto. Visto al cerrar 5.2, sin arreglar porque no estaba en el
-> encargo.**
+> **Resuelto (2026-11-17).** Los dos servicios le pasan su plazo al plugin
+> (`HttpsCallableOptions`) y ese plazo queda 15 s por encima del servidor:
+> 315 s para `deleteAccount` (300) y 135 s para `deleteChatHistory` (120).
+> Antes era igual al del servidor, así que además de los 60 s del plugin
+> había una carrera justo al final. Test:
+> `test/core/services/borrados_plazo_test.dart`, que lee `timeoutSeconds` de
+> `functions/src/account.ts` y `chatHistory.ts`, como el de 5.2. **Sin
+> comprobar en un teléfono** con una cuenta que de verdad tarde más de 60 s:
+> la parte del plugin sale de leer su código.
 
 - **Dónde:** `lib/core/services/account_service.dart` (`timeout` de 5 min) y
   `chat_history_service.dart` (2 min). Ninguno pasa `HttpsCallableOptions`,
@@ -475,7 +482,6 @@ Solo lectura del cliente Flutter.
   Lo mismo con `deleteChatHistory` (120 s).
 - **Arreglo:** pasar `HttpsCallableOptions(timeout: timeout)` en los dos
   servicios, como ya hace `AiService`, con un test como el de 5.2.
-- **Sin comprobar en un teléfono:** sale de leer el código del plugin.
 
 ---
 

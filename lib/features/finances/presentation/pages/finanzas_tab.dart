@@ -653,11 +653,11 @@ class _GastosFijos extends StatelessWidget {
     if (!confirmado || !context.mounted) return;
 
     try {
-      // Sin conexión el borrado queda en el teléfono: se avisa igual que
-      // un guardado sin conexión.
+      // Sin conexión el borrado queda en el teléfono: se avisa que se
+      // eliminó y que se sincronizará.
       final confirmadoPorServidor = await provider.deleteFixedExpense(gasto.id);
       if (!confirmadoPorServidor && context.mounted) {
-        AppFeedback.showMessage(context, kGuardadoEnElTelefono);
+        AppFeedback.showMessage(context, kEliminadoEnElTelefono);
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -845,7 +845,7 @@ class _Movimientos extends StatelessWidget {
     try {
       final confirmadoPorServidor = await provider.deleteTransaction(tx.id);
       if (!confirmadoPorServidor && context.mounted) {
-        AppFeedback.showMessage(context, kGuardadoEnElTelefono);
+        AppFeedback.showMessage(context, kEliminadoEnElTelefono);
       }
       return true;
     } catch (e) {

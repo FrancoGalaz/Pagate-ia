@@ -36,8 +36,15 @@ class ChatHistoryDeletionException implements Exception {
 class ChatHistoryService {
   static const String region = 'southamerica-west1';
 
-  /// `deleteChatHistory` se despliega con `timeoutSeconds: 120`.
-  static const Duration timeout = Duration(minutes: 2);
+  /// `deleteChatHistory` se despliega con `timeoutSeconds: 120`; el cliente
+  /// espera 15 s más para no rendirse mientras el servidor sigue borrando.
+  static const Duration timeout = Duration(seconds: 135);
+
+  /// El plugin corta a los 60 s si no se le pasa plazo (revisión
+  /// prelanzamiento 5.4): se le pasa el mismo que [timeout].
+  static final HttpsCallableOptions opciones = HttpsCallableOptions(
+    timeout: timeout,
+  );
 
   final FirebaseFunctions? _functionsOverride;
 
@@ -53,7 +60,7 @@ class ChatHistoryService {
     final HttpsCallableResult<dynamic> result;
     try {
       result = await _functions
-          .httpsCallable('deleteChatHistory')
+          .httpsCallable('deleteChatHistory', options: opciones)
           .call<dynamic>()
           .timeout(timeout);
     } on FirebaseFunctionsException catch (e) {

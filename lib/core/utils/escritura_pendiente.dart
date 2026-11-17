@@ -26,6 +26,10 @@ const Duration kEsperaConfirmacion = Duration(seconds: 4);
 const String kGuardadoEnElTelefono =
     'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.';
 
+/// Lo mismo para un borrado: «guardado» haría pensar que la cosa sigue ahí.
+const String kEliminadoEnElTelefono =
+    'Eliminado en el teléfono. Se sincronizará cuando vuelva la conexión.';
+
 /// Quién le avisa al usuario que el servidor rechazó, al sincronizar, algo
 /// que se había guardado sin conexión.
 ///
