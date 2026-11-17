@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Prueba de humo contra producción, para correr después de desplegar.
-# No usa credenciales: todo lo que hace es leer o llamar sin sesión.
+# Todo lo que hace es leer o llamar sin sesión, salvo el chequeo de
+# system/aiConfig, que el cliente no puede leer: ese necesita un token de
+# acceso del dueño. Lo toma de TOKEN o, si no está, de gcloud:
+#   TOKEN=$(gcloud auth print-access-token) ./scripts/smoke-prod.sh
+# (contra el emulador de Firestore sirve TOKEN=owner).
 #
 #   ./scripts/smoke-prod.sh
 #
@@ -95,6 +99,23 @@ if [ -z "$encontrados" ]; then
 else
   falla "legal-meta.ts tiene marcadores:"
   echo "$encontrados" | sed 's/^/      /'
+fi
+
+# 6. system/aiConfig existe y tiene el tope global activo. Sin el documento,
+#    `chat` y `scanReceipt` rechazan toda llamada (functions/src/quota.ts).
+TOKEN=${TOKEN:-$(gcloud auth print-access-token 2>/dev/null)}
+if [ -z "$TOKEN" ]; then
+  falla "system/aiConfig: no se pudo comprobar, falta TOKEN (o gcloud con sesión)"
+else
+  codigo=$(curl -s -o "$cuerpo" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+    "$FIRESTORE_URL/v1/projects/$PROJECT/databases/(default)/documents/system/aiConfig")
+  activo=$(tr -d ' \n' < "$cuerpo" | grep -o '"globalDailyCapEnabled":{"booleanValue":true}')
+  tope=$(tr -d ' \n' < "$cuerpo" | grep -oE '"globalDailyCap":\{"(integer|double)Value":"?[0-9]')
+  if [ "$codigo" = 200 ] && [ -n "$activo" ] && [ -n "$tope" ]; then
+    ok "system/aiConfig existe con el tope global activo"
+  else
+    falla "system/aiConfig: se esperaba globalDailyCapEnabled true y un globalDailyCap, y llegó $codigo: $(head -c 200 "$cuerpo")"
+  fi
 fi
 
 echo

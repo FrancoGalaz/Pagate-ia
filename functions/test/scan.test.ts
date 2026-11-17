@@ -50,7 +50,7 @@ import {
   PRO_DAILY_SCAN_QUOTA,
   freeScanQuotaExhaustedMessage,
 } from '../src/quota';
-import { adminDb, wipeAiSystem, wipeUser } from './helpers/admin';
+import { adminDb, seedAiConfig, wipeAiSystem, wipeUser } from './helpers/admin';
 
 const UID = 'lector-uid';
 
@@ -323,6 +323,7 @@ describe('handleScanReceipt (callable scanReceipt)', () => {
     const db = adminDb();
     await wipeUser(db, UID);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
   });
 
   // ─────────────────────────────────────────────────────────────────────────

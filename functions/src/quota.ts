@@ -39,6 +39,8 @@
  *     lista sin conexión, así que solo se pierde la calidad del ordenado.
  *   - tope GLOBAL diario de llamadas con interruptor, en `system/aiConfig`, que
  *     el dueño puede cambiar desde la consola de Firestore sin desplegar nada.
+ *     Si el documento NO EXISTE se rechaza toda llamada: apagar el tope tiene
+ *     que ser una decisión escrita (`globalDailyCapEnabled: false`).
  *     Es el freno de mano: si algo se descontrola, se corta todo el gasto de IA
  *     editando un documento. Cuenta `calls` (chat) MÁS `scanCalls` (lector),
  *     porque es el freno del gasto y el gasto es la suma de los dos.
@@ -86,6 +88,7 @@
  */
 
 import { HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -386,6 +389,15 @@ async function reserve(
       tx.get(configRef),
       tx.get(globalRef),
     ]);
+
+    // Sin `system/aiConfig` no hay freno de gasto configurado, así que no se
+    // gasta: se rechaza todo hasta que el dueño cree el documento (ver
+    // `docs/CHECKLIST-PUBLICACION.md`). Antes la ausencia valía como "tope
+    // apagado" y el freno dependía de acordarse de crearlo.
+    if (!configSnap.exists) {
+      logger.error('quota.aiConfig.ausente', { uid });
+      throw new HttpsError('resource-exhausted', kind.globalCapMessage);
+    }
 
     const profile = userSnap.data();
     const plan = planOf(profile);

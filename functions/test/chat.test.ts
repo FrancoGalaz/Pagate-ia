@@ -54,7 +54,7 @@ import {
   type ChatDeps,
 } from '../src/chat';
 import { FREE_LIFETIME_QUOTA, PRO_DAILY_QUOTA, freeQuotaExhaustedMessage } from '../src/quota';
-import { TEST_PROJECT_ID, adminDb, wipeAiSystem, wipeUser } from './helpers/admin';
+import { TEST_PROJECT_ID, adminDb, seedAiConfig, wipeAiSystem, wipeUser } from './helpers/admin';
 
 const UID = 'asistente-uid';
 const OTHER = 'ajeno-uid';
@@ -200,6 +200,7 @@ describe('handleChat (callable chat)', () => {
     await wipeUser(db, UID);
     await wipeUser(db, OTHER);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
   });
 
   // ─────────────────────────────────────────────────────────────────────────

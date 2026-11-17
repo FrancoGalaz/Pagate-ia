@@ -33,3 +33,11 @@ export async function wipeAiSystem(db: Firestore): Promise<void> {
   await db.recursiveDelete(db.doc('system/aiConfig'));
   await db.recursiveDelete(db.doc('system/aiUsage'));
 }
+
+/**
+ * Crea `system/aiConfig` con el tope global activo, como queda en producción
+ * tras seguir el checklist. Sin el documento, la cuota rechaza toda llamada.
+ */
+export async function seedAiConfig(db: Firestore): Promise<void> {
+  await db.doc('system/aiConfig').set({ globalDailyCapEnabled: true, globalDailyCap: 2000 });
+}

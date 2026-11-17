@@ -106,7 +106,7 @@ system/aiConfig                          (sin acceso desde cliente; solo backend
   proDailyQuota: number           (default 300)
   freeLifetimeScanQuota: number   (default 40)
   proDailyScanQuota: number       (default 200)
-  globalDailyCapEnabled: boolean  (default false)
+  globalDailyCapEnabled: boolean  (default false si el documento existe)
   globalDailyCap: number          (default 2000; se compara contra calls + scanCalls)
 system/aiUsage/days/{yyyy-MM-dd}         (sin acceso desde cliente; solo backend)
   calls: number                   (mensajes del asistente servidos hoy)
@@ -123,7 +123,9 @@ waitlist/{id}                            (sin acceso desde cliente; solo backend
 `system/aiConfig` existe para que el dueño pueda cambiar los límites del
 asistente y del lector de boletas, o cortarlos del todo, editando un documento
 en la consola de Firestore sin desplegar nada. Cualquier campo ausente o
-malformado cae al default.
+malformado cae al default. Si el documento entero falta, `chat` y
+`scanReceipt` rechazan toda llamada con `resource-exhausted`: el tope global
+solo se apaga escribiendo `globalDailyCapEnabled: false`.
 
 **Las dos cuotas son independientes y comparten un solo `dayKey`.** Leer
 boletas no gasta mensajes del asistente ni al revés: son cuatro contadores

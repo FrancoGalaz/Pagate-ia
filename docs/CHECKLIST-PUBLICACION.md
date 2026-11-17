@@ -80,7 +80,24 @@ npm --prefix functions exec -- firebase deploy --only firestore,functions
 `scripts/deploy-web.sh` también publica el hosting web, que está fuera de
 alcance por ahora.
 
+**Crear `system/aiConfig` (tope global de gasto).** Sin este documento `chat`
+y `scanReceipt` rechazan todas las llamadas: el freno de gasto tiene que
+existir antes de que entre el primer usuario. En la consola de Firestore,
+colección `system`, documento `aiConfig`:
+
+| Campo | Tipo | Valor inicial |
+|---|---|---|
+| `globalDailyCapEnabled` | boolean | `true` |
+| `globalDailyCap` | number | `200` |
+
+200 llamadas al día (mensajes más lecturas de boleta) sobran para los 12
+probadores de la prueba cerrada; se sube desde la consola, sin desplegar, al
+abrir la app a más gente. Los demás campos son opcionales
+(`docs/ARQUITECTURA.md`).
+
 **Verificar:**
+
+- La prueba de humo confirma `system/aiConfig` (necesita un token, ver abajo).
 
 - `firebase functions:list` muestra `chat`, `scanReceipt`, `deleteAccount`,
   `deleteChatHistory`, `onTransactionWritten` y `waitlist` en
@@ -94,7 +111,10 @@ alcance por ahora.
 
 ### Prueba de humo (`scripts/smoke-prod.sh`)
 
-No usa credenciales: solo lee o llama sin sesión. Comprueba:
+Solo lee o llama sin sesión, salvo el chequeo de `system/aiConfig`: el cliente
+no puede leer ese documento, así que el script usa un token de acceso del
+dueño (`TOKEN`, o el de `gcloud auth print-access-token` si gcloud tiene
+sesión). Sin token ese chequeo cuenta como falla. Comprueba:
 
 | Chequeo | Qué espera |
 |---|---|
@@ -103,6 +123,7 @@ No usa credenciales: solo lee o llama sin sesión. Comprueba:
 | Landing | `/`, `/privacidad/`, `/terminos/` y `/eliminar-cuenta/` responden 200. |
 | Marcadores publicados | `/privacidad/` y los `.js` que carga no tienen marcadores como `[RUT DEL RESPONSABLE]`. La página la pinta el JS y oculta los corchetes al mostrarla, así que no basta con mirar el HTML. |
 | `legal-meta.ts` | No tiene marcadores en sus valores. |
+| `system/aiConfig` | Existe, con `globalDailyCapEnabled: true` y un `globalDailyCap` numérico. |
 
 Sale con 0 si todo pasa. Para otra URL de la landing (o para probar contra los
 emuladores) acepta `LANDING_URL`, `FIRESTORE_URL` y `FUNCTIONS_URL`:

@@ -27,7 +27,7 @@ import {
   reserveChatQuota,
   reserveScanQuota,
 } from '../src/quota';
-import { adminDb, wipeAiSystem, wipeUser } from './helpers/admin';
+import { adminDb, seedAiConfig, wipeAiSystem, wipeUser } from './helpers/admin';
 
 const UID = 'cuotas';
 
@@ -154,6 +154,19 @@ describe('reserveChatQuota', () => {
     const db = adminDb();
     await wipeUser(db, UID);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
+  });
+
+  // Revisión prelanzamiento 1.2: el freno de gasto no puede depender de que
+  // alguien se acuerde de crear el documento.
+  it('sin system/aiConfig rechaza el asistente y el lector, sin gastar cuota', async () => {
+    const db = adminDb();
+    await seedProfile('free');
+    await wipeAiSystem(db);
+
+    await expect(reserveChatQuota(db, UID)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    await expect(reserveScanQuota(db, UID)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    expect(await usage()).toBeUndefined();
   });
 
   it('cuenta los dos contadores en la primera llamada', async () => {
@@ -297,6 +310,7 @@ describe('refundChatQuota', () => {
     const db = adminDb();
     await wipeUser(db, UID);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
   });
 
   it('devuelve el mensaje reservado y deja los contadores como estaban', async () => {
@@ -367,6 +381,7 @@ describe('reserveScanQuota', () => {
     const db = adminDb();
     await wipeUser(db, UID);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
   });
 
   async function scanCalls(dayKey: string): Promise<number> {
@@ -592,6 +607,7 @@ describe('refundScanQuota', () => {
     const db = adminDb();
     await wipeUser(db, UID);
     await wipeAiSystem(db);
+    await seedAiConfig(db);
   });
 
   it('devuelve la lectura reservada y deja los contadores como estaban', async () => {

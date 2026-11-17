@@ -13,7 +13,7 @@ import { deleteUserData } from '../src/account';
 import { FREE_LIFETIME_SCAN_QUOTA } from '../src/quota';
 import { handleScanReceipt, type ScanCall, type ScanDeps } from '../src/scan';
 import { waitlistDocId } from '../src/waitlist';
-import { adminDb, wipeAiSystem, wipeUser } from './helpers/admin';
+import { adminDb, seedAiConfig, wipeAiSystem, wipeUser } from './helpers/admin';
 
 const UID = 'revision-uid';
 const NOW = new Date('2026-11-16T15:00:00Z');
@@ -22,6 +22,7 @@ const RAIZ = join(__dirname, '..', '..');
 beforeEach(async () => {
   await wipeUser(adminDb(), UID);
   await wipeAiSystem(adminDb());
+  await seedAiConfig(adminDb());
 });
 
 // Hallazgo 1.1: gasto ilimitado de OpenRouter con `scanReceipt`.

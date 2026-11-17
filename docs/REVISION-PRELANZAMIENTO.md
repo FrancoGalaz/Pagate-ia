@@ -97,6 +97,12 @@ de la política, los términos de uso, ni la app web.
 
 ### 1.2 Alta: el freno de gasto global nace apagado y nadie pide encenderlo
 
+> **Resuelto (2026-11-16).** Si falta `system/aiConfig`, `chat` y
+> `scanReceipt` rechazan la llamada con `resource-exhausted` antes de gastar
+> cuota. El checklist (§4) pide crear el documento con un tope inicial de 200
+> y `scripts/smoke-prod.sh` lo comprueba (necesita `TOKEN` o gcloud).
+> `seed-demo.js` lo crea en los emuladores. App Check sigue siendo la tarea 4.
+
 - **Dónde:** `functions/src/quota.ts:191`
   (`globalDailyCapEnabled: data?.globalDailyCapEnabled === true`),
   `functions/.env:2` (`ENFORCE_APP_CHECK=false`),

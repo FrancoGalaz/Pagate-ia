@@ -594,6 +594,11 @@ async function sembrar() {
       `valor hora ${PERFIL.hourlyRate.hourlyValue.toLocaleString('es-CL')} CLP`,
   );
 
+  // Sin este documento `chat` y `scanReceipt` rechazan toda llamada.
+  await db
+    .doc('system/aiConfig')
+    .set({ globalDailyCapEnabled: true, globalDailyCap: 2000 }, { merge: true });
+
   for (const nombre of SUBCOLECCIONES) {
     const borrados = await limpiarSubcoleccion(nombre);
     if (borrados > 0) console.log(`Limpieza: ${borrados} documentos en ${nombre}`);
