@@ -73,9 +73,14 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   integrados. PR #3 (`arquitectura-segura` → `main`) cerrado sin merge:
   `arquitectura-segura` solo tenía el merge del #2. El trabajo va a `main`
   por el PR #4 (`docs/reglas-trabajo` → `main`), abierto.
-- **Tests (2026-11-12, rama `docs/reglas-trabajo`, commit `550611d`):**
-  `flutter analyze` sin problemas; `flutter test` 579 pasan; functions `lint`
-  y `build` OK y `npm --prefix functions test` 316 pasan (12 archivos, con los
+- **Revisión prelanzamiento (2026-11-16):** `docs/REVISION-PRELANZAMIENTO.md`.
+  Resueltos los siete hallazgos de la primera pasada (gasto sin límite del
+  lector, tope global, lista de espera, política del lector, logs, marca de
+  cuenta borrada y `monthKey` en hora de Chile). La segunda pasada dejó
+  abiertos los de «Pendiente».
+- **Tests (2026-11-16, rama `docs/reglas-trabajo`):**
+  `flutter analyze` sin problemas; `flutter test` 589 pasan; functions `lint`
+  y `build` OK y `npm --prefix functions test` 329 pasan (13 archivos, con los
   de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
   `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
   verificación de correo. `scripts/smoke-prod.sh` se probó contra los
@@ -95,6 +100,24 @@ En este orden:
    abajo.
 3. Merge del PR #4 (`docs/reglas-trabajo` → `main`), lo hace el dueño. El
    PR crece con cada pantalla que se sube a la rama.
+
+De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
+
+- **Antes de la prueba cerrada:** 5.1, guardar sin conexión deja el
+  formulario cargando sin fin (confirmarlo en modo avión en la prueba del
+  dueño). Decidir el reporte de fallos del punto 6 (Crashlytics obliga a
+  cambiar la política y el formulario de Play).
+- **Consola:** crear `system/aiConfig` con el tope inicial
+  (`docs/CHECKLIST-PUBLICACION.md` §4); sin él, `chat` y `scanReceipt`
+  rechazan todo. En los emuladores lo crea `scripts/seed-demo.js`: hay que
+  volver a correrlo sobre un `emulator-data/` anterior al 2026-11-16.
+- **Código, menores:** que `chat` y `scanReceipt` consulten
+  `deletedUsers/{uid}` (2.1); la devolución de cuota de `chat` cuando el
+  proveedor ya cobró (1.1); fechas del prompt en hora de Chile (4.1);
+  términos al día con el lector (4.2); plazo del asistente (5.2) y texto de
+  App Check (5.3).
+- `smoke-prod.sh` ahora necesita `TOKEN` (o gcloud con sesión) para
+  comprobar `system/aiConfig`.
 
 ## Rediseño (variante A)
 
