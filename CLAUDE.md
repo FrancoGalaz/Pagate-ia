@@ -79,7 +79,7 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   cuenta borrada y `monthKey` en hora de Chile). La segunda pasada dejó
   abiertos los de «Pendiente».
 - **Tests (2026-11-16, rama `docs/reglas-trabajo`):**
-  `flutter analyze` sin problemas; `flutter test` 589 pasan; functions `lint`
+  `flutter analyze` sin problemas; `flutter test` 592 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 329 pasan (13 archivos, con los
   de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
   `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
@@ -103,9 +103,11 @@ En este orden:
 
 De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
 
-- **Antes de la prueba cerrada:** 5.1, guardar sin conexión deja el
-  formulario cargando sin fin (confirmarlo en modo avión en la prueba del
-  dueño). Decidir el reporte de fallos del punto 6 (Crashlytics obliga a
+- **Antes de la prueba cerrada:** 5.1 quedó resuelto para registrar un
+  movimiento (sin conexión el formulario se cierra y avisa que se
+  sincronizará). Las demás escrituras siguen esperando al servidor sin
+  plazo: gastos fijos, inventario, confirmar una boleta y el perfil del
+  onboarding. Decidir el reporte de fallos del punto 6 (Crashlytics obliga a
   cambiar la política y el formulario de Play).
 - **Consola:** crear `system/aiConfig` con el tope inicial
   (`docs/CHECKLIST-PUBLICACION.md` §4); sin él, `chat` y `scanReceipt`

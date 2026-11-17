@@ -80,6 +80,10 @@ class FinancesProvider extends ChangeNotifier {
 
   static String get currentMonthKey => monthKeyFromDate(DateTime.now());
 
+  /// Cuánto se espera la confirmación del servidor al guardar un movimiento
+  /// antes de darlo por guardado en el teléfono y pendiente de sincronizar.
+  static const Duration esperaConfirmacion = Duration(seconds: 4);
+
   /// Clave `yyyy-MM` del mes en pantalla.
   String get selectedMonthKey =>
       _selectedMonthKey ??
@@ -180,7 +184,14 @@ class FinancesProvider extends ChangeNotifier {
   /// sentido en un ingreso y el formulario únicamente los envía en ese caso;
   /// aquí no se fuerza nada, pero sí se valida la comisión, porque de ella
   /// depende el ingreso neto y el valor hora que se muestra.
-  Future<void> addTransaction({
+  ///
+  /// Devuelve `true` si el servidor confirmó el movimiento y `false` si a los
+  /// [esperaConfirmacion] todavía no lo había hecho. En ese caso el movimiento
+  /// NO se perdió ni hay que reenviarlo: Firestore ya lo tiene en su cola
+  /// local, las listas lo muestran desde la caché y lo sube solo, una vez,
+  /// cuando vuelve la conexión. Antes se esperaba la confirmación sin plazo,
+  /// y sin red el `Future` no termina nunca: el formulario quedaba cargando.
+  Future<bool> addTransaction({
     required final String title,
     required final double amount,
     required final TransactionType type,
@@ -214,11 +225,26 @@ class FinancesProvider extends ChangeNotifier {
       docType: docType,
       platformFee: platformFee,
     );
-    await _repository.addTransaction(transaction);
-    if (_disposed) return;
+    final escritura = _repository.addTransaction(transaction);
+    var confirmado = true;
+    try {
+      await escritura.timeout(esperaConfirmacion);
+    } on TimeoutException {
+      confirmado = false;
+      // La escritura sigue viva en la cola local. Si el servidor la rechaza
+      // al reconectar ya no hay formulario al que avisar: se registra.
+      unawaited(
+        escritura.catchError((final Object e) {
+          debugPrint('FinancesProvider: el servidor rechazó un movimiento '
+              'guardado sin conexión: $e');
+        }),
+      );
+    }
+    if (_disposed) return confirmado;
     if (transaction.monthKey != selectedMonthKey) {
       selectMonthKey(transaction.monthKey);
     }
+    return confirmado;
   }
 
   Future<void> updateTransaction(

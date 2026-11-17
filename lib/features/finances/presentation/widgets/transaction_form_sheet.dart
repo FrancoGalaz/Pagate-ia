@@ -254,7 +254,7 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     final provider = context.read<FinancesProvider>();
     final navigator = Navigator.of(context);
     try {
-      await provider.addTransaction(
+      final confirmado = await provider.addTransaction(
         title: _titleController.text,
         amount: amount,
         type: _type,
@@ -270,9 +270,11 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
       navigator.pop();
       AppFeedback.showMessage(
         context,
-        _type == TransactionType.income
-            ? 'Ingreso registrado.'
-            : 'Gasto registrado.',
+        !confirmado
+            ? 'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.'
+            : _type == TransactionType.income
+                ? 'Ingreso registrado.'
+                : 'Gasto registrado.',
       );
     } catch (e) {
       if (!mounted) return;

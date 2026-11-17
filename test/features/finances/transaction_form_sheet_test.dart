@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:pagate_ia/core/constants/app_constants.dart';
 import 'package:pagate_ia/core/theme/app_theme.dart';
+import 'package:pagate_ia/core/utils/app_feedback.dart';
 import 'package:pagate_ia/core/widgets/widgets.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_summary_entity.dart';
 import 'package:pagate_ia/features/finances/domain/entities/finances_transaction_entity.dart';
@@ -31,6 +32,11 @@ class FakeRepository implements FinancesRepository {
   /// Si no es nulo, `addTransaction` lo lanza en vez de guardar. Es lo que
   /// permite probar el camino de error, que era el que no se veía.
   Object? errorAlGuardar;
+
+  /// Si no es nulo, `addTransaction` se queda esperándolo: es lo que hace
+  /// Firestore sin conexión, donde la escritura queda en la cola local y su
+  /// `Future` no termina hasta que el servidor la confirma.
+  Completer<void>? sinConexion;
 
   @override
   Stream<List<FinancesSummaryEntity>> watchMonths() => const Stream.empty();
@@ -52,6 +58,7 @@ class FakeRepository implements FinancesRepository {
     final error = errorAlGuardar;
     if (error != null) throw error;
     added.add(transaction);
+    await sinConexion?.future;
   }
 
   @override
@@ -507,6 +514,80 @@ void main() {
     expect(find.text('Venta en feria'), findsWidgets);
     expect(find.text('120.000'), findsOneWidget);
     expect(repository.added, isEmpty);
+  });
+
+  // ─── Sin conexión (revisión prelanzamiento 5.1) ────────────────────
+  //
+  // Sin red, la escritura de Firestore queda en la cola local y su `Future`
+  // no termina. El formulario la esperaba sin plazo: el botón quedaba
+  // cargando sin fin y lo razonable era cerrar la app y anotar la venta otra
+  // vez, con lo que al volver la red había dos.
+
+  /// Rellena y envía sin `pumpAndSettle`: con el botón cargando hay una
+  /// animación que no termina nunca.
+  Future<void> enviarSinConexion(final WidgetTester tester) async {
+    repository.sinConexion = Completer<void>();
+    await abrirComoLaApp(tester);
+    await escribir(tester, 'titulo', 'Venta en feria');
+    await escribir(tester, 'monto', '120.000');
+    await tester.tap(find.text('Crear ingreso'));
+    await tester.pump();
+    // Bastante más que cualquier espera razonable de confirmación.
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 1));
+  }
+
+  testWidgets('sin conexión el formulario se cierra y avisa que quedó guardado', (
+    final tester,
+  ) async {
+    await enviarSinConexion(tester);
+
+    expect(
+      find.byType(TransactionFormSheet),
+      findsNothing,
+      reason: 'el formulario no puede quedarse cargando sin fin',
+    );
+    expect(
+      find.text(
+        'Guardado en el teléfono. Se sincronizará cuando vuelva la conexión.',
+      ),
+      findsOneWidget,
+    );
+    expect(repository.added, hasLength(1));
+
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('al volver la conexión sigue habiendo un solo movimiento', (
+    final tester,
+  ) async {
+    await enviarSinConexion(tester);
+
+    // Vuelve la red: el servidor confirma la escritura que estaba en cola.
+    repository.sinConexion!.complete();
+    await tester.pump();
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
+
+    expect(repository.added, hasLength(1));
+    expect(provider.error, isNull);
+  });
+
+  testWidgets('con conexión el aviso sigue siendo el de siempre', (
+    final tester,
+  ) async {
+    await abrirComoLaApp(tester);
+    await escribir(tester, 'titulo', 'Venta en feria');
+    await escribir(tester, 'monto', '120.000');
+    await tester.tap(find.text('Crear ingreso'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Ingreso registrado.'), findsOneWidget);
+
+    AppFeedback.dismiss();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('el texto del error habla de GUARDAR, no de ver', (

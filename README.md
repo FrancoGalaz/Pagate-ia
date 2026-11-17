@@ -84,6 +84,10 @@ npm --prefix functions exec -- firebase emulators:start --only auth,firestore
 flutter test integration_test/cierre_sesion_test.dart -d emulator-5554 --dart-define=PAGATE_ENV=dev
 ```
 
+`integration_test/movimiento_sin_conexion_test.dart` se corre igual. Comprueba
+que guardar un movimiento con la red cortada vuelve sin quedarse esperando y
+que al reconectar hay un solo movimiento en el servidor.
+
 `flutter devices` muestra el id del emulador si no es `emulator-5554`.
 
 ### Desplegar

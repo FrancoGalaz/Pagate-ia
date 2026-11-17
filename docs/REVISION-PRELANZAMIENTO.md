@@ -19,7 +19,7 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 | 2.2 | Baja | Datos | `monthKey` se deriva de la hora local del teléfono y las reglas no lo atan a `date`: editar un movimiento desde otra zona horaria lo cambia de mes | Resuelto |
 | 4.1 | Baja | Asistente | El prompt escribe «Fecha de hoy» y las fechas de los movimientos en UTC: de noche en Chile el asistente va un día adelantado | Abierto |
 | 4.2 | Baja | Legal | Los términos no mencionan el límite de lecturas de boleta ni el correo verificado, y dicen «todo lo escribiste tú» | Abierto |
-| 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Abierto |
+| 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Resuelto para los movimientos; siguen inventario, gastos fijos y perfil |
 | 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Abierto |
 | 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Abierto |
 | 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Propuesta, sin implementar |
@@ -323,6 +323,18 @@ Solo lectura del cliente Flutter.
 | Cerrar sesión con cambios sin subir | Pregunta antes de perderlos (`cerrarSesion`) | Bien |
 
 ### 5.1 Alta: guardar sin conexión deja la app cargando
+
+> **Resuelto para los movimientos (2026-11-16).** `addTransaction` espera la
+> confirmación del servidor 4 segundos como máximo
+> (`FinancesProvider.esperaConfirmacion`). Si no llega, el formulario se
+> cierra con «Guardado en el teléfono. Se sincronizará cuando vuelva la
+> conexión.» y la escritura sigue en la cola de Firestore, que la sube una
+> sola vez. Comprobado con widget tests y con
+> `integration_test/movimiento_sin_conexion_test.dart` (Firestore real con la
+> red cortada, en el emulador Android: un solo documento al reconectar).
+> **Siguen esperando sin plazo:** gastos fijos, inventario, la confirmación
+> de una boleta y el perfil del onboarding. Si el servidor rechaza al
+> reconectar un movimiento guardado sin conexión, solo queda en `debugPrint`.
 
 - **Dónde:** `lib/features/finances/data/datasources/finances_firebase_datasource.dart:114`
   (`await _transactions.add`), y lo mismo en `:132`, `:146`, en
