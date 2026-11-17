@@ -44,8 +44,14 @@ service cloud.firestore {
 
     // ---------- Helpers ----------
 
+    // La marca `deletedUsers/{uid}` la escribe `deleteAccount` antes de borrar.
+    // Sin esta comprobación, el token de otro dispositivo (válido hasta una
+    // hora después del borrado) recreaba documentos bajo un uid sin cuenta,
+    // que ya nadie podía pedir que se borraran. Cuesta una lectura por
+    // operación.
     function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return request.auth != null && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/deletedUsers/$(uid));
     }
 
     function incoming() {
@@ -368,8 +374,9 @@ service cloud.firestore {
     // ---------- Todo lo demás: denegado ----------
     //
     // Incluye system/aiConfig y system/aiUsage/days/{dayKey} (configuración y
-    // contador global del asistente): los escribe y los lee solo el backend con
-    // el Admin SDK, que no pasa por estas reglas.
+    // contador global del asistente) y deletedUsers/{uid} (marca de cuenta
+    // borrada): los escribe y los lee solo el backend con el Admin SDK, que no
+    // pasa por estas reglas.
 
     match /{document=**} {
       allow read, write: if false;

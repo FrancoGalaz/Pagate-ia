@@ -93,6 +93,19 @@ describe('deleteUserData', () => {
     expect(await db.doc(`users/${UID}`).listCollections()).toEqual([]);
   });
 
+  // Revisión prelanzamiento 2.1: las reglas niegan todo acceso a un uid con
+  // esta marca, para que un token que siga vivo no recree datos huérfanos.
+  it('deja la marca deletedUsers/{uid}', async () => {
+    const db = adminDb();
+    await seedFullUser(UID);
+    await db.doc(`deletedUsers/${UID}`).delete();
+
+    await deleteUserData(db, UID);
+
+    expect((await db.doc(`deletedUsers/${UID}`).get()).exists).toBe(true);
+    expect((await db.doc(`deletedUsers/${OTHER}`).get()).exists).toBe(false);
+  });
+
   it('no toca los datos de otros usuarios', async () => {
     const db = adminDb();
     await seedFullUser(UID);

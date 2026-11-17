@@ -114,6 +114,10 @@ system/aiUsage/days/{yyyy-MM-dd}         (sin acceso desde cliente; solo backend
   dayKey: string
   updatedAt: Timestamp
 
+deletedUsers/{uid}                       (sin acceso desde cliente; solo backend)
+  deletedAt: Timestamp            (la escribe deleteAccount antes de borrar; las
+                                   reglas niegan todo acceso a users/{uid} si existe)
+
 waitlist/{id}                            (sin acceso desde cliente; solo backend)
   name, email, source: string     (id = sha256 del email normalizado → sin duplicados)
   submissions: number             (reenvíos del mismo correo)

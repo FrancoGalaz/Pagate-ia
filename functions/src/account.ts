@@ -17,7 +17,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { ENFORCE_APP_CHECK, REGION, callableCors } from './config';
 import { waitlistDocId } from './waitlist';
 
@@ -58,6 +58,11 @@ const RECENT_LOGIN_SECONDS = 5 * 60;
  * @returns las rutas que quedaron con documentos (vacío si el borrado fue total).
  */
 export async function deleteUserData(db: Firestore, uid: string, email?: string): Promise<string[]> {
+  // Primero la marca: desde aquí `firestore.rules` niega todo acceso del
+  // cliente a `users/{uid}`, así que un token que siga vivo en otro dispositivo
+  // no puede recrear documentos mientras se borra ni después.
+  await db.doc(`deletedUsers/${uid}`).set({ deletedAt: FieldValue.serverTimestamp() });
+
   const userRef = db.doc(`users/${uid}`);
   await db.recursiveDelete(userRef);
 

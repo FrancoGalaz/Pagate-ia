@@ -159,6 +159,12 @@ export default function EliminarCuentaPage() {
               de infraestructura.
             </>,
             <>
+              <strong>Una marca de cuenta eliminada.</strong> El identificador interno
+              de la cuenta (un código aleatorio, sin tu nombre ni tu correo) y la fecha
+              del borrado. Sirve para que una sesión que siguiera abierta en otro
+              dispositivo no pueda volver a guardar datos en una cuenta que ya no existe.
+            </>,
+            <>
               <strong>Lo que ya procesó el proveedor del modelo de lenguaje.</strong> Si
               usaste el asistente, el texto de contexto salió hacia OpenRouter y el
               proveedor del modelo en su momento. No podemos borrar lo que esté en sus

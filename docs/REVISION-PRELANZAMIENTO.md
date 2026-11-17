@@ -125,6 +125,13 @@ de la política, los términos de uso, ni la app web.
 
 ### 2.1 Media: datos huérfanos después de borrar la cuenta
 
+> **Resuelto en las reglas (2026-11-16).** `deleteAccount` escribe
+> `deletedUsers/{uid}` antes de borrar y `isOwner` niega todo acceso del
+> cliente a `users/{uid}` si la marca existe (una lectura más por operación).
+> La página de eliminación declara la marca. **Queda abierto:** `chat` y
+> `scanReceipt` no la consultan, así que un token vivo todavía puede recrear
+> `meta/usage` y una conversación durante esa hora; no estaba en el encargo.
+
 - **Dónde:** `functions/src/account.ts:122-156` (borra datos y credencial, no
   deja marca), `firestore.rules` (`isOwner` solo compara `request.auth.uid`),
   `functions/src/chat.ts:327-338`.

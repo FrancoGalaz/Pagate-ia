@@ -963,6 +963,36 @@ describe('colecciones solo backend', () => {
   });
 });
 
+// Revisión prelanzamiento 2.1: tras `deleteAccount`, el token de otro
+// dispositivo sigue valiendo hasta una hora. Sin la marca, ese dispositivo
+// recreaba datos bajo un uid que ya no tiene cuenta.
+describe('deletedUsers/{uid}: una cuenta borrada no vuelve a escribir', () => {
+  it('con la marca, el dueño ya no lee ni escribe bajo su uid', async () => {
+    await seed((db) => setDoc(doc(db, 'deletedUsers', ALICE), { deletedAt: Timestamp.now() }));
+
+    await assertFails(setDoc(doc(aliceDb(), 'users', ALICE), validProfile()));
+    await assertFails(addDoc(collection(aliceDb(), 'users', ALICE, 'transactions'), validTransaction()));
+    await assertFails(addDoc(collection(aliceDb(), 'users', ALICE, 'inventory'), validInventoryItem()));
+    await assertFails(getDoc(doc(aliceDb(), 'users', ALICE)));
+    await assertFails(listOf(aliceDb(), ['users', ALICE, 'transactions'], 10));
+  });
+
+  it('la marca de una cuenta no afecta a las demás', async () => {
+    await seed((db) => setDoc(doc(db, 'deletedUsers', ALICE), { deletedAt: Timestamp.now() }));
+
+    await assertSucceeds(setDoc(doc(bobDb(), 'users', BOB), validProfile()));
+    await assertSucceeds(addDoc(collection(bobDb(), 'users', BOB, 'transactions'), validTransaction()));
+  });
+
+  it('el cliente no puede leer, crear ni borrar la marca', async () => {
+    await seed((db) => setDoc(doc(db, 'deletedUsers', ALICE), { deletedAt: Timestamp.now() }));
+
+    await assertFails(getDoc(doc(aliceDb(), 'deletedUsers', ALICE)));
+    await assertFails(deleteDoc(doc(aliceDb(), 'deletedUsers', ALICE)));
+    await assertFails(setDoc(doc(bobDb(), 'deletedUsers', ALICE), { deletedAt: Timestamp.now() }));
+  });
+});
+
 describe('sin autenticación', () => {
   it('no lee ni escribe nada', async () => {
     await seed((db) => setDoc(doc(db, 'users', ALICE), validProfile()));
