@@ -51,7 +51,7 @@ import {
   REGION,
   callableCors,
 } from './config';
-import { OpenRouterError, askOpenRouter, type OpenRouterResult } from './openrouter';
+import { OpenRouterError, askOpenRouter, errorType, type OpenRouterResult } from './openrouter';
 import { buildScanMessages, type ScanSource } from './scanPrompt';
 import { refundScanQuota, reserveScanQuota } from './quota';
 
@@ -464,7 +464,7 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
       responseFormat: SCAN_RESPONSE_FORMAT,
     });
   } catch (err) {
-    logger.error('scan.openrouter.error', { uid, model, source: source ?? null, error: String(err) });
+    logger.error('scan.openrouter.error', { uid, ...errorType(err) });
     await rollback('openrouter');
     // El plazo agotado se distingue del resto para que el cliente pueda decir
     // "tardó demasiado" en vez de "no responde"; los dos son recuperables
@@ -484,14 +484,9 @@ export async function handleScanReceipt(request: ScanCall, deps: ScanDeps): Prom
     // Irrecuperable: ni JSON, ni objeto, ni lista de artículos. NO se devuelve
     // la lectura: el proveedor respondió y la llamada ya se pagó, y el texto de
     // entrada lo controla quien llama, así que devolverla dejaba provocar
-    // llamadas al modelo sin límite. Se registra un recorte del texto para
-    // poder diagnosticarlo sin volcar la respuesta entera al log.
-    logger.error('scan.salida.irrecuperable', {
-      uid,
-      model,
-      error: String(err),
-      muestra: result.text.slice(0, 300),
-    });
+    // llamadas al modelo sin límite. Al registro va solo el tipo de error: ni
+    // un recorte de la salida ni el mensaje de `JSON.parse`, que la cita.
+    logger.error('scan.salida.irrecuperable', { uid, ...errorType(err) });
     throw new HttpsError('internal', 'No pude ordenar la boleta.');
   }
 

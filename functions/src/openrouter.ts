@@ -64,6 +64,19 @@ export class OpenRouterError extends Error {
   }
 }
 
+/**
+ * Lo único de un fallo del proveedor que va a los registros: la clase del
+ * error y, si lo hay, el código HTTP. El mensaje NO: lleva el cuerpo de la
+ * respuesta de OpenRouter, que puede repetir texto del usuario, y la política
+ * de privacidad dice que los registros no guardan contenido.
+ */
+export function errorType(err: unknown): { tipo: string; status: number | null } {
+  return {
+    tipo: err instanceof Error ? err.name : 'desconocido',
+    status: err instanceof OpenRouterError ? (err.status ?? null) : null,
+  };
+}
+
 interface OpenRouterResponse {
   choices?: Array<{ message?: { content?: string | null } }>;
   error?: { message?: string };

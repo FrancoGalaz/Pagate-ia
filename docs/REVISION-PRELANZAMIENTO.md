@@ -213,6 +213,11 @@ de la política, los términos de uso, ni la app web.
 
 ### 3.3 Media: los registros guardan contenido de boletas
 
+> **Resuelto (2026-11-16).** Los errores del modelo en `scanReceipt` y `chat`
+> registran solo `uid`, el nombre del evento, la clase del error y el código
+> HTTP (`errorType` en `openrouter.ts`). Ya no va la muestra de la salida, ni
+> el mensaje de `JSON.parse`, ni el cuerpo de la respuesta de OpenRouter.
+
 - **Dónde:** `functions/src/scan.ts:488-493`
   (`muestra: result.text.slice(0, 300)` junto a `uid`),
   `landing/src/pages/PrivacidadPage.tsx:510` ("fecha, función invocada y

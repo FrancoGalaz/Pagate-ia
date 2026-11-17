@@ -30,7 +30,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase-admin/firestore';
 import { ENFORCE_APP_CHECK, OPENROUTER_API_KEY, OPENROUTER_MODEL, REGION, callableCors } from './config';
-import { askOpenRouter, type ChatMessage, type OpenRouterResult } from './openrouter';
+import { askOpenRouter, errorType, type ChatMessage, type OpenRouterResult } from './openrouter';
 import {
   buildSystemPrompt,
   type DocType,
@@ -470,7 +470,7 @@ export async function handleChat(request: ChatCall, deps: ChatDeps): Promise<Cha
       historyMessages: historyCount,
     });
   } catch (err) {
-    logger.error('OpenRouter falló', { uid, conversationId: convRef.id, error: String(err) });
+    logger.error('chat.openrouter.error', { uid, ...errorType(err) });
     await rollback('openrouter');
     throw new HttpsError('internal', 'No se pudo obtener una respuesta del asistente. Intenta de nuevo.');
   }

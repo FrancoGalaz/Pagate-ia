@@ -7,8 +7,11 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from 'firebase-functions/v2';
 import { deleteUserData } from '../src/account';
+import { handleChat } from '../src/chat';
+import { OpenRouterError } from '../src/openrouter';
 import { FREE_LIFETIME_SCAN_QUOTA } from '../src/quota';
 import { handleScanReceipt, type ScanCall, type ScanDeps } from '../src/scan';
 import { waitlistDocId } from '../src/waitlist';
@@ -91,6 +94,69 @@ describe('deleteAccount: borra la inscripción en la lista de espera', () => {
     const sigue = (await ajena.get()).exists;
     await ajena.delete();
     expect(sigue).toBe(true);
+  });
+});
+
+// Hallazgo 3.3: los registros no llevan texto del modelo ni del proveedor. La
+// política dice que solo guardan fecha, función invocada y errores.
+describe('registros del servidor: sin texto del modelo', () => {
+  const SECRETO = 'FERRETERIA EL GRES RUT 76.543.210-K';
+  const auth = { uid: UID, token: { email_verified: true } };
+  const base = { db: adminDb(), apiKey: 'clave', model: 'modelo', enforceAppCheck: false, now: NOW };
+
+  /** Corre la llamada y devuelve todo lo que se mandó a `logger.error`. */
+  async function registrado(llamada: () => Promise<unknown>): Promise<string> {
+    const espia = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    try {
+      await llamada().catch(() => undefined);
+      expect(espia).toHaveBeenCalled();
+      return JSON.stringify(espia.mock.calls);
+    } finally {
+      espia.mockRestore();
+    }
+  }
+
+  it('scanReceipt no registra la salida del modelo cuando no es JSON', async () => {
+    const log = await registrado(() =>
+      handleScanReceipt(
+        { auth, app: {}, data: { text: 'BOLETA' } },
+        { ...base, ask: async () => ({ text: `${SECRETO} no es json`, usage: null }) },
+      ),
+    );
+    expect(log).not.toContain('FERRETERIA');
+    expect(log).toContain(UID);
+  });
+
+  it('scanReceipt no registra el cuerpo del error del proveedor', async () => {
+    const log = await registrado(() =>
+      handleScanReceipt(
+        { auth, app: {}, data: { text: 'BOLETA' } },
+        {
+          ...base,
+          ask: async () => {
+            throw new OpenRouterError(`HTTP 400: ${SECRETO}`, 400);
+          },
+        },
+      ),
+    );
+    expect(log).not.toContain('FERRETERIA');
+    expect(log).toContain('400');
+  });
+
+  it('chat no registra el cuerpo del error del proveedor', async () => {
+    const log = await registrado(() =>
+      handleChat(
+        { auth, app: {}, data: { message: 'hola' } },
+        {
+          ...base,
+          ask: async () => {
+            throw new OpenRouterError(`HTTP 400: ${SECRETO}`, 400);
+          },
+        },
+      ),
+    );
+    expect(log).not.toContain('FERRETERIA');
+    expect(log).toContain('400');
   });
 });
 
