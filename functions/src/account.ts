@@ -19,6 +19,7 @@ import { logger } from 'firebase-functions/v2';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { ENFORCE_APP_CHECK, REGION, callableCors } from './config';
+import { waitlistDocId } from './waitlist';
 
 export interface DeleteAccountResponse {
   ok: true;
@@ -50,13 +51,23 @@ const RECENT_LOGIN_SECONDS = 5 * 60;
  * sin lanzar aunque algún lote quede atrás, así que sin comprobarlo no se puede
  * afirmar que el borrado fue completo.
  *
+ * Con [email] borra también la inscripción de ese correo en la lista de espera
+ * de la landing (`waitlist/{hash}`): la página pública de eliminación de cuenta
+ * la cuenta entre lo que se borra.
+ *
  * @returns las rutas que quedaron con documentos (vacío si el borrado fue total).
  */
-export async function deleteUserData(db: Firestore, uid: string): Promise<string[]> {
+export async function deleteUserData(db: Firestore, uid: string, email?: string): Promise<string[]> {
   const userRef = db.doc(`users/${uid}`);
   await db.recursiveDelete(userRef);
 
   const leftovers: string[] = [];
+  if (email) {
+    // Misma normalización que `validateWaitlistBody`.
+    const waitlistRef = db.collection('waitlist').doc(waitlistDocId(email.trim().toLowerCase()));
+    await waitlistRef.delete();
+    if ((await waitlistRef.get()).exists) leftovers.push(waitlistRef.path);
+  }
   if ((await userRef.get()).exists) leftovers.push(userRef.path);
   for (const col of await userRef.listCollections()) {
     const snap = await col.limit(1).get();
@@ -123,7 +134,7 @@ export const deleteAccount = onCall<void, Promise<DeleteAccountResponse>>(
 
     let leftovers: string[];
     try {
-      leftovers = await deleteUserData(db, uid);
+      leftovers = await deleteUserData(db, uid, request.auth?.token?.email);
     } catch (err) {
       logger.error('deleteAccount.datos.error', { uid, error: String(err) });
       throw new HttpsError('internal', 'No se pudieron borrar tus datos. Intenta de nuevo en unos minutos.');

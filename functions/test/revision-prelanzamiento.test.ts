@@ -72,12 +72,26 @@ describe('deleteAccount: borra la inscripción en la lista de espera', () => {
     await db.doc(`users/${UID}`).set({ name: 'Juana', currency: 'CLP' });
 
     // Es todo lo que el callable borra de Firestore: después solo elimina el
-    // usuario de Authentication.
-    await deleteUserData(db, UID);
+    // usuario de Authentication. El correo es el del token, que puede venir
+    // con mayúsculas: la lista de espera lo guarda normalizado.
+    const quedo = await deleteUserData(db, UID, ' Artesana@Example.com ');
 
     const queda = (await inscripcion.get()).exists;
     await inscripcion.delete();
     expect(queda, 'el nombre y el correo siguen en waitlist/ después del borrado').toBe(false);
+    expect(quedo).toEqual([]);
+  });
+
+  it('no toca la inscripción de otro correo', async () => {
+    const db = adminDb();
+    const ajena = db.collection('waitlist').doc(waitlistDocId('otra@example.com'));
+    await ajena.set({ name: 'Otra', email: 'otra@example.com', source: 'landing' });
+
+    await deleteUserData(db, UID, 'artesana@example.com');
+
+    const sigue = (await ajena.get()).exists;
+    await ajena.delete();
+    expect(sigue).toBe(true);
   });
 });
 

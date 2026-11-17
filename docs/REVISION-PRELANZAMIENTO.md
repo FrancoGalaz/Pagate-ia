@@ -162,6 +162,11 @@ de la política, los términos de uso, ni la app web.
 
 ### 3.1 Alta: la lista de espera no se borra con la cuenta
 
+> **Resuelto (2026-11-16).** `deleteAccount` borra también
+> `waitlist/{hash del correo del token}` y comprueba que no quedó. Se borra
+> aunque el correo no esté verificado, para que la promesa valga para toda
+> cuenta.
+
 - **Dónde:** `landing/src/pages/EliminarCuentaPage.tsx:69` ("Se elimina lo
   mismo que se enumera más abajo, y se elimina entero") y `:132` ("Tu
   inscripción en la lista de espera de este sitio, si coincide con el correo
