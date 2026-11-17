@@ -213,6 +213,18 @@ const FUNCIONES_DECLARADAS: Array<{
       return /mlkit_text_recognition/.test(pubspec);
     },
   },
+  {
+    clave: 'reporteDeFallos',
+    descripcion: 'informes de fallos con Crashlytics',
+    queAfirma:
+      'la política declara que la app envía informes de fallos a Firebase Crashlytics',
+    detectar: (repo) => {
+      // Con la dependencia en el build, el SDK nativo recoge los cierres de la
+      // app aunque ningún archivo Dart lo llame: la señal es la dependencia.
+      const pubspec = leerTexto(repo, 'pubspec.yaml');
+      return /firebase_crashlytics/.test(pubspec);
+    },
+  },
 ];
 
 describe('lo que los documentos legales describen coincide con la app', () => {
@@ -252,7 +264,7 @@ describe('lo que los documentos legales describen coincide con la app', () => {
     );
     writeFileSync(
       join(conFunciones, 'pubspec.yaml'),
-      'dependencies:\n  google_mlkit_text_recognition: ^0.17.1\n',
+      'dependencies:\n  google_mlkit_text_recognition: ^0.17.1\n  firebase_crashlytics: ^4.3.10\n',
     );
 
     try {

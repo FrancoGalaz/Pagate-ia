@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../firebase_options.dart';
+import '../services/crash_reporter.dart';
 import 'env.dart';
 
 /// Inicializa Firebase, habilita la persistencia offline de Firestore,
@@ -36,6 +37,14 @@ Future<void> bootstrapFirebase() async {
 
   if (Env.isDev) {
     await _connectEmulators();
+  }
+
+  // Informes de fallos: solo en release y contra producción. Si Crashlytics
+  // no arranca, la app sigue igual, sin informes.
+  try {
+    await CrashReporter.activar(contraEmuladores: Env.isDev);
+  } catch (e) {
+    debugPrint('[Crashlytics] No se pudo activar: $e');
   }
 
   await _activateAppCheck();

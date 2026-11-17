@@ -22,7 +22,7 @@ Gravedad: **Crítica** (bloquea el lanzamiento), **Alta**, **Media**, **Baja**.
 | 5.1 | Alta | Cliente | Guardar sin conexión deja el formulario cargando sin fin: las escrituras de Firestore se esperan sin plazo | Resuelto en todas las escrituras |
 | 5.2 | Baja | Cliente | Si `chat` tarda más de 45 s, el cliente da error pero el servidor termina: el mensaje se gasta y un reintento lo duplica | Abierto |
 | 5.3 | Baja | Cliente | El rechazo de App Check se muestra con un texto técnico que no le dice al usuario qué hacer | Abierto |
-| 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Propuesta, sin implementar |
+| 6 | Alta | Operación | No hay reporte de fallos: con 12 probadores no se sabrá qué les falla | Hecho en el código; falta habilitar Crashlytics en la consola y el formulario de Play |
 
 Los tres tests están en `functions/test/revision-prelanzamiento.test.ts`.
 Fallaban a propósito hasta el arreglo de 1.1, 3.1 y 3.2; hoy pasan y quedan
@@ -336,7 +336,8 @@ Solo lectura del cliente Flutter.
 > `integration_test/guardar_sin_conexion_test.dart` (Firestore real y reglas
 > reales con la red cortada, en el emulador Android: cada cosa una sola vez
 > al reconectar). **Queda abierto:** si el servidor rechaza al reconectar
-> algo guardado sin conexión, solo queda en `debugPrint`; y los borrados sin
+> algo guardado sin conexión, llega a Crashlytics (punto 6) pero el usuario
+> no recibe ningún aviso; y los borrados sin
 > conexión muestran el aviso de siempre, no el de «se sincronizará».
 
 - **Dónde:** `lib/features/finances/data/datasources/finances_firebase_datasource.dart:114`
@@ -391,6 +392,17 @@ Solo lectura del cliente Flutter.
 ---
 
 ## 6. Qué hace falta para saber qué les falla a los probadores
+
+> **Hecho (2026-11-17).** La app envía a Firebase Crashlytics los errores de
+> Flutter, los errores sin capturar, los cierres nativos y el rechazo de una
+> escritura guardada sin conexión (`lib/core/services/crash_reporter.dart`).
+> Va solo el tipo del error y la traza: sin el mensaje, sin `uid` y sin
+> Analytics, con `test/core/services/crash_reporter_test.dart` vigilándolo.
+> La política (versión 1.1, punto 2.7), la página de eliminación y
+> `SEGURIDAD-DATOS-PLAY.md` §1.8 declaran lo que se envía. **Falta, y es de
+> consola:** habilitar Crashlytics en Firebase y actualizar el formulario de
+> Play (`CHECKLIST-PUBLICACION.md` §9). **Sin probar:** que un informe llegue
+> de verdad al panel; hace falta un build de release en un teléfono.
 
 **Hoy no hay nada.** `lib/main.dart` no registra `FlutterError.onError` ni
 `PlatformDispatcher.instance.onError`, no hay Crashlytics ni equivalente en

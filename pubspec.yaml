@@ -101,6 +101,7 @@ dependencies:
   # aceptaba unos terminos que no podia leer, que es material de rechazo en
   # la revision de Google Play.
   url_launcher: ^6.3.1
+  firebase_crashlytics: ^4.3.10
 
 dev_dependencies:
   flutter_test:

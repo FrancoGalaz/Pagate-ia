@@ -157,8 +157,11 @@ de cuota (`meta/usage`) no se reinicia; los dos los borra `deleteAccount`.
 
 Ubicación (aproximada o exacta), salud y forma física, **fotos y vídeos**,
 **archivos y documentos**, audio, contactos, calendario, historial de navegación
-web, rendimiento de la app (diagnósticos, bloqueos), identificadores de
-dispositivo e identificador de publicidad.
+web e identificador de publicidad.
+
+> **Ya no están en esta lista** el rendimiento de la app (registros de fallos
+> y diagnóstico) ni los identificadores de dispositivo: desde que la app lleva
+> Firebase Crashlytics se recopilan. Están en el §1.8.
 
 **Las dos en negrita necesitan su propio razonamiento, y lo tienen en el §1.7.**
 El lector de boletas **ya está en la app** (`FUNCIONES_APP.lectorBoletas` vale
@@ -171,8 +174,8 @@ sale. El §1.7 es ahora la justificación activa de estas dos filas, no una
 previsión.
 
 **Verificado, no supuesto.** `pubspec.yaml` no declara `firebase_analytics`,
-`firebase_crashlytics`, `firebase_messaging` ni ningún SDK de atribución o
-publicidad. El manifiesto de release no pide ningún permiso de runtime (solo
+`firebase_messaging` ni ningún SDK de atribución o publicidad. Sí declara
+`firebase_crashlytics` (§1.8). El manifiesto de release no pide ningún permiso de runtime (solo
 `INTERNET` y `ACCESS_NETWORK_STATE`, que no son de runtime). No hay `MobileAds`,
 `AppsFlyer`, `Facebook SDK` ni equivalente.
 
@@ -441,6 +444,77 @@ objetivo declarado de la app es que la ficha siga mostrando solo `INTERNET` y
 
 ---
 
+### 1.8 Informes de fallos (Firebase Crashlytics)
+
+Para saber qué falla en los teléfonos durante la prueba cerrada, la app envía
+informes de fallos a Firebase Crashlytics. Es el único SDK que informa sobre el
+funcionamiento de la app; **no hay Analytics**.
+
+| Tipo de dato de Play | Rec. | Comp. | Oblig. | Finalidad | Trán. | Borr. | Qué es exactamente |
+|---|---|---|---|---|---|---|---|
+| Rendimiento de la app → **Registros de fallos** | **Sí** | No | Obligatorio (automático) | Analíticas | Sí | No (ver abajo) | Tipo del error y traza del código. En un cierre nativo, además la clase y el mensaje de la excepción del sistema. |
+| Rendimiento de la app → **Diagnóstico** | **Sí** | No | Obligatorio (automático) | Analíticas | Sí | No | Modelo del teléfono, versión de Android, arquitectura, memoria y disco, orientación, si estaba en segundo plano, si está modificado, tipo de conexión, versión de la app, fecha y hora. |
+| **ID de dispositivo u otros ID** | **Sí** | No | Obligatorio (automático) | Analíticas | Sí | No | Identificador de instalación de Crashlytics, identificador de instalación de Firebase (FID) e identificador de sesión. Aleatorios, por instalación; no identifican a la persona ni al teléfono físico. |
+
+**No es «compartir».** Google recibe estos datos como proveedor de servicios
+que procesa por nuestra cuenta, igual que Firestore (§0.2): es recopilación.
+
+**«Borr.: No», y por qué es la respuesta honesta.** Los informes no llevan el
+`uid` ni el correo, así que no hay forma de encontrar «los de una persona» para
+borrarlos a pedido. Expiran solos a los 90 días. La política (punto 2.7 y §6) y
+la página de eliminación de cuenta lo dicen con esas palabras.
+
+**Qué sale y qué no, derivado del código:**
+
+| Sale | Dónde se decide |
+|---|---|
+| El tipo del error (`StateError`, `FirebaseException(cloud_firestore/permission-denied)`) y la traza | `CrashReporter.tipoDe` y `CrashReporter.reportar`, en `lib/core/services/crash_reporter.dart` |
+| De dónde vino: la librería de Flutter, «sin capturar» o «escritura rechazada al sincronizar» | `CrashReporter.instalar` y `confirmadaATiempo` (`lib/core/utils/escritura_pendiente.dart`) |
+| Los cierres nativos y los datos del teléfono | El SDK de Crashlytics, por su cuenta |
+
+| No sale | Por qué |
+|---|---|
+| El mensaje de la excepción de Dart | `reportar` manda `tipoDe(error)`, nunca `error.toString()`. Un mensaje puede citar lo que el usuario escribió o la ruta `users/{uid}/...` |
+| El árbol de widgets | El manejador de `FlutterError.onError` no pasa `context` ni `informationCollector` |
+| El `uid`, el correo o cualquier dato de la cuenta | No se llama a `setUserIdentifier`, `setCustomKey` ni `log` en ningún archivo |
+| Eventos de uso (pantallas, toques) | No hay `firebase_analytics`, ni directo ni transitivo |
+
+Lo vigila `test/core/services/crash_reporter_test.dart`: falla si un informe
+lleva el mensaje del error, si aparece Analytics en `pubspec.yaml`,
+`pubspec.lock` o el Gradle de la app, o si algún archivo que no sea
+`crash_reporter.dart` toca Crashlytics.
+
+**Comprobado en el build de Android (17 de noviembre de 2026).**
+`gradlew :app:dependencies --configuration releaseRuntimeClasspath` lista
+`firebase-crashlytics:19.4.4`, `firebase-sessions:2.1.2` y
+`firebase-installations:18.0.0`, y **no** lista `firebase-analytics` ni
+`play-services-measurement`. Aparece `firebase-measurement-connector`, que es
+solo la interfaz por la que otros SDK hablarían con Analytics si estuviera; sin
+Analytics no recoge nada.
+
+**Solo en release.** `CrashReporter.activar` apaga la recolección
+(`setCrashlyticsCollectionEnabled(false)`) en builds de debug y contra los
+emuladores.
+
+**De dónde sale cada afirmación** (para no confundir fuente con deducción):
+
+- *Fuente, Google:* la lista de datos que recoge Crashlytics, que no requiere
+  Analytics y la retención de 90 días salen de
+  [Privacy and Security in Firebase](https://firebase.google.com/support/privacy)
+  y de
+  [Prepare for Google Play's data disclosure requirements](https://firebase.google.com/docs/android/play-data-disclosure),
+  consultadas el 17 de noviembre de 2026.
+- *Deducción nuestra:* las tres categorías de Play de la tabla. La página de
+  Firebase enumera los datos pero **no** dice a qué categoría de Play
+  corresponde cada uno; remite a la guía de tipos de datos de Android.
+  Confirmar al rellenar el formulario.
+- *Sin verificar del todo:* lo que recoge `firebase-sessions` (metadatos de la
+  app y del teléfono, tipo de conexión y el momento en que se abre la app).
+  Está declarado igual, en la fila de Diagnóstico: declarar de más no infringe
+  nada.
+
+---
+
 ## 2. Las tres decisiones discutibles, documentadas
 
 ### 2.1 Por qué *Historial de compras* se responde «No»
@@ -493,7 +567,7 @@ web, que no es el binario de la ficha.
 |---|---|---|
 | ¿Los datos se cifran en tránsito? | **Sí** | Firestore y los callables van por TLS (SDK de Firebase). La llamada a OpenRouter es HTTPS (la constante `ENDPOINT` de `openrouter.ts` es `https://openrouter.ai/...`). No hay ningún `http://` en producción. |
 | ¿Los usuarios pueden solicitar que se eliminen sus datos? | **Sí** | Las dos vías que Play pide, y las dos existen: la URL pública `/eliminar-cuenta/` con el procedimiento y el plazo, y el borrado **dentro de la app** en *Perfil → Configuración → Eliminar cuenta*, que ejecuta el callable `deleteAccount`. El detalle, con archivos, en el **§4.2**. Lo que falta es publicar la landing para que la URL deje de dar 404. |
-| ¿Los datos se eliminan automáticamente? | **No** | Se conservan mientras exista la cuenta. No hay caducidad automática. |
+| ¿Los datos se eliminan automáticamente? | **No**, salvo los informes de fallos | Los datos de la cuenta se conservan mientras exista. Los informes de fallos (§1.8) expiran solos a los 90 días. |
 | ¿La app se sometió a una revisión de seguridad independiente? | **No** | No se ha hecho ninguna. No marcar la casilla sin un informe que respalde. |
 | ¿Compromiso con la Política de Familias? | **No aplica** | La app no se dirige a menores y así lo dicen los términos. |
 | ¿Hay recopilación efímera que no se declara? | Sí, una | La IP de la landing (§2.2), que además no es de la app. **La imagen de una boleta no es este caso**: no sale del dispositivo, así que le aplica la exención de procesamiento local del §1.7, no la de procesamiento efímero. Declararla aquí sería afirmar que viaja. |

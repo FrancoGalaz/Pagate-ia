@@ -49,8 +49,8 @@ export const CONTACT = {
  * vigencia cada vez que se recompila la landing.
  */
 export const LEGAL_VERSION = {
-  version: '1.0',
-  updatedAt: '8 de noviembre de 2026',
+  version: '1.1',
+  updatedAt: '17 de noviembre de 2026',
 } as const;
 
 /**
@@ -89,6 +89,14 @@ export const DELETION_SLA_DAYS = 30;
  * el borrado. Se declara porque afirmar borrado instantáneo sería falso.
  */
 export const BACKUP_RETENTION_DAYS = 90;
+
+/**
+ * Días que Firebase Crashlytics conserva un informe de fallos y sus
+ * identificadores de instalación antes de empezar a borrarlos. Es el plazo
+ * que publica Google en https://firebase.google.com/support/privacy
+ * (consultado el 17 de noviembre de 2026); no lo fijamos nosotros.
+ */
+export const CRASH_REPORT_RETENTION_DAYS = 90;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Marcadores sin rellenar
@@ -224,6 +232,23 @@ export const FUNCIONES_APP = {
    * `pubspec.yaml`.
    */
   lectorBoletas: true,
+
+  /**
+   * Informes de fallos con Firebase Crashlytics, para saber qué falla en los
+   * teléfonos durante la prueba cerrada.
+   *
+   * QUÉ SALE Y QUÉ NO lo decide `lib/core/services/crash_reporter.dart`, que es
+   * el único archivo que toca Crashlytics, y lo vigila
+   * `test/core/services/crash_reporter_test.dart`: sale el tipo del error y la
+   * traza del código; no sale el mensaje del error, ni un identificador de la
+   * cuenta, y no hay Analytics. Si ese archivo cambia lo que manda, cambian la
+   * política (punto 2.7) y `docs/SEGURIDAD-DATOS-PLAY.md` (§1.8).
+   *
+   * Señal en el código: la dependencia `firebase_crashlytics` en
+   * `pubspec.yaml`. Con ella en el build, el SDK nativo recoge los cierres de
+   * la app aunque ningún archivo Dart lo llame.
+   */
+  reporteDeFallos: true,
 
   /**
    * ¿Sale el TEXTO de la boleta del teléfono?

@@ -18,6 +18,7 @@ import {
   BACKUP_RETENTION_DAYS,
   BUZON,
   CANAL_ALTERNATIVO,
+  CRASH_REPORT_RETENTION_DAYS,
   DELETION_SLA_DAYS,
   FUNCIONES_APP,
   LEGAL_ROUTES,
@@ -164,6 +165,18 @@ export default function EliminarCuentaPage() {
               del borrado. Sirve para que una sesión que siguiera abierta en otro
               dispositivo no pueda volver a guardar datos en una cuenta que ya no existe.
             </>,
+            ...(FUNCIONES_APP.reporteDeFallos
+              ? [
+                  <>
+                    <strong>Informes de fallos.</strong> Si la app falló alguna vez
+                    en tu teléfono, envió un informe técnico a Firebase Crashlytics.
+                    Esos informes no están asociados a tu cuenta (no llevan tu
+                    correo ni el identificador de la cuenta), así que no hay forma
+                    de buscar «los tuyos» para borrarlos: expiran solos a los{' '}
+                    {CRASH_REPORT_RETENTION_DAYS} días.
+                  </>,
+                ]
+              : []),
             <>
               <strong>Lo que ya procesó el proveedor del modelo de lenguaje.</strong> Si
               usaste el asistente, el texto de contexto salió hacia OpenRouter y el

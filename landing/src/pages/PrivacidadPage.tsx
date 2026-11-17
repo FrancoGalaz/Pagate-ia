@@ -17,6 +17,7 @@ import {
   BACKUP_RETENTION_DAYS,
   BUZON,
   CANAL_ALTERNATIVO,
+  CRASH_REPORT_RETENTION_DAYS,
   DELETION_SLA_DAYS,
   FUNCIONES_APP,
   LEGAL_ROUTES,
@@ -295,11 +296,68 @@ export default function PrivacidadPage() {
             : '. Mientras el paso de ordenado siga sin activarse, ese texto no sale del teléfono y la cuestión no se plantea; cuando se active, para poder proponerte la lista el texto ya habrá viajado.'}
         </p>
 
-        <h3 className="font-semibold text-text-primary pt-2">2.7 Qué NO recogemos</h3>
+        {/* Lo que sale y lo que no lo decide `lib/core/services/crash_reporter.dart`
+            y lo vigila `test/core/services/crash_reporter_test.dart`. Si ese
+            archivo cambia, cambia esta lista. */}
+        {FUNCIONES_APP.reporteDeFallos && (
+          <>
+            <h3 className="font-semibold text-text-primary pt-2">
+              2.7 Informes de fallos de la app
+            </h3>
+            <p>
+              Cuando la app falla, se cierra sola o el servidor rechaza algo que
+              guardaste sin conexión, la app envía un informe técnico a{' '}
+              <strong>Firebase Crashlytics</strong>, un servicio de Google. Es lo
+              que nos permite enterarnos del fallo y corregirlo. Solo lo hace la
+              versión publicada de la app.
+            </p>
+            <LegalList
+              items={[
+                <>
+                  <strong>Del fallo:</strong> el tipo de error (por ejemplo,
+                  «StateError» o «permiso denegado») y la lista de funciones del
+                  código de la app que se estaban ejecutando. Si el que cierra la
+                  app es el sistema del teléfono, también el nombre y el mensaje
+                  del error que da el sistema.
+                </>,
+                <>
+                  <strong>Del teléfono:</strong> el modelo del teléfono, la versión
+                  de Android, la memoria y el espacio que tiene, su orientación, si
+                  la app estaba en segundo plano, si el teléfono está modificado
+                  («root»), el tipo de conexión, la versión de la app y la fecha y
+                  la hora.
+                </>,
+                <>
+                  <strong>Identificadores:</strong> un identificador de instalación
+                  de Crashlytics, un identificador de instalación de Firebase y un
+                  identificador de sesión. Son códigos aleatorios que distinguen una
+                  instalación de la app de otra, para contar a cuántas afecta un
+                  fallo. No son tu correo ni tu nombre, y cambian si reinstalas la
+                  app.
+                </>,
+              ]}
+            />
+            <p>
+              <strong>Lo que estos informes no llevan.</strong> Los informes de la
+              app no incluyen el mensaje del error, que es donde podría aparecer
+              algo que escribiste: llevan solo su tipo. No incluyen tus
+              transacciones, tus montos, tu inventario, tus conversaciones, tu
+              correo ni el identificador de tu cuenta, y la app no le entrega a
+              Crashlytics ningún dato para reconocerte. Por eso los informes no se
+              pueden asociar a tu cuenta, ni siquiera por nosotros.
+            </p>
+          </>
+        )}
+
+        <h3 className="font-semibold text-text-primary pt-2">
+          {FUNCIONES_APP.reporteDeFallos ? '2.8' : '2.7'} Qué NO recogemos
+        </h3>
         <LegalList
           items={[
             'No hay publicidad ni identificadores publicitarios.',
-            'No hay SDK de analítica ni de seguimiento de uso.',
+            FUNCIONES_APP.reporteDeFallos
+              ? 'No hay SDK de analítica ni de seguimiento de uso: no registramos qué pantallas abres, qué botones tocas ni cuánto usas la app. Lo único que la app envía sobre su propio funcionamiento son los informes de fallos del punto 2.7.'
+              : 'No hay SDK de analítica ni de seguimiento de uso.',
             // La app no pide permiso de cámara ni de fotos: usa la cámara y el
             // selector del propio teléfono, que no los exigen. Pero decir «no se
             // accede a tu cámara» con el lector de boletas ya en la app sería
@@ -328,6 +386,9 @@ export default function PrivacidadPage() {
             'Dar contexto al asistente para que sus respuestas se refieran a tu negocio y no a un caso genérico.',
             'Aplicar el límite de mensajes del asistente y evitar abusos del servicio.',
             'Avisarte por correo cuando la app esté disponible, si te inscribiste en la lista de espera.',
+            ...(FUNCIONES_APP.reporteDeFallos
+              ? ['Enterarnos de cuándo la app falla, y corregirla.']
+              : []),
           ]}
         />
         <p>
@@ -383,6 +444,13 @@ export default function PrivacidadPage() {
           </a>
           .
         </p>
+        {FUNCIONES_APP.reporteDeFallos && (
+          <p>
+            Los informes de fallos del punto 2.7 los recibe y procesa también Google,
+            con Firebase Crashlytics, en las mismas condiciones. Crashlytics es un
+            servicio global: Google puede procesar esos informes fuera de Chile.
+          </p>
+        )}
 
         <h3 className="font-semibold text-text-primary pt-2">
           5.2 OpenRouter y el proveedor del modelo de lenguaje
@@ -507,6 +575,11 @@ export default function PrivacidadPage() {
                 ]
               : []),
             'Tu inscripción en la lista de espera se conserva hasta el lanzamiento de la app o hasta que pidas que la borremos, lo que ocurra primero.',
+            ...(FUNCIONES_APP.reporteDeFallos
+              ? [
+                  `Los informes de fallos y sus identificadores de instalación los conserva Firebase Crashlytics durante ${CRASH_REPORT_RETENTION_DAYS} días y después los elimina. Como no se pueden asociar a tu cuenta, eliminar la cuenta no los borra antes.`,
+                ]
+              : []),
             'Los registros técnicos de las llamadas al servidor (fecha, función invocada y errores) se conservan según la retención por defecto de Google Cloud Logging y no se usan para identificarte.',
           ]}
         />

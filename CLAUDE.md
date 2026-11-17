@@ -57,6 +57,11 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   cuota. Sin verificar, el lector de boletas se queda con la lista local.
 - **Historial del asistente:** se borra con `deleteChatHistory`; no toca la
   cuota ni `aiReports`.
+- **Informes de fallos:** Firebase Crashlytics, sin Analytics y sin
+  identificar al usuario. Todo pasa por `CrashReporter`
+  (`lib/core/services/crash_reporter.dart`), que manda el tipo del error y la
+  traza, nunca el mensaje. Si cambia lo que se envía, cambian la política
+  (punto 2.7) y `docs/SEGURIDAD-DATOS-PLAY.md` §1.8.
 
 ## Estado
 
@@ -79,9 +84,9 @@ Publicar en Google Play. Lo que no bloquee eso queda para después.
   cuenta borrada y `monthKey` en hora de Chile). La segunda pasada dejó
   abiertos los de «Pendiente».
 - **Tests (2026-11-16, rama `docs/reglas-trabajo`):**
-  `flutter analyze` sin problemas; `flutter test` 602 pasan; functions `lint`
+  `flutter analyze` sin problemas; `flutter test` 611 pasan; functions `lint`
   y `build` OK y `npm --prefix functions test` 329 pasan (13 archivos, con los
-  de reglas); landing `lint`, 72 tests y `build` OK. El test de integración
+  de reglas); landing `lint`, 76 tests y `build` OK. El test de integración
   `integration_test/cierre_sesion_test.dart` pasa en el emulador después de la
   verificación de correo. `scripts/smoke-prod.sh` se probó contra los
   emuladores y un build local de la landing; contra producción falla porque
@@ -107,9 +112,13 @@ De la revisión prelanzamiento (`docs/REVISION-PRELANZAMIENTO.md`):
   (sin conexión la pantalla se cierra y avisa que se sincronizará; ver
   `lib/core/utils/escritura_pendiente.dart`). Toda escritura nueva de
   Firestore tiene que pasar por `confirmadaATiempo`. Falta probarlo en modo
-  avión en un teléfono real. Decidir el reporte de fallos del punto 6
-  (Crashlytics obliga a cambiar la política y el formulario de Play).
-- **Consola:** crear `system/aiConfig` con el tope inicial
+  avión en un teléfono real. El reporte de fallos (punto 6) está en el
+  código; falta comprobar con un build de release en un teléfono que un
+  informe llega al panel.
+- **Consola:** habilitar Crashlytics en Firebase (sin Google Analytics) y
+  marcar en el formulario de Play *Registros de fallos*, *Diagnóstico* e *ID
+  de dispositivo* (`docs/CHECKLIST-PUBLICACION.md` §9). Publicar la landing
+  con la política 1.1 antes de subir el bundle. Crear `system/aiConfig` con el tope inicial
   (`docs/CHECKLIST-PUBLICACION.md` §4); sin él, `chat` y `scanReceipt`
   rechazan todo. En los emuladores lo crea `scripts/seed-demo.js`: hay que
   volver a correrlo sobre un `emulator-data/` anterior al 2026-11-16.

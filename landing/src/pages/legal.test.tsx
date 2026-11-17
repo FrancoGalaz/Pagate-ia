@@ -101,6 +101,34 @@ describe('Política de privacidad', () => {
     expect(text).toContain('Contacto');
   });
 
+  // Prueba cerrada: la app manda informes de fallos a Crashlytics. La política
+  // tiene que decir exactamente qué sale, qué no, a quién y cuánto se guarda.
+  it('declara los informes de fallos: qué sale, qué no, a quién y cuánto dura', () => {
+    const text = textOf(<PrivacidadPage />);
+    for (const frase of [
+      'Informes de fallos',
+      'Firebase Crashlytics',
+      'el tipo de error',
+      'identificador de instalación',
+      'modelo del teléfono',
+      // Lo que NO sale, que es la mitad de la promesa.
+      'no incluyen el mensaje del error',
+      'ni el identificador de tu cuenta',
+      'no se pueden asociar a tu cuenta',
+      '90 días',
+    ]) {
+      expect(text, `falta «${frase}»`).toContain(frase);
+    }
+  });
+
+  it('no niega recoger nada sobre el funcionamiento de la app', () => {
+    // «No hay SDK de analítica» sigue siendo cierto, pero a secas ya no basta:
+    // hay un SDK que informa de los fallos, y la frase tiene que remitir a él.
+    const text = textOf(<PrivacidadPage />);
+    expect(text).toContain('No hay SDK de analítica');
+    expect(text).toContain('son los informes de fallos');
+  });
+
   it('afirma que no hay publicidad ni analítica', () => {
     const text = textOf(<PrivacidadPage />);
     expect(text).toContain('No hay publicidad');
@@ -140,6 +168,12 @@ describe('Eliminar cuenta y datos', () => {
     expect(text).toContain('Qué se borra');
     expect(text).toContain('Qué no se borra');
     expect(text).toContain('conversaciones con el asistente');
+  });
+
+  it('dice qué pasa con los informes de fallos al borrar la cuenta', () => {
+    const text = textOf(<EliminarCuentaPage />);
+    expect(text).toContain('Informes de fallos');
+    expect(text).toContain('no están asociados a tu cuenta');
   });
 
   it('indica el plazo de borrado', () => {

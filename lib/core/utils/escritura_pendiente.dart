@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/crash_reporter.dart';
+
 // ═══════════════════════════════════════════════════════════════════════
 // GUARDAR SIN CONEXIÓN
 //
@@ -29,15 +31,20 @@ const String kGuardadoEnElTelefono =
 /// Devuelve `true` si el servidor la confirmó y `false` si sigue pendiente.
 /// Si falla dentro del plazo, el error se propaga igual que antes. Si el
 /// servidor la rechaza después, ya no hay pantalla a la que avisar: se
-/// registra.
+/// reporta con [CrashReporter], que es la única forma de enterarse.
 Future<bool> confirmadaATiempo(final Future<void> escritura) async {
   try {
     await escritura.timeout(kEsperaConfirmacion);
     return true;
   } on TimeoutException {
     unawaited(
-      escritura.catchError((final Object e) {
+      escritura.catchError((final Object e, final StackTrace traza) {
         debugPrint('El servidor rechazó una escritura hecha sin conexión: $e');
+        CrashReporter.reportar(
+          e,
+          traza,
+          motivo: 'escritura rechazada al sincronizar',
+        );
       }),
     );
     return false;

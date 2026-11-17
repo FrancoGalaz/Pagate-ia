@@ -7,6 +7,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     // Google services for Firebase
     id("com.google.gms.google-services")
+    // Sube los símbolos para que Crashlytics muestre las trazas legibles.
+    id("com.google.firebase.crashlytics")
 }
 
 // ---------------------------------------------------------------------------

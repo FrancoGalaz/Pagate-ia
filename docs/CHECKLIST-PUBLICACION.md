@@ -231,8 +231,20 @@ Si la cuenta de desarrollador es personal y posterior a noviembre de 2023, Play
 exige una prueba cerrada con al menos 12 probadores durante 14 días seguidos
 antes de pedir acceso a producción. Son días de calendario.
 
-1. Crear la pista de prueba cerrada con el bundle firmado.
-2. Invitar a los probadores y pedirles que acepten e instalen desde Play.
+1. **Habilitar Crashlytics** en la consola: Firebase → Crashlytics → Habilitar.
+   Sin esto la app envía los informes y no llegan a ningún panel. No activar
+   Google Analytics cuando la consola lo ofrezca: la política de privacidad
+   dice que no hay.
+2. **Formulario de Seguridad de los datos:** marcar *Registros de fallos*,
+   *Diagnóstico* e *ID de dispositivo u otros ID* como recopilados y no
+   compartidos (`docs/SEGURIDAD-DATOS-PLAY.md` §1.8), y publicar la landing
+   con la política 1.1 antes de subir el bundle.
+3. Crear la pista de prueba cerrada con el bundle firmado.
+4. Invitar a los probadores y pedirles que acepten e instalen desde Play.
+
+**Verificar los informes de fallos:** instalar el build de release en un
+teléfono, abrirlo y comprobar que la instalación aparece en Firebase →
+Crashlytics. Un build de debug no envía nada, a propósito.
 
 **Verificar:** el panel de la prueba cerrada muestra al menos 12 probadores
 aceptados y 14 días cumplidos. Recién entonces se habilita la solicitud de
